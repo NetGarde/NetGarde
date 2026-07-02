@@ -7,7 +7,7 @@ import {
 } from '../types/networkMap';
 
 const PAD = 56;
-const NODE_PAD = 28;
+const NODE_PAD = 36;
 
 export interface ForceLayoutOptions {
   width?: number;
@@ -24,7 +24,40 @@ interface SimNode {
   vy: number;
 }
 
-/** Spring-force layout — nodes float by connectivity, not fixed columns. */
+function semanticAnchorX(node: NetworkMapNode, mode: NetworkMapLayoutMode, canvasW: number): number {
+  if (mode === 'flow') {
+    const lane: Partial<Record<NetworkMapNode['type'], number>> = {
+      device: 0.1,
+      app: 0.26,
+      domain: 0.4,
+      gateway: 0.4,
+      port: 0.62,
+      flow: 0.84,
+      flow_summary: 0.84,
+      flow_more: 0.78,
+    };
+    return canvasW * (lane[node.type] ?? 0.5);
+  }
+  if (mode === 'path') {
+    const lane: Partial<Record<NetworkMapNode['type'], number>> = {
+      device: 0.08,
+      app: 0.22,
+      tunnel: 0.36,
+      gateway: 0.5,
+      policy: 0.64,
+      domain: 0.82,
+    };
+    return canvasW * (lane[node.type] ?? 0.5);
+  }
+  const lane: Partial<Record<NetworkMapNode['type'], number>> = {
+    device: 0.14,
+    app: 0.5,
+    domain: 0.86,
+  };
+  return canvasW * (lane[node.type] ?? 0.5);
+}
+
+/** Spring-force layout with semantic left-to-right lanes per view mode. */
 export function layoutForceDirected(
   nodes: NetworkMapNode[],
   edges: NetworkMapEdge[],
@@ -68,11 +101,12 @@ export function layoutForceDirected(
     }))
     .filter((link): link is { source: SimNode; target: SimNode } => Boolean(link.source && link.target));
 
-  const repulsion = 4200;
-  const linkStrength = 0.055;
-  const idealLinkLength = 90;
-  const centerPull = 0.012;
-  const damping = 0.82;
+  const repulsion = 5200;
+  const linkStrength = 0.07;
+  const idealLinkLength = mode === 'flow' ? 72 : 88;
+  const centerPull = 0.008;
+  const lanePull = 0.035;
+  const damping = 0.84;
 
   for (let step = 0; step < iterations; step += 1) {
     const cooling = 1 - step / iterations;
@@ -109,6 +143,8 @@ export function layoutForceDirected(
     }
 
     for (const sim of simNodes) {
+      const anchorX = semanticAnchorX(sim.node, mode, canvasW);
+      sim.vx += (anchorX - sim.x) * lanePull * cooling;
       sim.vx += (canvasW / 2 - sim.x) * centerPull;
       sim.vy += (canvasH / 2 - sim.y) * centerPull;
       sim.x += sim.vx;

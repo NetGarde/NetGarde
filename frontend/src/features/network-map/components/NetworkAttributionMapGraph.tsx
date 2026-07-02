@@ -25,7 +25,6 @@ import {
   layoutNetworkMap,
   NetworkMapLayoutStyle,
   pathColumnLabels,
-  shortenLabel,
 } from '../utils/layoutNetworkMap';
 import { layoutForceDirected } from '../utils/layoutForceDirected';
 import { flowNodeTooltip, parseFlowNode, portNodeTooltip } from '../utils/flowLabels';
@@ -42,6 +41,13 @@ import {
   PortDestExpansion,
 } from '../utils/aggregateFlowDestinations';
 import { getNodeIconStyle } from '../utils/appIcons';
+import {
+  estimateBadgeWidth,
+  formatPinLabel,
+  getNodeVisualSpec,
+  GRAPH_BADGE,
+  semanticLaneXs,
+} from '../utils/graphVisual';
 import { NetworkMapEdge, NetworkMapNode, PositionedNode } from '../types/networkMap';
 import {
   computeWhatIfSimulation,
@@ -55,9 +61,6 @@ import {
 } from '../utils/buildPathFlowDetail';
 import PathFlowDetailPanel from './PathFlowDetailPanel';
 import SimulationCommandBar from './SimulationCommandBar';
-
-const NODE_R = 11;
-const ICON_SIZE = 13;
 
 const flowPulse = keyframes`
   to {
@@ -100,6 +103,9 @@ function MapNodeGlyph({
     app_slug: node.app_slug,
     blocked: node.blocked || simulatedBlocked,
   });
+  const visual = getNodeVisualSpec(node.type);
+  const nodeR = visual.radius;
+  const iconSize = visual.iconSize;
 
   const isInfra = node.type === 'tunnel' || node.type === 'gateway' || node.type === 'policy';
 
@@ -156,17 +162,10 @@ function MapNodeGlyph({
   const selectableDomain = pathViewMode && node.type === 'domain';
   const expandableAggregate =
     flowViewMode && (node.type === 'flow_summary' || node.type === 'flow_more');
-  const pinLabel =
-    node.type === 'port'
-      ? node.label
-      : node.type === 'flow' || node.type === 'flow_summary' || node.type === 'flow_more'
-        ? shortenLabel(node.label, 14)
-        : flowViewMode && node.type === 'gateway'
-          ? shortenLabel(node.label, 14)
-          : isInfra
-            ? shortenLabel(node.label, 12)
-            : null;
-  const showPinLabel = pinLabel != null;
+  const pinLabel = formatPinLabel(node, flowViewMode);
+  const showBadge = visual.showBadge && pinLabel != null;
+  const badgeWidth = showBadge ? estimateBadgeWidth(pinLabel!, visual.badgeMonospace) : 0;
+  const badgeY = nodeR + GRAPH_BADGE.offsetY;
 
   return (
     <g
@@ -175,6 +174,7 @@ function MapNodeGlyph({
         cursor: selectableApp || selectableDomain || selectablePort || expandableAggregate ? 'pointer' : 'default',
         opacity: appDisabled || portDisabled ? 0.45 : 1,
       }}
+      filter="url(#network-map-node-shadow)"
       onClick={
         selectableApp
           ? () => onSelectApp?.(node.id)
@@ -189,30 +189,38 @@ function MapNodeGlyph({
     >
       <title>{tooltipParts.join(' · ')}</title>
       <circle
-        r={NODE_R + 3}
+        r={nodeR + 4}
         fill={theme.palette.background.paper}
         stroke={ring}
         strokeWidth={
-          selected ? 2.25 : appDisabled || portDisabled ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.25
+          selected ? 2 : appDisabled || portDisabled ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
         }
-        strokeDasharray={appDisabled || portDisabled ? '3 2' : undefined}
+        strokeDasharray={appDisabled || portDisabled ? '4 3' : undefined}
       />
-      <circle r={NODE_R} fill={style.bg} />
+      <circle r={nodeR} fill={style.bg} stroke={alpha(style.color, 0.35)} strokeWidth={1} />
+      {isInfra && (
+        <circle
+          r={nodeR - 3}
+          fill="none"
+          stroke={alpha(style.color, 0.2)}
+          strokeWidth={1}
+        />
+      )}
       {appDisabled && (
         <line
-          x1={-NODE_R}
-          y1={-NODE_R}
-          x2={NODE_R}
-          y2={NODE_R}
+          x1={-nodeR}
+          y1={-nodeR}
+          x2={nodeR}
+          y2={nodeR}
           stroke={theme.palette.error.main}
           strokeWidth={2}
         />
       )}
       <foreignObject
-        x={-ICON_SIZE / 2}
-        y={-ICON_SIZE / 2}
-        width={ICON_SIZE}
-        height={ICON_SIZE}
+        x={-iconSize / 2}
+        y={-iconSize / 2}
+        width={iconSize}
+        height={iconSize}
         style={{ pointerEvents: 'none' }}
       >
         <Box
@@ -221,19 +229,38 @@ function MapNodeGlyph({
             alignItems: 'center',
             justifyContent: 'center',
             color: style.color,
-            fontSize: ICON_SIZE,
-            width: ICON_SIZE,
-            height: ICON_SIZE,
-            '& svg': { fontSize: ICON_SIZE },
+            fontSize: iconSize,
+            width: iconSize,
+            height: iconSize,
+            '& svg': { fontSize: iconSize },
           }}
         >
           {style.icon}
         </Box>
       </foreignObject>
-      {showPinLabel && (
-        <text y={NODE_R + 14} textAnchor="middle" fontSize={8} fontWeight={600} fill={theme.palette.text.secondary}>
-          {pinLabel}
-        </text>
+      {showBadge && (
+        <>
+          <rect
+            x={-badgeWidth / 2}
+            y={badgeY}
+            width={badgeWidth}
+            height={GRAPH_BADGE.height}
+            rx={GRAPH_BADGE.rx}
+            fill={alpha(theme.palette.background.paper, 0.92)}
+            stroke={alpha(ring, 0.55)}
+            strokeWidth={1}
+          />
+          <text
+            y={badgeY + GRAPH_BADGE.height / 2 + 3.5}
+            textAnchor="middle"
+            fontSize={GRAPH_BADGE.fontSize}
+            fontWeight={GRAPH_BADGE.fontWeight}
+            fill={theme.palette.text.primary}
+            style={{ fontFamily: visual.badgeMonospace ? 'ui-monospace, monospace' : undefined }}
+          >
+            {pinLabel}
+          </text>
+        </>
       )}
     </g>
   );
@@ -338,16 +365,16 @@ function edgeStroke(
     return theme.palette.info.main;
   }
   if (edge.kind === 'to_port') {
-    return theme.palette.secondary.main;
+    return alpha(theme.palette.secondary.main, 0.72);
   }
   if (edge.kind === 'port_to_flow') {
-    return theme.palette.info.dark;
+    return alpha(theme.palette.info.main, 0.78);
   }
   if (edge.kind === 'dns_to_flow') {
-    return theme.palette.info.dark;
+    return alpha(theme.palette.info.main, 0.65);
   }
   if (edge.kind === 'flow_session') {
-    return alpha(theme.palette.info.main, 0.85);
+    return alpha(theme.palette.info.main, 0.55);
   }
   if (edge.kind === 'dns_direct') {
     return theme.palette.text.disabled;
@@ -570,10 +597,12 @@ export default function NetworkAttributionMapGraph({
     return [...visible].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9));
   }, [layout, flowViewMode]);
 
-  const landFill = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.1 : 0.06);
-  const laneStroke = alpha(theme.palette.divider, 0.55);
+  const landFill = theme.palette.mode === 'dark' ? '#0B1220' : '#F8FAFC';
+  const gridDot = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.08 : 0.06);
+  const laneStroke = alpha(theme.palette.divider, 0.45);
   const columnLabels = pathColumnLabels(layoutMode);
   const showColumnGuides = graphLayout === 'columns';
+  const showForceSwimlanes = graphLayout === 'force' && (flowViewMode || pathViewMode);
 
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
@@ -820,9 +849,10 @@ export default function NetworkAttributionMapGraph({
           }`,
           bgcolor: landFill,
           minHeight: 300,
+          boxShadow: theme.palette.mode === 'dark' ? 'inset 0 1px 0 rgba(255,255,255,0.04)' : 'inset 0 1px 0 rgba(0,0,0,0.03)',
           '& .network-flow-active': {
-            strokeDasharray: '5 5',
-            animation: `${flowPulse} 1.6s linear infinite`,
+            strokeDasharray: '6 6',
+            animation: `${flowPulse} 2s linear infinite`,
           },
         }}
       >
@@ -849,6 +879,48 @@ export default function NetworkAttributionMapGraph({
                   : 'Network map with devices, processes, and DNS destinations connected by arcs'
             }
           >
+            <defs>
+              <pattern id="network-map-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="1" cy="1" r="0.75" fill={gridDot} />
+              </pattern>
+              <filter id="network-map-node-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="1" stdDeviation="1.8" floodColor="#000" floodOpacity={theme.palette.mode === 'dark' ? 0.35 : 0.12} />
+              </filter>
+            </defs>
+            <rect x={0} y={0} width={layout.width} height={layout.height} fill="url(#network-map-grid)" />
+
+            {showForceSwimlanes &&
+              semanticLaneXs(layoutMode, layout.width).map((x, index) => {
+                const label = columnLabels[index]?.label;
+                if (!label) {
+                  return null;
+                }
+                return (
+                  <g key={`lane-${columnLabels[index]?.key ?? index}`}>
+                    <line
+                      x1={x}
+                      y1={24}
+                      x2={x}
+                      y2={layout.height - 16}
+                      stroke={laneStroke}
+                      strokeDasharray="3 8"
+                      strokeWidth={1}
+                    />
+                    <text
+                      x={x}
+                      y={14}
+                      textAnchor="middle"
+                      fontSize={8.5}
+                      fontWeight={600}
+                      letterSpacing={0.4}
+                      fill={alpha(theme.palette.text.secondary, 0.75)}
+                    >
+                      {label.toUpperCase()}
+                    </text>
+                  </g>
+                );
+              })}
+
             {showColumnGuides &&
               columnLabels.map(({ key, label }) => {
               const x = layout.columnGuides[key];
@@ -889,17 +961,26 @@ export default function NetworkAttributionMapGraph({
               const stroke = edgeStroke(edge, theme, simulatedCut);
               const clickable =
                 pathViewMode && (edge.kind === 'path_forward' || edge.kind === 'dns' || edge.kind === 'dns_direct');
+              const strokeWidth =
+                edge.kind === 'foreground' || edge.kind === 'path_tunnel' || edge.kind === 'path_resolve'
+                  ? 1.25
+                  : Math.min(2.5, 1 + Math.log2(edge.query_count + 1) * 0.45);
+              const pathD = edgePath(from.x, from.y, to.x, to.y);
               return (
-                <path
-                  key={`${edge.source}-${edge.target}-${edge.kind}`}
-                  d={edgePath(from.x, from.y, to.x, to.y)}
-                  fill="none"
-                  stroke={stroke}
-                  strokeWidth={
-                    edge.kind === 'foreground' || edge.kind === 'path_tunnel' || edge.kind === 'path_resolve'
-                      ? 1.25
-                      : Math.min(3, 1 + Math.log2(edge.query_count + 1) * 0.6)
-                  }
+                <g key={`${edge.source}-${edge.target}-${edge.kind}`}>
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke={alpha(stroke, 0.18)}
+                    strokeWidth={strokeWidth + 2.5}
+                    strokeLinecap="round"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth={strokeWidth}
                   strokeDasharray={
                     simulatedCut ||
                     edge.kind === 'dns_direct' ||
@@ -926,6 +1007,7 @@ export default function NetworkAttributionMapGraph({
                 >
                   <title>{edgeTooltip(edge, nodeMap, simulatedCut)}</title>
                 </path>
+                </g>
               );
             })}
 
