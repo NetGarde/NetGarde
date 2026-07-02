@@ -15,6 +15,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import BlockIcon from '@mui/icons-material/Block';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import { useTwinGraph } from '../../twin-graph/hooks/useTwinGraph';
+import { SimulationCommandResponse } from '../../twin-graph/api/twinGraphApi';
 import { projectTwinGraph } from '../../twin-graph/projections/projectGraph';
 import { DEFAULT_NETWORK_MAP_MINUTES } from '../config/api';
 import {
@@ -25,11 +26,18 @@ import {
   shortenLabel,
 } from '../utils/layoutNetworkMap';
 import { layoutForceDirected } from '../utils/layoutForceDirected';
-import { flowNodeTooltip, parseFlowNode } from '../utils/flowLabels';
+import { flowNodeTooltip, parseFlowNode, portNodeTooltip } from '../utils/flowLabels';
+import {
+  computePortWhatIfSimulation,
+  listActivePortNumbers,
+  PortWhatIfSimulationResult,
+  toggleDisabledPortNumber,
+} from '../utils/portWhatIfSimulation';
 import {
   aggregateFlowDestinations,
   nextPortDestExpansion,
   parseAggregateHubFromNode,
+  parseAggregatePortFromNode,
   PortDestExpansion,
 } from '../utils/aggregateFlowDestinations';
 import { getNodeIconStyle } from '../utils/appIcons';
@@ -38,7 +46,6 @@ import {
   formatPinLabel,
   getNodeVisualSpec,
   GRAPH_BADGE,
-  semanticLaneXs,
 } from '../utils/graphVisual';
 import { NetworkMapEdge, NetworkMapNode, PositionedNode } from '../types/networkMap';
 import {
@@ -52,6 +59,7 @@ import {
   PathFlowDetail,
 } from '../utils/buildPathFlowDetail';
 import PathFlowDetailPanel from './PathFlowDetailPanel';
+import SimulationCommandBar from './SimulationCommandBar';
 
 const flowPulse = keyframes`
   to {
@@ -62,22 +70,26 @@ const flowPulse = keyframes`
 interface MapNodeGlyphProps {
   node: PositionedNode;
   whatIfMode: boolean;
+  portDisabled: boolean;
   appDisabled: boolean;
   simulatedBlocked: boolean;
   selected: boolean;
   onSelectApp?: (nodeId: string) => void;
   onSelectDomain?: (nodeId: string) => void;
+  onSelectPort?: (port: number) => void;
   onExpandFlowAggregate?: (node: NetworkMapNode) => void;
 }
 
 function MapNodeGlyph({
   node,
   whatIfMode,
+  portDisabled,
   appDisabled,
   simulatedBlocked,
   selected,
   onSelectApp,
   onSelectDomain,
+  onSelectPort,
   onExpandFlowAggregate,
 }: MapNodeGlyphProps) {
   const theme = useTheme();
@@ -92,7 +104,7 @@ function MapNodeGlyph({
 
   const isInfra = node.type === 'tunnel' || node.type === 'gateway' || node.type === 'policy';
 
-  const ring = appDisabled
+  const ring = appDisabled || portDisabled
     ? theme.palette.error.main
     : selected
       ? theme.palette.info.main
@@ -120,6 +132,8 @@ function MapNodeGlyph({
             ? `${node.label} · click to expand top destinations`
             : node.type === 'flow_more'
               ? `${node.label} · click to show all destinations`
+          : node.type === 'port'
+            ? portNodeTooltip(Number(node.label))
           : node.type === 'gateway'
             ? `${node.label} · dnsmasq resolver on EC2`
           : node.type === 'tunnel'
@@ -129,11 +143,15 @@ function MapNodeGlyph({
   if (whatIfMode && node.type === 'app') {
     tooltipParts.push(appDisabled ? 'Click to re-enable in what-if' : 'Click to disable in what-if');
   }
+  if (whatIfMode && node.type === 'port') {
+    tooltipParts.push(portDisabled ? 'Click to unblock in what-if' : 'Click to simulate blocking this port');
+  }
   if (node.type === 'domain') {
     tooltipParts.push('Click to inspect DNS path');
   }
 
   const selectableApp = whatIfMode && node.type === 'app';
+  const selectablePort = whatIfMode && node.type === 'port';
   const selectableDomain = node.type === 'domain';
   const expandableAggregate = node.type === 'flow_summary' || node.type === 'flow_more';
   const pinLabel = formatPinLabel(node);
@@ -145,8 +163,8 @@ function MapNodeGlyph({
     <g
       transform={`translate(${node.x}, ${node.y})`}
       style={{
-        cursor: selectableApp || selectableDomain || expandableAggregate ? 'pointer' : 'default',
-        opacity: appDisabled ? 0.45 : 1,
+        cursor: selectableApp || selectableDomain || selectablePort || expandableAggregate ? 'pointer' : 'default',
+        opacity: appDisabled || portDisabled ? 0.45 : 1,
       }}
       filter="url(#network-map-node-shadow)"
       onClick={
@@ -154,9 +172,11 @@ function MapNodeGlyph({
           ? () => onSelectApp?.(node.id)
           : selectableDomain
             ? () => onSelectDomain?.(node.id)
-            : expandableAggregate
-              ? () => onExpandFlowAggregate?.(node)
-              : undefined
+            : selectablePort
+              ? () => onSelectPort?.(Number(node.label))
+              : expandableAggregate
+                ? () => onExpandFlowAggregate?.(node)
+                : undefined
       }
     >
       <title>{tooltipParts.join(' · ')}</title>
@@ -165,9 +185,9 @@ function MapNodeGlyph({
         fill={theme.palette.background.paper}
         stroke={ring}
         strokeWidth={
-          selected ? 2 : appDisabled ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
+          selected ? 2 : appDisabled || portDisabled ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
         }
-        strokeDasharray={appDisabled ? '4 3' : undefined}
+        strokeDasharray={appDisabled || portDisabled ? '4 3' : undefined}
       />
       <circle r={nodeR} fill={style.bg} stroke={alpha(style.color, 0.35)} strokeWidth={1} />
       {isInfra && (
@@ -294,7 +314,11 @@ function edgeTooltip(
 function isEdgeSimulatedCut(
   edge: NetworkMapEdge,
   whatIf: WhatIfSimulationResult | null,
+  portWhatIf: PortWhatIfSimulationResult | null,
 ): boolean {
+  if (portWhatIf) {
+    return portWhatIf.disabledEdgeKeys.has(edgeKey(edge));
+  }
   if (!whatIf) {
     return false;
   }
@@ -369,6 +393,7 @@ export default function NetworkAttributionMapGraph({
   const [whatIfMode, setWhatIfMode] = useState(false);
   const [graphLayout, setGraphLayout] = useState<NetworkMapLayoutStyle>('force');
   const [disabledAppIds, setDisabledAppIds] = useState<Set<string>>(new Set());
+  const [disabledPortNumbers, setDisabledPortNumbers] = useState<Set<number>>(new Set());
   const [flowDestExpansion, setFlowDestExpansion] = useState<Record<string, PortDestExpansion>>({});
   const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
 
@@ -413,6 +438,18 @@ export default function NetworkAttributionMapGraph({
     return computeWhatIfSimulation(data.nodes, data.edges, disabledAppIds);
   }, [data, whatIfMode, disabledAppIds]);
 
+  const portWhatIf = useMemo(() => {
+    if (!graphData || !whatIfMode) {
+      return null;
+    }
+    return computePortWhatIfSimulation(graphData.nodes, graphData.edges, disabledPortNumbers);
+  }, [graphData, whatIfMode, disabledPortNumbers]);
+
+  const activePortNumbers = useMemo(
+    () => (graphData ? listActivePortNumbers(graphData.nodes) : []),
+    [graphData],
+  );
+
   const selectedFlows = useMemo((): PathFlowDetail[] => {
     if (!data || !selectedDomainId) {
       return [];
@@ -441,6 +478,32 @@ export default function NetworkAttributionMapGraph({
     setWhatIfMode(enabled);
     if (!enabled) {
       setDisabledAppIds(new Set());
+      setDisabledPortNumbers(new Set());
+    }
+  };
+
+  const handleTogglePort = (port: number) => {
+    setDisabledPortNumbers((prev) => toggleDisabledPortNumber(prev, port));
+  };
+
+  const handleSimulationCommand = (response: SimulationCommandResponse) => {
+    if (response.action === 'enable_what_if' || response.action === 'block_port' || response.action === 'unblock_port') {
+      setWhatIfMode(true);
+    }
+    if (response.action === 'clear_simulation') {
+      setDisabledPortNumbers(new Set());
+      setDisabledAppIds(new Set());
+      return;
+    }
+    if (response.action === 'block_port' && response.port != null) {
+      setDisabledPortNumbers((prev) => new Set(prev).add(response.port!));
+    }
+    if (response.action === 'unblock_port' && response.port != null) {
+      setDisabledPortNumbers((prev) => {
+        const next = new Set(prev);
+        next.delete(response.port!);
+        return next;
+      });
     }
   };
 
@@ -488,9 +551,10 @@ export default function NetworkAttributionMapGraph({
       flow: 0,
       flow_summary: 0,
       flow_more: 0,
-      domain: 1,
-      app: 2,
-      device: 3,
+      port: 1,
+      domain: 2,
+      app: 3,
+      device: 4,
     };
     return [...visible].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9));
   }, [layout]);
@@ -500,7 +564,6 @@ export default function NetworkAttributionMapGraph({
   const laneStroke = alpha(theme.palette.divider, 0.45);
   const columnLabels = pathColumnLabels(layoutMode);
   const showColumnGuides = graphLayout === 'columns';
-  const showForceSwimlanes = graphLayout === 'force';
 
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
@@ -568,10 +631,33 @@ export default function NetworkAttributionMapGraph({
         </Stack>
       </Stack>
 
+      <SimulationCommandBar
+        activePorts={activePortNumbers}
+        activeApps={appNodes.map((a) => a.label)}
+        onCommand={handleSimulationCommand}
+      />
+
       <Alert severity="info" sx={{ mb: 1.5 }} icon={<HubIcon fontSize="small" />}>
-        Digital twin graph: device → process → WireGuard → EC2 DNS → DNS names and live sessions.
-        Session destinations are aggregated (click hub to expand). Policy gates are hidden.
+        Digital twin graph: device → process → WireGuard → EC2 DNS → port → DNS name or session IP.
+        Many sessions aggregate per port (click hub to expand). Policy gates are hidden.
       </Alert>
+
+      {whatIfMode && disabledPortNumbers.size > 0 && (
+        <Alert severity="info" sx={{ mb: 1.5 }} icon={<ScienceIcon fontSize="small" />}>
+          Simulating blocked ports:{' '}
+          <strong>{[...disabledPortNumbers].sort((a, b) => a - b).join(', ')}</strong>
+          {' · '}
+          EC2 would drop {portWhatIf?.affectedConnectionCount ?? 0} live session
+          {(portWhatIf?.affectedConnectionCount ?? 0) === 1 ? '' : 's'}
+          <Button
+            size="small"
+            sx={{ ml: 1, mt: { xs: 1, sm: 0 } }}
+            onClick={() => setDisabledPortNumbers(new Set())}
+          >
+            Clear ports
+          </Button>
+        </Alert>
+      )}
 
       {whatIfMode && (
         <Alert severity="info" sx={{ mb: 1.5 }} icon={<ScienceIcon fontSize="small" />}>
@@ -629,6 +715,26 @@ export default function NetworkAttributionMapGraph({
         </Stack>
       )}
 
+      {whatIfMode && activePortNumbers.length > 0 && (
+        <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>
+          {activePortNumbers.map((port) => {
+            const selected = disabledPortNumbers.has(port);
+            return (
+              <Chip
+                key={port}
+                size="small"
+                variant={selected ? 'filled' : 'outlined'}
+                color={selected ? 'error' : 'default'}
+                icon={selected ? <BlockIcon sx={{ fontSize: 14 }} /> : undefined}
+                label={`${selected ? 'Block ' : ''}port ${port}`}
+                onClick={() => handleTogglePort(port)}
+                sx={{ cursor: 'pointer' }}
+              />
+            );
+          })}
+        </Stack>
+      )}
+
       <Box
         sx={{
           position: 'relative',
@@ -669,38 +775,6 @@ export default function NetworkAttributionMapGraph({
             </defs>
             <rect x={0} y={0} width={layout.width} height={layout.height} fill="url(#network-map-grid)" />
 
-            {showForceSwimlanes &&
-              semanticLaneXs(layoutMode, layout.width).map((x, index) => {
-                const label = columnLabels[index]?.label;
-                if (!label) {
-                  return null;
-                }
-                return (
-                  <g key={`lane-${columnLabels[index]?.key ?? index}`}>
-                    <line
-                      x1={x}
-                      y1={24}
-                      x2={x}
-                      y2={layout.height - 16}
-                      stroke={laneStroke}
-                      strokeDasharray="3 8"
-                      strokeWidth={1}
-                    />
-                    <text
-                      x={x}
-                      y={14}
-                      textAnchor="middle"
-                      fontSize={8.5}
-                      fontWeight={600}
-                      letterSpacing={0.4}
-                      fill={alpha(theme.palette.text.secondary, 0.75)}
-                    >
-                      {label.toUpperCase()}
-                    </text>
-                  </g>
-                );
-              })}
-
             {showColumnGuides &&
               columnLabels.map(({ key, label }) => {
               const x = layout.columnGuides[key];
@@ -730,7 +804,7 @@ export default function NetworkAttributionMapGraph({
               if (!from || !to) {
                 return null;
               }
-              const simulatedCut = isEdgeSimulatedCut(edge, whatIf);
+              const simulatedCut = isEdgeSimulatedCut(edge, whatIf, portWhatIf);
               const animated =
                 !simulatedCut &&
                 (edge.kind === 'dns' ||
@@ -797,11 +871,24 @@ export default function NetworkAttributionMapGraph({
                 key={node.id}
                 node={node}
                 whatIfMode={whatIfMode}
+                portDisabled={
+                  whatIfMode &&
+                  ((node.type === 'port' && disabledPortNumbers.has(Number(node.label))) ||
+                    ((node.type === 'flow_summary' || node.type === 'flow_more') &&
+                      (() => {
+                        const port = parseAggregatePortFromNode(node);
+                        return port != null && disabledPortNumbers.has(port);
+                      })()))
+                }
                 appDisabled={whatIfMode && disabledAppIds.has(node.id)}
-                simulatedBlocked={whatIf?.simulatedBlockedDomainIds.has(node.id) ?? false}
+                simulatedBlocked={
+                  (whatIf?.simulatedBlockedDomainIds.has(node.id) ?? false) ||
+                  (portWhatIf?.simulatedBlockedFlowIds.has(node.id) ?? false)
+                }
                 selected={selectedDomainId === node.id}
                 onSelectApp={handleToggleApp}
                 onSelectDomain={handleDomainSelect}
+                onSelectPort={handleTogglePort}
                 onExpandFlowAggregate={handleExpandFlowAggregate}
               />
             ))}
@@ -829,6 +916,7 @@ export default function NetworkAttributionMapGraph({
             <Chip size="small" variant="outlined" label="Center = process" />
             <Chip size="small" variant="outlined" label="Purple = WireGuard" sx={{ borderColor: 'secondary.main', color: 'secondary.main' }} />
             <Chip size="small" variant="outlined" label="Blue = EC2 DNS" sx={{ borderColor: 'info.main', color: 'info.main' }} />
+            <Chip size="small" variant="outlined" label="Purple = port hub" sx={{ borderColor: 'secondary.main', color: 'secondary.main' }} />
             <Chip size="small" variant="outlined" label="DNS name / session IP" />
             <Chip size="small" variant="outlined" label="Hub = aggregated sessions (click to expand)" />
             <Chip

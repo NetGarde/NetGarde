@@ -41,13 +41,14 @@ function semanticAnchorX(node: NetworkMapNode, mode: NetworkMapLayoutMode, canva
   if (mode === 'unified') {
     const lane: Partial<Record<NetworkMapNode['type'], number>> = {
       device: 0.08,
-      app: 0.22,
-      tunnel: 0.36,
-      gateway: 0.5,
-      domain: 0.66,
-      flow: 0.86,
-      flow_summary: 0.86,
-      flow_more: 0.8,
+      app: 0.2,
+      tunnel: 0.32,
+      gateway: 0.44,
+      port: 0.56,
+      domain: 0.68,
+      flow: 0.82,
+      flow_summary: 0.82,
+      flow_more: 0.76,
     };
     return canvasW * (lane[node.type] ?? 0.5);
   }
@@ -118,7 +119,7 @@ export function layoutForceDirected(
   const linkStrength = 0.07;
   const idealLinkLength = mode === 'flow' || mode === 'unified' ? 72 : 88;
   const centerPull = 0.008;
-  const lanePull = 0.035;
+  const lanePull = mode === 'unified' ? 0.012 : 0.035;
   const damping = 0.84;
 
   for (let step = 0; step < iterations; step += 1) {

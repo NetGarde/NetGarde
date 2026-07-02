@@ -431,7 +431,7 @@ export function projectFlowGraph(snapshot: TwinGraphSnapshot): NetworkMapRespons
   };
 }
 
-/** Unified digital-twin view: DNS path + live flows, no policy gates or port hubs. */
+/** Unified digital-twin view: DNS path + port hubs + live flows (no policy gates). */
 export function projectUnifiedGraph(
   snapshot: TwinGraphSnapshot,
   attributionOverride?: NetworkMapResponse | null,
@@ -524,9 +524,9 @@ export function projectUnifiedGraph(
     }
   };
 
-  const linkViaGatewayToFlow = (
+  const linkViaGateway = (
     sourceId: string,
-    flowId: string,
+    portId: string,
     counts: Pick<NetworkMapEdge, 'query_count' | 'blocked_count'>,
   ) => {
     ensureGateway();
@@ -540,8 +540,8 @@ export function projectUnifiedGraph(
     });
     upsertMapEdge(edgeMap, {
       source: DNS_RESOLVER_ID,
-      target: flowId,
-      kind: 'gateway_to_flow',
+      target: portId,
+      kind: 'to_port',
       ...counts,
     });
   };
@@ -563,10 +563,23 @@ export function projectUnifiedGraph(
   }
 
   for (const node of flowSessions) {
-    const port = Number(node.properties.dest_port ?? 0);
-    const ip = destLabelByFlow.get(node.id) ?? String(node.properties.dest_ip ?? '');
-    const destination = port > 0 && ip ? `${ip}:${port}` : ip || node.label;
+    const destination = destLabelByFlow.get(node.id) ?? String(node.properties.dest_ip ?? node.label);
     nodeMap.set(node.id, twinFlowSessionToMap(node, destination));
+
+    const serviceEdge = snapshot.edges.find(
+      (edge) => edge.relation === 'uses_service' && edge.source_id === node.id,
+    );
+    if (!serviceEdge) {
+      continue;
+    }
+    const l4Node = index.nodes.get(serviceEdge.target_id);
+    if (!l4Node) {
+      continue;
+    }
+    const protocol = String(l4Node.properties.protocol ?? 'tcp');
+    const port = Number(l4Node.properties.port ?? 0);
+    const portId = globalPortNodeId(protocol, port);
+    nodeMap.set(portId, { id: portId, type: 'port', label: String(port) });
   }
 
   for (const edge of snapshot.edges) {
@@ -590,6 +603,16 @@ export function projectUnifiedGraph(
     if (!flowNode || flowNode.entity_type !== 'flow_session') {
       continue;
     }
+    const serviceEdge = snapshot.edges.find(
+      (item) => item.relation === 'uses_service' && item.source_id === flowId,
+    );
+    const l4Node = serviceEdge ? index.nodes.get(serviceEdge.target_id) : null;
+    if (!l4Node) {
+      continue;
+    }
+    const protocol = String(l4Node.properties.protocol ?? 'tcp');
+    const port = Number(l4Node.properties.port ?? 0);
+    const portId = globalPortNodeId(protocol, port);
     const counts = edgeCounts(edge);
 
     if (edge.relation === 'correlates') {
@@ -600,7 +623,7 @@ export function projectUnifiedGraph(
       );
       if (upstream.length > 0) {
         for (const dnsEdge of upstream) {
-          linkViaGatewayToFlow(dnsEdge.source_id, flowId, edgeCounts(dnsEdge));
+          linkViaGateway(dnsEdge.source_id, portId, edgeCounts(dnsEdge));
         }
       } else {
         const opener = snapshot.edges.find(
@@ -609,12 +632,19 @@ export function projectUnifiedGraph(
             item.target_id === flowId,
         );
         if (opener) {
-          linkViaGatewayToFlow(opener.source_id, flowId, counts);
+          linkViaGateway(opener.source_id, portId, counts);
         }
       }
     } else {
-      linkViaGatewayToFlow(edge.source_id, flowId, counts);
+      linkViaGateway(edge.source_id, portId, counts);
     }
+
+    upsertMapEdge(edgeMap, {
+      source: portId,
+      target: flowId,
+      kind: 'port_to_flow',
+      ...counts,
+    });
   }
 
   for (const edge of snapshot.edges) {

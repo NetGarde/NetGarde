@@ -27,12 +27,13 @@ const COL_FLOW = {
 } as const;
 
 const COL_UNIFIED = {
-  device: 55,
-  app: 145,
-  tunnel: 235,
-  gateway: 325,
-  domain: 415,
-  flow: 505,
+  device: 50,
+  app: 120,
+  tunnel: 190,
+  gateway: 260,
+  port: 330,
+  domain: 400,
+  flow: 470,
 } as const;
 
 export const PATH_LAYOUT_WIDTH = 640;
@@ -227,7 +228,7 @@ export function layoutNetworkMap(
     ports.forEach((port, index) => {
       positioned.set(port.id, {
         ...port,
-        x: (columns as typeof COL_FLOW).port,
+        x: mode === 'unified' ? COL_UNIFIED.port : (columns as typeof COL_FLOW).port,
         y: nextFreeY(portYs[index] ?? 220, assignedPortYs, MIN_GAP),
       });
     });
@@ -317,6 +318,7 @@ export function pathColumnLabels(mode: NetworkMapLayoutMode): { key: string; lab
       { key: 'app', label: 'Processes' },
       { key: 'tunnel', label: 'WireGuard' },
       { key: 'gateway', label: 'EC2 DNS' },
+      { key: 'port', label: 'Ports' },
       { key: 'domain', label: 'DNS names' },
       { key: 'flow', label: 'Sessions' },
     ];

@@ -34,6 +34,9 @@ export function getNodeVisualSpec(type: NetworkMapNode['type']): NodeVisualSpec 
 
 /** Compact, readable pin label — avoids truncating session summaries. */
 export function formatPinLabel(node: NetworkMapNode): string | null {
+  if (node.type === 'port') {
+    return `:${node.label}`;
+  }
   if (node.type === 'flow_summary') {
     const sessionsMatch = node.label.match(/^(\d+)\s+live sessions?$/i);
     if (sessionsMatch) {
@@ -78,7 +81,7 @@ const FLOW_LANES = [0.1, 0.26, 0.4, 0.62, 0.84] as const;
 const PATH_LANES = [0.08, 0.22, 0.36, 0.5, 0.64, 0.82] as const;
 const ATTRIBUTION_LANES = [0.14, 0.5, 0.86] as const;
 
-export const UNIFIED_LANES = [0.08, 0.22, 0.36, 0.5, 0.66, 0.86] as const;
+export const UNIFIED_LANES = [0.08, 0.2, 0.32, 0.44, 0.56, 0.68, 0.82] as const;
 
 /** Lane center X positions for force-layout swimlane guides. */
 export function semanticLaneXs(mode: 'attribution' | 'path' | 'flow' | 'unified', width: number): number[] {
