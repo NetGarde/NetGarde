@@ -25,6 +25,7 @@ import {
   layoutNetworkMap,
   NetworkMapLayoutStyle,
   pathColumnLabels,
+  shortenLabel,
 } from '../utils/layoutNetworkMap';
 import { layoutForceDirected } from '../utils/layoutForceDirected';
 import { flowNodeTooltip, parseFlowNode, portNodeTooltip } from '../utils/flowLabels';
