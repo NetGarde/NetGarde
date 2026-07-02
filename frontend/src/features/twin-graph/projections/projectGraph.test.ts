@@ -163,6 +163,32 @@ describe('projectFlowGraph', () => {
     expect(result.nodes.some((n) => n.type === 'flow')).toBe(true);
     expect(result.edges.some((e) => e.kind === 'port_to_flow')).toBe(true);
   });
+
+  it('routes uncorrelated flows through EC2 DNS gateway', () => {
+    const result = projectFlowGraph(sampleSnapshot());
+    expect(result.edges.some((e) => e.kind === 'flow_via_gateway' && e.target === 'infra:dns_resolver')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'to_port' && e.source === 'infra:dns_resolver')).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'gateway' && n.label === 'EC2 DNS')).toBe(true);
+  });
+
+  it('drops enrolled devices with no live flows', () => {
+    const snapshot: TwinGraphSnapshot = {
+      ...sampleSnapshot(),
+      nodes: [
+        ...sampleSnapshot().nodes,
+        {
+          id: 'device:99',
+          entity_type: 'device',
+          layer: 'observed',
+          label: 'old-laptop',
+          properties: { client_ip: '10.0.0.99', device_id: 99, fresh: false },
+        },
+      ],
+    };
+    const result = projectFlowGraph(snapshot);
+    expect(result.nodes.some((n) => n.id === 'device:99')).toBe(false);
+    expect(result.nodes.some((n) => n.id === 'device:1')).toBe(true);
+  });
 });
 
 describe('projectTwinGraph', () => {
