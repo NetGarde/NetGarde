@@ -21,6 +21,7 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `POST` | `/twin/graph/traverse` | Walk dependencies from seed nodes (impact, blast radius, RCA) |
 | `GET` | `/twin/graph/neighbors` | One-hop neighbors of a node (`node_id`, `direction`, optional `relations`, `layers`) |
 | `POST` | `/twin/simulate/pack-toggle` | Preview global pack toggle impact (read-only) |
+| `POST` | `/twin/simulate/command` | Parse natural-language what-if commands (rules + Ollama fallback) |
 | **Devices** | | |
 | `GET` | `/devices` | List devices |
 | `GET` | `/devices/blocked-clients` | Devices with active quarantine or per-device DNS blocks |

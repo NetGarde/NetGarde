@@ -16,6 +16,8 @@ import VpnLockIcon from '@mui/icons-material/VpnLock';
 import RouterIcon from '@mui/icons-material/Router';
 import GavelIcon from '@mui/icons-material/Gavel';
 import SettingsEthernetIcon from '@mui/icons-material/SettingsEthernet';
+import HubIcon from '@mui/icons-material/Hub';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import TagIcon from '@mui/icons-material/Tag';
 
 export interface AppIconStyle {
@@ -101,6 +103,22 @@ export function getPortIconStyle(): AppIconStyle {
   };
 }
 
+export function getFlowSummaryIconStyle(): AppIconStyle {
+  return {
+    icon: <HubIcon fontSize="small" />,
+    color: '#0369A1',
+    bg: 'rgba(3, 105, 161, 0.14)',
+  };
+}
+
+export function getFlowMoreIconStyle(): AppIconStyle {
+  return {
+    icon: <MoreHorizIcon fontSize="small" />,
+    color: '#64748B',
+    bg: 'rgba(100, 116, 139, 0.14)',
+  };
+}
+
 export function getFlowIconStyle(): AppIconStyle {
   return {
     icon: <SettingsEthernetIcon fontSize="small" />,
@@ -123,7 +141,13 @@ export function getNodeIconStyle(node: {
   if (node.type === 'domain') {
     return getDomainIconStyle(node.blocked);
   }
-  if (node.type === 'flow') {
+  if (node.type === 'flow' || node.type === 'flow_summary' || node.type === 'flow_more') {
+    if (node.type === 'flow_summary') {
+      return getFlowSummaryIconStyle();
+    }
+    if (node.type === 'flow_more') {
+      return getFlowMoreIconStyle();
+    }
     return getFlowIconStyle();
   }
   if (node.type === 'port') {
