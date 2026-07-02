@@ -3,6 +3,7 @@ import {
   projectFlowGraph,
   projectPathGraph,
   projectTwinGraph,
+  projectUnifiedGraph,
 } from './projectGraph';
 import { TwinGraphIndex } from '../graph/TwinGraphIndex';
 import { TwinGraphSnapshot } from '../types/twinGraph';
@@ -191,12 +192,28 @@ describe('projectFlowGraph', () => {
   });
 });
 
+describe('projectUnifiedGraph', () => {
+  it('includes DNS path, flows, and infra without policy or port hubs', () => {
+    const result = projectUnifiedGraph(sampleSnapshot());
+    const types = new Set(result.nodes.map((n) => n.type));
+    expect(types.has('tunnel')).toBe(true);
+    expect(types.has('gateway')).toBe(true);
+    expect(types.has('flow')).toBe(true);
+    expect(types.has('policy')).toBe(false);
+    expect(result.nodes.some((n) => n.type === 'port')).toBe(false);
+    expect(result.edges.some((e) => e.kind === 'path_egress')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'gateway_to_flow')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'dns')).toBe(true);
+  });
+});
+
 describe('projectTwinGraph', () => {
   it('selects projection by mode', () => {
     const snapshot = sampleSnapshot();
     expect(projectTwinGraph(snapshot, 'attribution').edges.some((e) => e.kind === 'dns')).toBe(true);
     expect(projectTwinGraph(snapshot, 'path').edges.some((e) => e.kind === 'path_egress')).toBe(true);
     expect(projectTwinGraph(snapshot, 'flow').nodes.some((n) => n.type === 'port')).toBe(true);
+    expect(projectTwinGraph(snapshot, 'unified').nodes.some((n) => n.type === 'port')).toBe(false);
   });
 });
 

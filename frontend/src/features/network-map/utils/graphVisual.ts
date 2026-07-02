@@ -32,15 +32,16 @@ export function getNodeVisualSpec(type: NetworkMapNode['type']): NodeVisualSpec 
   return SPECS[type] ?? DEFAULT_SPEC;
 }
 
-/** Compact, readable pin label — avoids truncating "26 connections on 443". */
-export function formatPinLabel(node: NetworkMapNode, flowViewMode: boolean): string | null {
-  if (node.type === 'port') {
-    return `:${node.label}`;
-  }
+/** Compact, readable pin label — avoids truncating session summaries. */
+export function formatPinLabel(node: NetworkMapNode): string | null {
   if (node.type === 'flow_summary') {
-    const match = node.label.match(/^(\d+)\s+connections?\s+on\s+(\d+)$/i);
-    if (match) {
-      return `${match[1]} sessions · :${match[2]}`;
+    const sessionsMatch = node.label.match(/^(\d+)\s+live sessions?$/i);
+    if (sessionsMatch) {
+      return `${sessionsMatch[1]} sessions`;
+    }
+    const portMatch = node.label.match(/^(\d+)\s+connections?\s+on\s+(\d+)$/i);
+    if (portMatch) {
+      return `${portMatch[1]} sessions · :${portMatch[2]}`;
     }
     return shortenLabel(node.label, 20);
   }
@@ -50,10 +51,10 @@ export function formatPinLabel(node: NetworkMapNode, flowViewMode: boolean): str
   if (node.type === 'flow') {
     return shortenLabel(node.label, 18);
   }
-  if (flowViewMode && node.type === 'gateway') {
+  if (node.type === 'gateway') {
     return node.label;
   }
-  if (node.type === 'tunnel' || node.type === 'policy') {
+  if (node.type === 'tunnel') {
     return shortenLabel(node.label, 14);
   }
   return null;
@@ -77,9 +78,17 @@ const FLOW_LANES = [0.1, 0.26, 0.4, 0.62, 0.84] as const;
 const PATH_LANES = [0.08, 0.22, 0.36, 0.5, 0.64, 0.82] as const;
 const ATTRIBUTION_LANES = [0.14, 0.5, 0.86] as const;
 
+export const UNIFIED_LANES = [0.08, 0.22, 0.36, 0.5, 0.66, 0.86] as const;
+
 /** Lane center X positions for force-layout swimlane guides. */
-export function semanticLaneXs(mode: 'attribution' | 'path' | 'flow', width: number): number[] {
+export function semanticLaneXs(mode: 'attribution' | 'path' | 'flow' | 'unified', width: number): number[] {
   const fractions =
-    mode === 'flow' ? FLOW_LANES : mode === 'path' ? PATH_LANES : ATTRIBUTION_LANES;
+    mode === 'unified'
+      ? UNIFIED_LANES
+      : mode === 'flow'
+        ? FLOW_LANES
+        : mode === 'path'
+          ? PATH_LANES
+          : ATTRIBUTION_LANES;
   return fractions.map((f) => f * width);
 }

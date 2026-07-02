@@ -7,9 +7,8 @@ export type PortDestExpansion = 'summary' | 'partial' | 'full';
 export const FLOW_DEST_TOP_N = 5;
 
 export interface FlowDestinationAggregateMeta {
-  /** Original flow node ids grouped by port number. */
-  flowsByPort: Map<number, string[]>;
-  expansionByPort: Record<number, PortDestExpansion>;
+  flowsByHub: Map<string, string[]>;
+  expansionByHub: Record<string, PortDestExpansion>;
 }
 
 export interface AggregatedFlowGraph {
@@ -18,21 +17,17 @@ export interface AggregatedFlowGraph {
   meta: FlowDestinationAggregateMeta;
 }
 
-function summaryNodeId(port: number): string {
-  return `flow_summary:${port}`;
+function summaryNodeId(hubKey: string): string {
+  return `flow_summary:${hubKey}`;
 }
 
-function moreNodeId(port: number): string {
-  return `flow_more:${port}`;
+function moreNodeId(hubKey: string): string {
+  return `flow_more:${hubKey}`;
 }
 
-function portFromNodeId(nodeId: string): number | null {
-  const match = nodeId.match(/^flow_(?:summary|more):(\d+)$/);
-  if (!match) {
-    return null;
-  }
-  const port = Number(match[1]);
-  return Number.isFinite(port) ? port : null;
+function hubKeyFromNodeId(nodeId: string): string | null {
+  const match = nodeId.match(/^flow_(?:summary|more):(.+)$/);
+  return match?.[1] ?? null;
 }
 
 function defaultExpansion(flowCount: number): PortDestExpansion {
@@ -42,122 +37,186 @@ function defaultExpansion(flowCount: number): PortDestExpansion {
   return 'summary';
 }
 
-function resolveExpansion(port: number, flowCount: number, overrides: Record<number, PortDestExpansion>): PortDestExpansion {
-  const chosen = overrides[port] ?? defaultExpansion(flowCount);
+function resolveExpansion(
+  hubKey: string,
+  flowCount: number,
+  overrides: Record<string, PortDestExpansion>,
+): PortDestExpansion {
+  const chosen = overrides[hubKey] ?? defaultExpansion(flowCount);
   if (flowCount <= FLOW_DEST_TOP_N) {
     return 'full';
   }
   return chosen;
 }
 
-function flowsForPort(edges: NetworkMapEdge[], portId: string, flowNodes: Map<string, NetworkMapNode>): NetworkMapNode[] {
-  const ids = edges.filter((e) => e.kind === 'port_to_flow' && e.source === portId).map((e) => e.target);
+function flowsFromHub(
+  edges: NetworkMapEdge[],
+  hubId: string,
+  flowKind: 'port_to_flow' | 'gateway_to_flow',
+  flowNodes: Map<string, NetworkMapNode>,
+): NetworkMapNode[] {
+  const ids = edges.filter((e) => e.kind === flowKind && e.source === hubId).map((e) => e.target);
   return ids
     .map((id) => flowNodes.get(id))
     .filter((node): node is NetworkMapNode => node != null)
     .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-/** Collapse per-port destination flows into summary / top-N / full views. */
+function aggregateHubFlows(
+  hubId: string,
+  hubKey: string,
+  flowKind: 'port_to_flow' | 'gateway_to_flow',
+  flows: NetworkMapNode[],
+  expansion: PortDestExpansion,
+  hiddenFlowIds: Set<string>,
+  keepFlowIds: Set<string>,
+  syntheticNodes: NetworkMapNode[],
+  syntheticEdges: NetworkMapEdge[],
+  summaryLabel: string,
+): void {
+  const count = flows.length;
+  if (count === 0) {
+    return;
+  }
+
+  if (expansion === 'summary') {
+    for (const flow of flows) {
+      hiddenFlowIds.add(flow.id);
+    }
+    syntheticNodes.push({
+      id: summaryNodeId(hubKey),
+      type: 'flow_summary',
+      label: summaryLabel,
+    });
+    syntheticEdges.push({
+      source: hubId,
+      target: summaryNodeId(hubKey),
+      kind: flowKind,
+      query_count: count,
+      blocked_count: 0,
+    });
+    return;
+  }
+
+  if (expansion === 'partial') {
+    const visible = flows.slice(0, FLOW_DEST_TOP_N);
+    const rest = flows.slice(FLOW_DEST_TOP_N);
+    for (const flow of visible) {
+      keepFlowIds.add(flow.id);
+    }
+    for (const flow of rest) {
+      hiddenFlowIds.add(flow.id);
+    }
+    if (rest.length > 0) {
+      syntheticNodes.push({
+        id: moreNodeId(hubKey),
+        type: 'flow_more',
+        label: `+${rest.length} more`,
+      });
+      syntheticEdges.push({
+        source: hubId,
+        target: moreNodeId(hubKey),
+        kind: flowKind,
+        query_count: rest.length,
+        blocked_count: 0,
+      });
+    }
+    return;
+  }
+
+  for (const flow of flows) {
+    keepFlowIds.add(flow.id);
+  }
+}
+
+/** Collapse destination flows into summary / top-N / full views (by port hub or EC2 gateway). */
 export function aggregateFlowDestinations(
   nodes: NetworkMapNode[],
   edges: NetworkMapEdge[],
-  expansionByPort: Record<number, PortDestExpansion> = {},
+  expansionByHub: Record<string, PortDestExpansion> = {},
 ): AggregatedFlowGraph {
   const flowNodes = new Map(nodes.filter((n) => n.type === 'flow').map((n) => [n.id, n]));
   const portNodes = nodes.filter((n) => n.type === 'port');
+  const gatewayNodes = nodes.filter((n) => n.type === 'gateway');
   const hiddenFlowIds = new Set<string>();
 
-  if (portNodes.length === 0 || flowNodes.size === 0) {
+  if (flowNodes.size === 0) {
     return {
       nodes,
       edges,
-      meta: { flowsByPort: new Map(), expansionByPort: {} },
+      meta: { flowsByHub: new Map(), expansionByHub: {} },
     };
   }
 
-  const flowsByPort = new Map<number, string[]>();
-  const effectiveExpansion: Record<number, PortDestExpansion> = {};
-
-  for (const portNode of portNodes) {
-    const portNum = Number(portNode.label);
-    if (!Number.isFinite(portNum)) {
-      continue;
-    }
-    const flows = flowsForPort(edges, portNode.id, flowNodes);
-    flowsByPort.set(
-      portNum,
-      flows.map((f) => f.id),
-    );
-    effectiveExpansion[portNum] = resolveExpansion(portNum, flows.length, expansionByPort);
-  }
-
+  const flowsByHub = new Map<string, string[]>();
+  const effectiveExpansion: Record<string, PortDestExpansion> = {};
   const keepFlowIds = new Set<string>();
   const syntheticNodes: NetworkMapNode[] = [];
   const syntheticEdges: NetworkMapEdge[] = [];
 
-  for (const portNode of portNodes) {
-    const portNum = Number(portNode.label);
-    if (!Number.isFinite(portNum)) {
-      continue;
-    }
-    const flows = flowsForPort(edges, portNode.id, flowNodes);
-    const expansion = effectiveExpansion[portNum];
-    const count = flows.length;
-    if (count === 0) {
-      continue;
-    }
-
-    if (expansion === 'summary') {
-      for (const flow of flows) {
-        hiddenFlowIds.add(flow.id);
+  if (portNodes.length > 0) {
+    for (const portNode of portNodes) {
+      const portNum = Number(portNode.label);
+      if (!Number.isFinite(portNum)) {
+        continue;
       }
-      syntheticNodes.push({
-        id: summaryNodeId(portNum),
-        type: 'flow_summary',
-        label: `${count} connection${count === 1 ? '' : 's'} on ${portNum}`,
-      });
-      syntheticEdges.push({
-        source: portNode.id,
-        target: summaryNodeId(portNum),
-        kind: 'port_to_flow',
-        query_count: count,
-        blocked_count: 0,
-      });
-      continue;
+      const hubKey = String(portNum);
+      const flows = flowsFromHub(edges, portNode.id, 'port_to_flow', flowNodes);
+      flowsByHub.set(
+        hubKey,
+        flows.map((f) => f.id),
+      );
+      effectiveExpansion[hubKey] = resolveExpansion(hubKey, flows.length, expansionByHub);
     }
 
-    if (expansion === 'partial') {
-      const visible = flows.slice(0, FLOW_DEST_TOP_N);
-      const rest = flows.slice(FLOW_DEST_TOP_N);
-      for (const flow of visible) {
-        keepFlowIds.add(flow.id);
+    for (const portNode of portNodes) {
+      const portNum = Number(portNode.label);
+      if (!Number.isFinite(portNum)) {
+        continue;
       }
-      for (const flow of rest) {
-        hiddenFlowIds.add(flow.id);
-      }
-      if (rest.length > 0) {
-        syntheticNodes.push({
-          id: moreNodeId(portNum),
-          type: 'flow_more',
-          label: `+${rest.length} more`,
-        });
-        syntheticEdges.push({
-          source: portNode.id,
-          target: moreNodeId(portNum),
-          kind: 'port_to_flow',
-          query_count: rest.length,
-          blocked_count: 0,
-        });
-      }
-      continue;
+      const hubKey = String(portNum);
+      const flows = flowsFromHub(edges, portNode.id, 'port_to_flow', flowNodes);
+      aggregateHubFlows(
+        portNode.id,
+        hubKey,
+        'port_to_flow',
+        flows,
+        effectiveExpansion[hubKey],
+        hiddenFlowIds,
+        keepFlowIds,
+        syntheticNodes,
+        syntheticEdges,
+        `${flows.length} connection${flows.length === 1 ? '' : 's'} on ${portNum}`,
+      );
     }
-
-    for (const flow of flows) {
-      keepFlowIds.add(flow.id);
+  } else {
+    for (const gateway of gatewayNodes) {
+      const hubKey = `gateway:${gateway.id}`;
+      const flows = flowsFromHub(edges, gateway.id, 'gateway_to_flow', flowNodes);
+      if (flows.length === 0) {
+        continue;
+      }
+      flowsByHub.set(
+        hubKey,
+        flows.map((f) => f.id),
+      );
+      effectiveExpansion[hubKey] = resolveExpansion(hubKey, flows.length, expansionByHub);
+      aggregateHubFlows(
+        gateway.id,
+        hubKey,
+        'gateway_to_flow',
+        flows,
+        effectiveExpansion[hubKey],
+        hiddenFlowIds,
+        keepFlowIds,
+        syntheticNodes,
+        syntheticEdges,
+        `${flows.length} live session${flows.length === 1 ? '' : 's'}`,
+      );
     }
   }
 
+  const flowEdgeKinds = new Set(['port_to_flow', 'gateway_to_flow']);
   const outNodes = [
     ...nodes.filter((n) => n.type !== 'flow' || keepFlowIds.has(n.id)),
     ...syntheticNodes,
@@ -165,7 +224,7 @@ export function aggregateFlowDestinations(
 
   const outEdges = [
     ...edges.filter((e) => {
-      if (e.kind !== 'port_to_flow') {
+      if (!flowEdgeKinds.has(e.kind)) {
         return true;
       }
       if (keepFlowIds.has(e.target)) {
@@ -179,7 +238,6 @@ export function aggregateFlowDestinations(
     ...syntheticEdges,
   ];
 
-  // Deduplicate edges after merge
   const edgeMap = new Map<string, NetworkMapEdge>();
   for (const edge of outEdges) {
     const key = edgeKey(edge);
@@ -198,15 +256,25 @@ export function aggregateFlowDestinations(
   return {
     nodes: outNodes,
     edges: [...edgeMap.values()],
-    meta: { flowsByPort, expansionByPort: effectiveExpansion },
+    meta: { flowsByHub, expansionByHub: effectiveExpansion },
   };
 }
 
-export function parseAggregatePortFromNode(node: NetworkMapNode): number | null {
+export function parseAggregateHubFromNode(node: NetworkMapNode): string | null {
   if (node.type !== 'flow_summary' && node.type !== 'flow_more') {
     return null;
   }
-  return portFromNodeId(node.id);
+  return hubKeyFromNodeId(node.id);
+}
+
+/** @deprecated use parseAggregateHubFromNode */
+export function parseAggregatePortFromNode(node: NetworkMapNode): number | null {
+  const hub = parseAggregateHubFromNode(node);
+  if (hub == null || hub.startsWith('gateway:')) {
+    return null;
+  }
+  const port = Number(hub);
+  return Number.isFinite(port) ? port : null;
 }
 
 export function nextPortDestExpansion(current: PortDestExpansion): PortDestExpansion {

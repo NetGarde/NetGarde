@@ -4,7 +4,7 @@ import { edgeKey } from '../../network-map/utils/whatIfSimulation';
 import { TwinGraphIndex } from '../graph/TwinGraphIndex';
 import { TwinEdge, TwinGraphSnapshot, TwinNode } from '../types/twinGraph';
 
-export type TwinProjectionMode = 'attribution' | 'path' | 'flow';
+export type TwinProjectionMode = 'attribution' | 'path' | 'flow' | 'unified';
 
 const WIREGUARD_ID = 'infra:wireguard';
 const DNS_RESOLVER_ID = 'infra:dns_resolver';
@@ -431,12 +431,238 @@ export function projectFlowGraph(snapshot: TwinGraphSnapshot): NetworkMapRespons
   };
 }
 
+/** Unified digital-twin view: DNS path + live flows, no policy gates or port hubs. */
+export function projectUnifiedGraph(
+  snapshot: TwinGraphSnapshot,
+  attributionOverride?: NetworkMapResponse | null,
+): NetworkMapResponse {
+  const attribution = projectAttributionGraph(snapshot, attributionOverride);
+  const index = new TwinGraphIndex(snapshot);
+  const nodeMap = new Map<string, NetworkMapNode>();
+  const edgeMap = new Map<string, NetworkMapEdge>();
+  const flowParticipantIds = new Set<string>();
+
+  for (const node of attribution.nodes) {
+    nodeMap.set(node.id, node);
+  }
+
+  for (const node of snapshot.nodes) {
+    if (node.entity_type === 'infra_component') {
+      const mapped = twinInfraToMap(node);
+      if (mapped) {
+        nodeMap.set(mapped.id, mapped);
+      }
+    }
+  }
+
+  for (const edge of attribution.edges) {
+    upsertMapEdge(edgeMap, edge);
+  }
+
+  let hasDnsPath = false;
+  for (const edge of attribution.edges) {
+    if (edge.kind !== 'dns' && edge.kind !== 'dns_direct') {
+      continue;
+    }
+    hasDnsPath = true;
+    if (nodeMap.has(WIREGUARD_ID)) {
+      upsertMapEdge(edgeMap, {
+        source: edge.source,
+        target: WIREGUARD_ID,
+        kind: 'path_egress',
+        query_count: edge.query_count,
+        blocked_count: 0,
+      });
+    }
+  }
+  if (hasDnsPath && nodeMap.has(WIREGUARD_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
+    upsertMapEdge(edgeMap, {
+      source: WIREGUARD_ID,
+      target: DNS_RESOLVER_ID,
+      kind: 'path_tunnel',
+      query_count: 0,
+      blocked_count: 0,
+    });
+    for (const edge of attribution.edges) {
+      if (edge.kind !== 'dns' && edge.kind !== 'dns_direct') {
+        continue;
+      }
+      upsertMapEdge(edgeMap, {
+        source: DNS_RESOLVER_ID,
+        target: edge.target,
+        kind: 'path_forward',
+        query_count: edge.query_count,
+        blocked_count: edge.blocked_count,
+      });
+    }
+  }
+
+  const ensureGateway = () => {
+    const gateway = snapshot.nodes.find(
+      (node) => node.entity_type === 'infra_component' && node.properties.kind === 'dns_resolver',
+    );
+    if (!gateway) {
+      return;
+    }
+    nodeMap.set(gateway.id, { id: gateway.id, type: 'gateway', label: 'EC2 DNS' });
+  };
+
+  const ensureTwinNode = (nodeId: string) => {
+    if (nodeMap.has(nodeId)) {
+      return;
+    }
+    const twin = index.nodes.get(nodeId);
+    if (!twin) {
+      return;
+    }
+    if (twin.entity_type === 'device') {
+      nodeMap.set(nodeId, twinDeviceToMap(twin));
+    } else if (twin.entity_type === 'app') {
+      nodeMap.set(nodeId, twinAppToMap(twin));
+    } else if (twin.entity_type === 'domain') {
+      nodeMap.set(nodeId, twinDomainToMap(twin));
+    }
+  };
+
+  const linkViaGatewayToFlow = (
+    sourceId: string,
+    flowId: string,
+    counts: Pick<NetworkMapEdge, 'query_count' | 'blocked_count'>,
+  ) => {
+    ensureGateway();
+    ensureTwinNode(sourceId);
+    flowParticipantIds.add(sourceId);
+    upsertMapEdge(edgeMap, {
+      source: sourceId,
+      target: DNS_RESOLVER_ID,
+      kind: 'flow_via_gateway',
+      ...counts,
+    });
+    upsertMapEdge(edgeMap, {
+      source: DNS_RESOLVER_ID,
+      target: flowId,
+      kind: 'gateway_to_flow',
+      ...counts,
+    });
+  };
+
+  const destLabelByFlow = new Map<string, string>();
+  for (const edge of snapshot.edges) {
+    if (edge.relation !== 'destinates') {
+      continue;
+    }
+    const ipNode = index.nodes.get(edge.target_id);
+    if (ipNode) {
+      destLabelByFlow.set(edge.source_id, ipNode.label);
+    }
+  }
+
+  const flowSessions = snapshot.nodes.filter((node) => node.entity_type === 'flow_session');
+  if (flowSessions.length > 0) {
+    ensureGateway();
+  }
+
+  for (const node of flowSessions) {
+    const port = Number(node.properties.dest_port ?? 0);
+    const ip = destLabelByFlow.get(node.id) ?? String(node.properties.dest_ip ?? '');
+    const destination = port > 0 && ip ? `${ip}:${port}` : ip || node.label;
+    nodeMap.set(node.id, twinFlowSessionToMap(node, destination));
+  }
+
+  for (const edge of snapshot.edges) {
+    if (edge.relation === 'correlates') {
+      const flowId = edge.target_id;
+      const domainId = edge.source_id;
+      if (nodeMap.has(domainId) && nodeMap.has(flowId)) {
+        upsertMapEdge(edgeMap, {
+          source: domainId,
+          target: flowId,
+          kind: 'dns_to_flow',
+          ...edgeCounts(edge),
+        });
+      }
+    }
+    if (edge.relation !== 'opens' && edge.relation !== 'opens_direct' && edge.relation !== 'correlates') {
+      continue;
+    }
+    const flowId = edge.target_id;
+    const flowNode = index.nodes.get(flowId);
+    if (!flowNode || flowNode.entity_type !== 'flow_session') {
+      continue;
+    }
+    const counts = edgeCounts(edge);
+
+    if (edge.relation === 'correlates') {
+      const upstream = snapshot.edges.filter(
+        (item) =>
+          (item.relation === 'queries' || item.relation === 'queries_direct') &&
+          item.target_id === edge.source_id,
+      );
+      if (upstream.length > 0) {
+        for (const dnsEdge of upstream) {
+          linkViaGatewayToFlow(dnsEdge.source_id, flowId, edgeCounts(dnsEdge));
+        }
+      } else {
+        const opener = snapshot.edges.find(
+          (item) =>
+            (item.relation === 'opens' || item.relation === 'opens_direct') &&
+            item.target_id === flowId,
+        );
+        if (opener) {
+          linkViaGatewayToFlow(opener.source_id, flowId, counts);
+        }
+      }
+    } else {
+      linkViaGatewayToFlow(edge.source_id, flowId, counts);
+    }
+  }
+
+  for (const edge of snapshot.edges) {
+    if (edge.relation !== 'runs') {
+      continue;
+    }
+    if (!flowParticipantIds.has(edge.target_id)) {
+      continue;
+    }
+    ensureTwinNode(edge.source_id);
+    ensureTwinNode(edge.target_id);
+    flowParticipantIds.add(edge.source_id);
+    upsertMapEdge(edgeMap, {
+      source: edge.source_id,
+      target: edge.target_id,
+      kind: 'foreground',
+      ...edgeCounts(edge),
+    });
+  }
+
+  const connectedIds = new Set<string>();
+  for (const edge of edgeMap.values()) {
+    connectedIds.add(edge.source);
+    connectedIds.add(edge.target);
+  }
+  for (const nodeId of [...nodeMap.keys()]) {
+    if (!connectedIds.has(nodeId)) {
+      nodeMap.delete(nodeId);
+    }
+  }
+
+  return {
+    generated_at: snapshot.generated_at,
+    minutes: snapshot.window_minutes,
+    nodes: [...nodeMap.values()],
+    edges: [...edgeMap.values()],
+  };
+}
+
 export function projectTwinGraph(
   snapshot: TwinGraphSnapshot,
   mode: TwinProjectionMode,
   attributionOverride?: NetworkMapResponse | null,
 ): NetworkMapResponse {
   const attribution = projectAttributionGraph(snapshot, attributionOverride);
+  if (mode === 'unified') {
+    return projectUnifiedGraph(snapshot, attributionOverride);
+  }
   if (mode === 'attribution') {
     return attribution;
   }
