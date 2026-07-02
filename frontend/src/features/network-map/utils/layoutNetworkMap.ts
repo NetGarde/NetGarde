@@ -26,9 +26,19 @@ const COL_FLOW = {
   flow: 510,
 } as const;
 
+const COL_UNIFIED = {
+  device: 55,
+  app: 145,
+  tunnel: 235,
+  gateway: 325,
+  domain: 415,
+  flow: 505,
+} as const;
+
 export const PATH_LAYOUT_WIDTH = 640;
 export const ATTRIBUTION_LAYOUT_WIDTH = 720;
 export const FLOW_LAYOUT_WIDTH = 580;
+export const UNIFIED_LAYOUT_WIDTH = 580;
 
 export type NetworkMapLayoutStyle = 'columns' | 'force';
 
@@ -73,7 +83,7 @@ function parentKeyForFlow(flowId: string, edges: NetworkMapEdge[]): string {
     if (edge.target !== flowId) {
       continue;
     }
-    if (edge.kind === 'port_to_flow') {
+    if (edge.kind === 'port_to_flow' || edge.kind === 'gateway_to_flow') {
       return edge.source;
     }
     if (edge.kind === 'dns_to_flow' || edge.kind === 'flow_session') {
@@ -109,13 +119,21 @@ export function layoutNetworkMap(
   mode: NetworkMapLayoutMode = 'attribution',
 ): NetworkMapLayout {
   const columns =
-    mode === 'path' ? COL_PATH : mode === 'flow' ? COL_FLOW : COL_ATTRIBUTION;
+    mode === 'unified'
+      ? COL_UNIFIED
+      : mode === 'path'
+        ? COL_PATH
+        : mode === 'flow'
+          ? COL_FLOW
+          : COL_ATTRIBUTION;
   const width =
-    mode === 'path'
-      ? PATH_LAYOUT_WIDTH
-      : mode === 'flow'
-        ? FLOW_LAYOUT_WIDTH
-        : ATTRIBUTION_LAYOUT_WIDTH;
+    mode === 'unified'
+      ? UNIFIED_LAYOUT_WIDTH
+      : mode === 'path'
+        ? PATH_LAYOUT_WIDTH
+        : mode === 'flow'
+          ? FLOW_LAYOUT_WIDTH
+          : ATTRIBUTION_LAYOUT_WIDTH;
 
   const devices = nodes.filter((n) => n.type === 'device').sort((a, b) => a.label.localeCompare(b.label));
   const apps = nodes.filter((n) => n.type === 'app').sort((a, b) => a.label.localeCompare(b.label));
@@ -145,16 +163,18 @@ export function layoutNetworkMap(
     positioned.set(app.id, { ...app, x: columns.app, y: appYs[index] ?? 220 });
   });
 
-  if (mode === 'path') {
+  if (mode === 'path' || mode === 'unified') {
     const spineY = 220;
-    for (const node of infra) {
+    for (const node of infra.filter((n) => n.type !== 'policy')) {
       const x =
         node.type === 'tunnel'
           ? columns.tunnel
           : node.type === 'gateway'
             ? columns.gateway
-            : columns.policy;
-      positioned.set(node.id, { ...node, x, y: spineY });
+            : (columns as typeof COL_PATH).policy;
+      if (x != null) {
+        positioned.set(node.id, { ...node, x, y: spineY });
+      }
     }
   }
 
@@ -167,10 +187,11 @@ export function layoutNetworkMap(
     const parent = positioned.get(parentId);
     const centerY = parent?.y ?? 220;
     const ys = spreadYs(group.length, centerY, MIN_GAP);
+    const domainX = mode === 'unified' ? COL_UNIFIED.domain : columns.domain;
     group.forEach((domain, index) => {
       positioned.set(domain.id, {
         ...domain,
-        x: columns.domain,
+        x: domainX,
         y: nextFreeY(ys[index] ?? centerY, assignedDomainYs, MIN_GAP),
       });
     });
@@ -183,20 +204,22 @@ export function layoutNetworkMap(
     if (!positioned.has(domain.id)) {
       positioned.set(domain.id, {
         ...domain,
-        x: columns.domain,
+        x: mode === 'unified' ? COL_UNIFIED.domain : columns.domain,
         y: nextFreeY(220, assignedDomainYs, MIN_GAP),
       });
     }
   }
 
-  if (mode === 'flow') {
-    const gateways = nodes.filter((n) => n.type === 'gateway');
-    for (const gateway of gateways) {
-      positioned.set(gateway.id, {
-        ...gateway,
-        x: columns.domain,
-        y: 220,
-      });
+  if (mode === 'flow' || mode === 'unified') {
+    if (mode === 'flow') {
+      const gateways = nodes.filter((n) => n.type === 'gateway');
+      for (const gateway of gateways) {
+        positioned.set(gateway.id, {
+          ...gateway,
+          x: columns.domain,
+          y: 220,
+        });
+      }
     }
 
     const assignedPortYs: number[] = [];
@@ -204,7 +227,7 @@ export function layoutNetworkMap(
     ports.forEach((port, index) => {
       positioned.set(port.id, {
         ...port,
-        x: columns.port,
+        x: (columns as typeof COL_FLOW).port,
         y: nextFreeY(portYs[index] ?? 220, assignedPortYs, MIN_GAP),
       });
     });
@@ -217,6 +240,7 @@ export function layoutNetworkMap(
       flowGroups.set(parent, list);
     }
     const assignedFlowYs: number[] = [];
+    const flowColumn = mode === 'unified' ? COL_UNIFIED.flow : (columns as typeof COL_FLOW).flow;
     for (const [parentId, group] of flowGroups.entries()) {
       const parent = positioned.get(parentId);
       const centerY = parent?.y ?? 220;
@@ -224,7 +248,7 @@ export function layoutNetworkMap(
       group.forEach((flow, index) => {
         positioned.set(flow.id, {
           ...flow,
-          x: columns.flow,
+          x: flowColumn,
           y: nextFreeY(ys[index] ?? centerY, assignedFlowYs, MIN_GAP),
         });
       });
@@ -233,7 +257,7 @@ export function layoutNetworkMap(
       if (!positioned.has(flow.id)) {
         positioned.set(flow.id, {
           ...flow,
-          x: columns.flow,
+          x: flowColumn,
           y: nextFreeY(220, assignedFlowYs, MIN_GAP),
         });
       }
@@ -287,6 +311,16 @@ export function shortenLabel(label: string, max = 18): string {
 }
 
 export function pathColumnLabels(mode: NetworkMapLayoutMode): { key: string; label: string }[] {
+  if (mode === 'unified') {
+    return [
+      { key: 'device', label: 'Devices' },
+      { key: 'app', label: 'Processes' },
+      { key: 'tunnel', label: 'WireGuard' },
+      { key: 'gateway', label: 'EC2 DNS' },
+      { key: 'domain', label: 'DNS names' },
+      { key: 'flow', label: 'Sessions' },
+    ];
+  }
   if (mode === 'flow') {
     return [
       { key: 'device', label: 'Devices' },

@@ -22,9 +22,10 @@ export type NetworkMapEdgeKind =
   | 'dns_to_flow'
   | 'to_port'
   | 'port_to_flow'
+  | 'gateway_to_flow'
   | 'flow_via_gateway';
 
-export type NetworkMapLayoutMode = 'attribution' | 'path' | 'flow';
+export type NetworkMapLayoutMode = 'attribution' | 'path' | 'flow' | 'unified';
 
 export interface NetworkMapNode {
   id: string;

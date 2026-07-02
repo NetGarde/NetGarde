@@ -38,6 +38,19 @@ function semanticAnchorX(node: NetworkMapNode, mode: NetworkMapLayoutMode, canva
     };
     return canvasW * (lane[node.type] ?? 0.5);
   }
+  if (mode === 'unified') {
+    const lane: Partial<Record<NetworkMapNode['type'], number>> = {
+      device: 0.08,
+      app: 0.22,
+      tunnel: 0.36,
+      gateway: 0.5,
+      domain: 0.66,
+      flow: 0.86,
+      flow_summary: 0.86,
+      flow_more: 0.8,
+    };
+    return canvasW * (lane[node.type] ?? 0.5);
+  }
   if (mode === 'path') {
     const lane: Partial<Record<NetworkMapNode['type'], number>> = {
       device: 0.08,
@@ -103,7 +116,7 @@ export function layoutForceDirected(
 
   const repulsion = 5200;
   const linkStrength = 0.07;
-  const idealLinkLength = mode === 'flow' ? 72 : 88;
+  const idealLinkLength = mode === 'flow' || mode === 'unified' ? 72 : 88;
   const centerPull = 0.008;
   const lanePull = 0.035;
   const damping = 0.84;

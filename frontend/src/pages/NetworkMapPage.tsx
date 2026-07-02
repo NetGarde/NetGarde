@@ -28,11 +28,11 @@ export default function NetworkMapPage() {
             Network map
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            See which foreground process on each device triggered recent DNS and network activity.
+            Live digital twin: devices, processes, DNS names, WireGuard tunnel, EC2 gateway, and open sessions.
           </Typography>
         </Box>
         <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ flexShrink: 0 }}>
-          <Chip size="small" variant="outlined" icon={<HubIcon />} label="Attribution view" />
+          <Chip size="small" variant="outlined" icon={<HubIcon />} label="Unified graph" />
         </Stack>
       </Stack>
 
@@ -41,17 +41,16 @@ export default function NetworkMapPage() {
           How to read this map
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          TrustEdge correlates live DNS queries with the macOS foreground app reported by the VPN client.
-          Each arc is logical attribution—not a packet capture—but it answers:{' '}
-          <em>which app was active when this DNS lookup happened?</em>
-          Toggle <strong>Path view</strong> to see the full logical DNS journey through WireGuard, TrustEdge DNS,
-          and policy. Use <strong>What-if</strong> to simulate disabling a process.
+          One graph shows the full picture: which app on which device queried which DNS name, how traffic
+          crosses WireGuard to EC2 DNS, and which remote IP:port sessions are open. Session pins aggregate
+          when there are many (click to expand). Use <strong>What-if</strong> to simulate disabling a process.
         </Typography>
         <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>
-          <Chip size="small" variant="outlined" label="Teal device = endpoint" />
-          <Chip size="small" variant="outlined" label="Center = process icon" />
-          <Chip size="small" variant="outlined" label="Right = DNS destination" />
-          <Chip size="small" variant="outlined" label="Path view = WireGuard → DNS → policy" />
+          <Chip size="small" variant="outlined" label="Teal = device" />
+          <Chip size="small" variant="outlined" label="Process icon = foreground app" />
+          <Chip size="small" variant="outlined" label="Purple = WireGuard" />
+          <Chip size="small" variant="outlined" label="Blue = EC2 DNS gateway" />
+          <Chip size="small" variant="outlined" label="DNS name or IP:port session" />
           <Chip
             size="small"
             variant="outlined"
@@ -61,7 +60,7 @@ export default function NetworkMapPage() {
           <Chip
             size="small"
             variant="outlined"
-            label="Red destination = blocked query"
+            label="Red = blocked DNS"
             sx={{ borderColor: 'error.main', color: 'error.main' }}
           />
         </Stack>
