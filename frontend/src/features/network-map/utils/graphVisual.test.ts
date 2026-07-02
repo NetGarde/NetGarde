@@ -20,8 +20,13 @@ describe('formatPinLabel', () => {
     expect(formatPinLabel(node)).toBe('12 sessions · :443');
   });
 
-  it('formats flow IP:port label', () => {
-    const node: NetworkMapNode = { id: 'flow:1', type: 'flow', label: '93.184.216.34:443' };
-    expect(formatPinLabel(node)).toBe('93.184.216.34:443');
+  it('formats port with colon prefix', () => {
+    const node: NetworkMapNode = { id: 'port:443', type: 'port', label: '443' };
+    expect(formatPinLabel(node)).toBe(':443');
+  });
+
+  it('formats flow IP label', () => {
+    const node: NetworkMapNode = { id: 'flow:1', type: 'flow', label: '93.184.216.34' };
+    expect(formatPinLabel(node)).toBe('93.184.216.34');
   });
 });
