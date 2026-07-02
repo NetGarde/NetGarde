@@ -62,3 +62,42 @@ export async function traverseTwinGraph(
   }
   return res.json() as Promise<TraverseResponse>;
 }
+
+export interface SimulationCommandRequest {
+  prompt: string;
+  active_ports?: number[];
+  active_apps?: string[];
+}
+
+export interface SimulationCommandResponse {
+  action:
+    | 'block_port'
+    | 'unblock_port'
+    | 'clear_simulation'
+    | 'enable_what_if'
+    | 'noop'
+    | 'unknown';
+  port?: number | null;
+  app_slug?: string | null;
+  message: string;
+  source: 'rules' | 'ollama';
+}
+
+export async function parseSimulationCommand(
+  body: SimulationCommandRequest,
+): Promise<SimulationCommandResponse> {
+  const res = await fetch(`${API_BASE_URL}/twin/simulate/command`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...getAdminAuthHeaders(),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Request failed: ${res.status}`);
+  }
+  return res.json() as Promise<SimulationCommandResponse>;
+}

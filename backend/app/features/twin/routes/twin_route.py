@@ -11,11 +11,13 @@ from app.features.twin.graph.schemas import (
     TwinLayer,
     TwinRelation,
 )
+from app.features.twin.schemas.simulation_command import SimulationCommandRequest, SimulationCommandResponse
 from app.features.twin.schemas.twin_simulation import (
     PackToggleSimulationRequest,
     PackToggleSimulationResponse,
 )
 from app.features.twin.services.pack_toggle_simulation_service import PackToggleSimulationService
+from app.features.twin.services.simulation_command_service import SimulationCommandService
 from app.features.twin.services.twin_graph_service import TwinGraphService
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
@@ -99,3 +101,12 @@ def simulate_pack_toggle(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/simulate/command", response_model=SimulationCommandResponse)
+def simulate_command(
+    body: SimulationCommandRequest,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Parse natural-language what-if commands (rules first, Ollama fallback)."""
+    return SimulationCommandService().parse(body)

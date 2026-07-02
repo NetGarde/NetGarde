@@ -1,4 +1,14 @@
-export type NetworkMapNodeType = 'device' | 'app' | 'domain' | 'flow' | 'port' | 'tunnel' | 'gateway' | 'policy';
+export type NetworkMapNodeType =
+  | 'device'
+  | 'app'
+  | 'domain'
+  | 'flow'
+  | 'flow_summary'
+  | 'flow_more'
+  | 'port'
+  | 'tunnel'
+  | 'gateway'
+  | 'policy';
 
 export type NetworkMapEdgeKind =
   | 'foreground'

@@ -120,7 +120,9 @@ export function layoutNetworkMap(
   const devices = nodes.filter((n) => n.type === 'device').sort((a, b) => a.label.localeCompare(b.label));
   const apps = nodes.filter((n) => n.type === 'app').sort((a, b) => a.label.localeCompare(b.label));
   const domains = nodes.filter((n) => n.type === 'domain').sort((a, b) => a.label.localeCompare(b.label));
-  const flows = nodes.filter((n) => n.type === 'flow').sort((a, b) => a.label.localeCompare(b.label));
+  const flows = nodes.filter(
+    (n) => n.type === 'flow' || n.type === 'flow_summary' || n.type === 'flow_more',
+  ).sort((a, b) => a.label.localeCompare(b.label));
   const ports = nodes.filter((n) => n.type === 'port').sort((a, b) => Number(a.label) - Number(b.label));
   const infra = nodes.filter((n) => n.type === 'tunnel' || n.type === 'gateway' || n.type === 'policy');
 
