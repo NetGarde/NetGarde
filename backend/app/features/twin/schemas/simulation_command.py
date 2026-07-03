@@ -13,6 +13,10 @@ class SimulationCommandResponse(BaseModel):
     action: Literal[
         "block_port",
         "unblock_port",
+        "block_tunnel",
+        "unblock_tunnel",
+        "block_gateway",
+        "unblock_gateway",
         "clear_simulation",
         "enable_what_if",
         "noop",

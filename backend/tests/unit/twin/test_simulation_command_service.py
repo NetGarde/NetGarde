@@ -35,3 +35,19 @@ def test_rules_unblock_port():
     assert result.action == "unblock_port"
     assert result.port == 53
     assert result.source == "rules"
+
+
+def test_rules_block_wireguard():
+    result = SimulationCommandService().parse(
+        SimulationCommandRequest(prompt="block wireguard", active_ports=[]),
+    )
+    assert result.action == "block_tunnel"
+    assert result.source == "rules"
+
+
+def test_rules_block_gateway():
+    result = SimulationCommandService().parse(
+        SimulationCommandRequest(prompt="block ec2 dns", active_ports=[]),
+    )
+    assert result.action == "block_gateway"
+    assert result.source == "rules"

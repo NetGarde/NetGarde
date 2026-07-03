@@ -62,6 +62,37 @@ def _rules_parse(prompt: str, active_ports: list[int]) -> Optional[SimulationCom
                 source="rules",
             )
 
+    if re.search(r"\b(?:block|deny|drop|stop)\s+(?:wireguard|wire\s*guard|vpn(?:\s+tunnel)?|the\s+tunnel)\b", text):
+        return SimulationCommandResponse(
+            action="block_tunnel",
+            message="Simulate WireGuard tunnel down — DNS and VPN egress paths cut.",
+            source="rules",
+        )
+
+    if re.search(r"\bunblock\s+(?:wireguard|wire\s*guard|vpn(?:\s+tunnel)?|the\s+tunnel)\b", text):
+        return SimulationCommandResponse(
+            action="unblock_tunnel",
+            message="Restore simulated WireGuard tunnel.",
+            source="rules",
+        )
+
+    if re.search(
+        r"\b(?:block|deny|drop|stop)\s+(?:ec2\s+dns|dns\s+gateway|dns\s+resolver|the\s+gateway|gateway)\b",
+        text,
+    ):
+        return SimulationCommandResponse(
+            action="block_gateway",
+            message="Simulate EC2 DNS gateway failure — port and session paths cut.",
+            source="rules",
+        )
+
+    if re.search(r"\bunblock\s+(?:ec2\s+dns|dns\s+gateway|gateway)\b", text):
+        return SimulationCommandResponse(
+            action="unblock_gateway",
+            message="Restore simulated EC2 DNS gateway.",
+            source="rules",
+        )
+
     only_port = re.search(r"\b(\d{1,5})\b", text)
     if only_port and re.search(r"\b(block|deny|drop|simulate)\b", text):
         port = int(only_port.group(1))
@@ -97,7 +128,10 @@ def _ollama_parse(body: SimulationCommandRequest) -> SimulationCommandResponse:
     )
     system = (
         "You translate network operator commands into JSON for a VPN digital twin simulator. "
-        "Allowed actions: block_port, unblock_port, clear_simulation, enable_what_if, noop, unknown. "
+        "Allowed actions: block_port, unblock_port, block_tunnel, unblock_tunnel, "
+        "block_gateway, unblock_gateway, clear_simulation, enable_what_if, noop, unknown. "
+        "Use block_tunnel for wireguard/vpn/tunnel down. "
+        "Use block_gateway for EC2 DNS / gateway failure. "
         "Use block_port with port number for port blocks. "
         "Use clear_simulation for reset/clear/unblock all. "
         "Use enable_what_if when user wants simulation mode without a specific target. "
@@ -135,7 +169,10 @@ def _ollama_parse(body: SimulationCommandRequest) -> SimulationCommandResponse:
 
     parsed = json.loads(content)
     action = str(parsed.get("action") or "unknown")
-    allowed = {"block_port", "unblock_port", "clear_simulation", "enable_what_if", "noop", "unknown"}
+    allowed = {
+        "block_port", "unblock_port", "block_tunnel", "unblock_tunnel",
+        "block_gateway", "unblock_gateway", "clear_simulation", "enable_what_if", "noop", "unknown",
+    }
     if action not in allowed:
         action = "unknown"
 
