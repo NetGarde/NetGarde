@@ -34,6 +34,10 @@ import {
   toggleDisabledPortNumber,
 } from '../utils/portWhatIfSimulation';
 import {
+  computeTunnelWhatIfSimulation,
+  TunnelWhatIfSimulationResult,
+} from '../utils/tunnelWhatIfSimulation';
+import {
   aggregateFlowDestinations,
   nextPortDestExpansion,
   parseAggregateHubFromNode,
@@ -71,12 +75,15 @@ interface MapNodeGlyphProps {
   node: PositionedNode;
   whatIfMode: boolean;
   portDisabled: boolean;
+  infraDisabled: boolean;
   appDisabled: boolean;
   simulatedBlocked: boolean;
   selected: boolean;
   onSelectApp?: (nodeId: string) => void;
   onSelectDomain?: (nodeId: string) => void;
   onSelectPort?: (port: number) => void;
+  onSelectTunnel?: () => void;
+  onSelectGateway?: () => void;
   onExpandFlowAggregate?: (node: NetworkMapNode) => void;
 }
 
@@ -84,12 +91,15 @@ function MapNodeGlyph({
   node,
   whatIfMode,
   portDisabled,
+  infraDisabled,
   appDisabled,
   simulatedBlocked,
   selected,
   onSelectApp,
   onSelectDomain,
   onSelectPort,
+  onSelectTunnel,
+  onSelectGateway,
   onExpandFlowAggregate,
 }: MapNodeGlyphProps) {
   const theme = useTheme();
@@ -104,7 +114,7 @@ function MapNodeGlyph({
 
   const isInfra = node.type === 'tunnel' || node.type === 'gateway' || node.type === 'policy';
 
-  const ring = appDisabled || portDisabled
+  const ring = appDisabled || portDisabled || infraDisabled
     ? theme.palette.error.main
     : selected
       ? theme.palette.info.main
@@ -146,14 +156,23 @@ function MapNodeGlyph({
   if (whatIfMode && node.type === 'port') {
     tooltipParts.push(portDisabled ? 'Click to unblock in what-if' : 'Click to simulate blocking this port');
   }
+  if (whatIfMode && node.type === 'tunnel') {
+    tooltipParts.push(infraDisabled ? 'Click to restore tunnel in what-if' : 'Click to simulate tunnel down');
+  }
+  if (whatIfMode && node.type === 'gateway') {
+    tooltipParts.push(infraDisabled ? 'Click to restore gateway in what-if' : 'Click to simulate EC2 DNS failure');
+  }
   if (node.type === 'domain') {
     tooltipParts.push('Click to inspect DNS path');
   }
 
   const selectableApp = whatIfMode && node.type === 'app';
   const selectablePort = whatIfMode && node.type === 'port';
+  const selectableTunnel = whatIfMode && node.type === 'tunnel';
+  const selectableGateway = whatIfMode && node.type === 'gateway';
   const selectableDomain = node.type === 'domain';
   const expandableAggregate = node.type === 'flow_summary' || node.type === 'flow_more';
+  const disabledVisual = appDisabled || portDisabled || infraDisabled;
   const pinLabel = formatPinLabel(node);
   const showBadge = visual.showBadge && pinLabel != null;
   const badgeWidth = showBadge ? estimateBadgeWidth(pinLabel!, visual.badgeMonospace) : 0;
@@ -163,8 +182,16 @@ function MapNodeGlyph({
     <g
       transform={`translate(${node.x}, ${node.y})`}
       style={{
-        cursor: selectableApp || selectableDomain || selectablePort || expandableAggregate ? 'pointer' : 'default',
-        opacity: appDisabled || portDisabled ? 0.45 : 1,
+        cursor:
+          selectableApp ||
+          selectableDomain ||
+          selectablePort ||
+          selectableTunnel ||
+          selectableGateway ||
+          expandableAggregate
+            ? 'pointer'
+            : 'default',
+        opacity: disabledVisual ? 0.45 : 1,
       }}
       filter="url(#network-map-node-shadow)"
       onClick={
@@ -174,9 +201,13 @@ function MapNodeGlyph({
             ? () => onSelectDomain?.(node.id)
             : selectablePort
               ? () => onSelectPort?.(Number(node.label))
-              : expandableAggregate
-                ? () => onExpandFlowAggregate?.(node)
-                : undefined
+              : selectableTunnel
+                ? () => onSelectTunnel?.()
+                : selectableGateway
+                  ? () => onSelectGateway?.()
+                  : expandableAggregate
+                    ? () => onExpandFlowAggregate?.(node)
+                    : undefined
       }
     >
       <title>{tooltipParts.join(' · ')}</title>
@@ -185,9 +216,9 @@ function MapNodeGlyph({
         fill={theme.palette.background.paper}
         stroke={ring}
         strokeWidth={
-          selected ? 2 : appDisabled || portDisabled ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
+          selected ? 2 : disabledVisual ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
         }
-        strokeDasharray={appDisabled || portDisabled ? '4 3' : undefined}
+        strokeDasharray={disabledVisual ? '4 3' : undefined}
       />
       <circle r={nodeR} fill={style.bg} stroke={alpha(style.color, 0.35)} strokeWidth={1} />
       {isInfra && (
@@ -198,7 +229,7 @@ function MapNodeGlyph({
           strokeWidth={1}
         />
       )}
-      {appDisabled && (
+      {(appDisabled || infraDisabled) && (
         <line
           x1={-nodeR}
           y1={-nodeR}
@@ -315,9 +346,13 @@ function isEdgeSimulatedCut(
   edge: NetworkMapEdge,
   whatIf: WhatIfSimulationResult | null,
   portWhatIf: PortWhatIfSimulationResult | null,
+  tunnelWhatIf: TunnelWhatIfSimulationResult | null,
 ): boolean {
-  if (portWhatIf) {
-    return portWhatIf.disabledEdgeKeys.has(edgeKey(edge));
+  if (tunnelWhatIf?.disabledEdgeKeys.has(edgeKey(edge))) {
+    return true;
+  }
+  if (portWhatIf?.disabledEdgeKeys.has(edgeKey(edge))) {
+    return true;
   }
   if (!whatIf) {
     return false;
@@ -394,6 +429,8 @@ export default function NetworkAttributionMapGraph({
   const [graphLayout, setGraphLayout] = useState<NetworkMapLayoutStyle>('force');
   const [disabledAppIds, setDisabledAppIds] = useState<Set<string>>(new Set());
   const [disabledPortNumbers, setDisabledPortNumbers] = useState<Set<number>>(new Set());
+  const [tunnelBlocked, setTunnelBlocked] = useState(false);
+  const [gatewayBlocked, setGatewayBlocked] = useState(false);
   const [flowDestExpansion, setFlowDestExpansion] = useState<Record<string, PortDestExpansion>>({});
   const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
 
@@ -445,6 +482,13 @@ export default function NetworkAttributionMapGraph({
     return computePortWhatIfSimulation(graphData.nodes, graphData.edges, disabledPortNumbers);
   }, [graphData, whatIfMode, disabledPortNumbers]);
 
+  const tunnelWhatIf = useMemo(() => {
+    if (!graphData || !whatIfMode) {
+      return null;
+    }
+    return computeTunnelWhatIfSimulation(graphData.edges, tunnelBlocked, gatewayBlocked);
+  }, [graphData, whatIfMode, tunnelBlocked, gatewayBlocked]);
+
   const activePortNumbers = useMemo(
     () => (graphData ? listActivePortNumbers(graphData.nodes) : []),
     [graphData],
@@ -479,6 +523,8 @@ export default function NetworkAttributionMapGraph({
     if (!enabled) {
       setDisabledAppIds(new Set());
       setDisabledPortNumbers(new Set());
+      setTunnelBlocked(false);
+      setGatewayBlocked(false);
     }
   };
 
@@ -487,12 +533,22 @@ export default function NetworkAttributionMapGraph({
   };
 
   const handleSimulationCommand = (response: SimulationCommandResponse) => {
-    if (response.action === 'enable_what_if' || response.action === 'block_port' || response.action === 'unblock_port') {
+    const enablesWhatIf =
+      response.action === 'enable_what_if' ||
+      response.action === 'block_port' ||
+      response.action === 'unblock_port' ||
+      response.action === 'block_tunnel' ||
+      response.action === 'unblock_tunnel' ||
+      response.action === 'block_gateway' ||
+      response.action === 'unblock_gateway';
+    if (enablesWhatIf) {
       setWhatIfMode(true);
     }
     if (response.action === 'clear_simulation') {
       setDisabledPortNumbers(new Set());
       setDisabledAppIds(new Set());
+      setTunnelBlocked(false);
+      setGatewayBlocked(false);
       return;
     }
     if (response.action === 'block_port' && response.port != null) {
@@ -504,6 +560,18 @@ export default function NetworkAttributionMapGraph({
         next.delete(response.port!);
         return next;
       });
+    }
+    if (response.action === 'block_tunnel') {
+      setTunnelBlocked(true);
+    }
+    if (response.action === 'unblock_tunnel') {
+      setTunnelBlocked(false);
+    }
+    if (response.action === 'block_gateway') {
+      setGatewayBlocked(true);
+    }
+    if (response.action === 'unblock_gateway') {
+      setGatewayBlocked(false);
     }
   };
 
@@ -641,6 +709,27 @@ export default function NetworkAttributionMapGraph({
         Digital twin graph: device → process → WireGuard → EC2 DNS → port → DNS name or session IP.
         Many sessions aggregate per port (click hub to expand). Policy gates are hidden.
       </Alert>
+
+      {whatIfMode && (tunnelBlocked || gatewayBlocked) && (
+        <Alert severity="warning" sx={{ mb: 1.5 }} icon={<ScienceIcon fontSize="small" />}>
+          {tunnelBlocked && <>Simulating WireGuard tunnel down</>}
+          {tunnelBlocked && gatewayBlocked && ' · '}
+          {gatewayBlocked && <>Simulating EC2 DNS gateway failure</>}
+          {' · '}
+          {tunnelWhatIf?.affectedPathCount ?? 0} path edge
+          {(tunnelWhatIf?.affectedPathCount ?? 0) === 1 ? '' : 's'} cut
+          <Button
+            size="small"
+            sx={{ ml: 1, mt: { xs: 1, sm: 0 } }}
+            onClick={() => {
+              setTunnelBlocked(false);
+              setGatewayBlocked(false);
+            }}
+          >
+            Restore infra
+          </Button>
+        </Alert>
+      )}
 
       {whatIfMode && disabledPortNumbers.size > 0 && (
         <Alert severity="info" sx={{ mb: 1.5 }} icon={<ScienceIcon fontSize="small" />}>
@@ -804,7 +893,7 @@ export default function NetworkAttributionMapGraph({
               if (!from || !to) {
                 return null;
               }
-              const simulatedCut = isEdgeSimulatedCut(edge, whatIf, portWhatIf);
+              const simulatedCut = isEdgeSimulatedCut(edge, whatIf, portWhatIf, tunnelWhatIf);
               const animated =
                 !simulatedCut &&
                 (edge.kind === 'dns' ||
@@ -880,6 +969,10 @@ export default function NetworkAttributionMapGraph({
                         return port != null && disabledPortNumbers.has(port);
                       })()))
                 }
+                infraDisabled={
+                  whatIfMode &&
+                  ((node.type === 'tunnel' && tunnelBlocked) || (node.type === 'gateway' && gatewayBlocked))
+                }
                 appDisabled={whatIfMode && disabledAppIds.has(node.id)}
                 simulatedBlocked={
                   (whatIf?.simulatedBlockedDomainIds.has(node.id) ?? false) ||
@@ -889,6 +982,8 @@ export default function NetworkAttributionMapGraph({
                 onSelectApp={handleToggleApp}
                 onSelectDomain={handleDomainSelect}
                 onSelectPort={handleTogglePort}
+                onSelectTunnel={() => setTunnelBlocked((prev) => !prev)}
+                onSelectGateway={() => setGatewayBlocked((prev) => !prev)}
                 onExpandFlowAggregate={handleExpandFlowAggregate}
               />
             ))}

@@ -20,6 +20,7 @@ from app.features.network_flows.services.flow_store import StoredFlow, list_rece
 from app.features.policy.repositories.policy_repository import PolicyRepository
 from app.features.policy.services.policy_dns_service import PolicyDnsService
 from app.features.twin.graph.ids import (
+    app_id,
     device_id,
     domain_id,
     edge_id,
@@ -33,6 +34,7 @@ from app.features.twin.graph.ids import (
 )
 from app.features.twin.graph.model import TwinGraph
 from app.features.twin.graph.schemas import TwinEdge, TwinGraphSnapshot, TwinLayer, TwinNode
+from app.features.twin.services import trusttwin_store
 from app.shared.config import settings
 from app.shared.domain_utils import extract_root_domain
 
@@ -71,6 +73,7 @@ class TwinGraphBuilder:
         minutes: int = 1,
         include_flows: bool = True,
         include_policy: bool = True,
+        include_trusttwin: bool = True,
     ) -> TwinGraphSnapshot:
         attribution = NetworkAttributionService(self.db)
         base_map = attribution.build_map(minutes=minutes)
@@ -80,6 +83,9 @@ class TwinGraphBuilder:
         self._ingest_observed_map(base_map)
         if include_flows and settings.NETWORK_FLOWS_ENABLED:
             self._ingest_flow_resolutions(minutes=minutes)
+        trusttwin_count = 0
+        if include_trusttwin:
+            trusttwin_count = self._ingest_trusttwin()
         self._ingest_infra_topology()
         if include_policy:
             self._ingest_policy_layer()
@@ -100,6 +106,8 @@ class TwinGraphBuilder:
             meta={
                 "include_flows": include_flows and settings.NETWORK_FLOWS_ENABLED,
                 "include_policy": include_policy,
+                "include_trusttwin": include_trusttwin,
+                "trusttwin_devices": trusttwin_count,
                 "node_count": len(self.state.nodes),
                 "edge_count": len(self.state.edges),
                 "layer_counts": layer_counts,
@@ -418,12 +426,105 @@ class TwinGraphBuilder:
         for node in self.state.nodes.values():
             if node.entity_type != "device":
                 continue
+            # TrustTwin host agents are telemetry-only (no VPN path).
+            if node.properties.get("source") == "trusttwin":
+                continue
             self._upsert_edge(
                 relation="routed_via",
                 source_id=node.id,
                 target_id=infra_id("wireguard"),
                 layer="desired",
             )
+
+    def _ingest_trusttwin(self) -> int:
+        """Merge live TrustTwin agent state from Redis into the observed layer."""
+        devices = trusttwin_store.list_latest()
+        for rec in devices:
+            node_id = trusttwin_store.twin_device_node_id(rec.device_id)
+            details = rec.client_details
+            network = rec.network_summary
+            action = rec.action_summary
+            hostname = str(details.get("hostname") or rec.device_id)
+            props: dict = {
+                "source": "trusttwin",
+                "trusttwin_device_id": rec.device_id,
+            }
+            for key in (
+                "hostname",
+                "os",
+                "os_version",
+                "arch",
+                "agent_version",
+                "timezone",
+                "status",
+                "uptime_sec",
+            ):
+                if key in details and details[key] is not None:
+                    props[key] = details[key]
+            for key in (
+                "public_ip",
+                "network_type",
+                "listening_count",
+                "established_count",
+                "top_remote_ports",
+                "foreground_app_connections",
+            ):
+                if key in network and network[key] is not None:
+                    props[key] = network[key]
+            for key in ("presence", "idle_sec", "app_switches"):
+                if key in action and action[key] is not None:
+                    props[key] = action[key]
+
+            self._upsert_node(
+                TwinNode(
+                    id=node_id,
+                    entity_type="device",
+                    layer="observed",
+                    label=hostname,
+                    properties=props,
+                    last_seen_at=rec.last_seen_at,
+                    stale=False,
+                )
+            )
+
+            focus = action.get("focus")
+            if not isinstance(focus, list):
+                continue
+            for entry in focus:
+                if not isinstance(entry, dict):
+                    continue
+                slug = trusttwin_store.app_slug_from_focus(entry)
+                app_nid = app_id(slug)
+                app_label = str(entry.get("app_name") or slug)
+                app_props: dict = {"source": "trusttwin", "app_slug": slug}
+                if entry.get("bundle_id"):
+                    app_props["bundle_id"] = entry["bundle_id"]
+                if entry.get("category"):
+                    app_props["category"] = entry["category"]
+                self._upsert_node(
+                    TwinNode(
+                        id=app_nid,
+                        entity_type="app",
+                        layer="observed",
+                        label=app_label,
+                        properties=app_props,
+                        last_seen_at=rec.last_seen_at,
+                    )
+                )
+                duration = entry.get("duration_sec")
+                try:
+                    weight = float(duration) if duration is not None else 1.0
+                except (TypeError, ValueError):
+                    weight = 1.0
+                self._upsert_edge(
+                    relation="runs",
+                    source_id=node_id,
+                    target_id=app_nid,
+                    layer="observed",
+                    weight=max(weight, 0.0),
+                    properties={"duration_sec": weight},
+                )
+        return len(devices)
 
     def _ingest_policy_layer(self) -> None:
         policy_repo = PolicyRepository(self.db)

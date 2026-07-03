@@ -34,6 +34,7 @@ def graph_snapshot(
     minutes: int = Query(default=1, ge=1, le=60),
     include_flows: bool = Query(default=True),
     include_policy: bool = Query(default=True),
+    include_trusttwin: bool = Query(default=True),
     _: None = Depends(verify_admin_api_token),
     service: TwinGraphService = Depends(get_twin_graph_service),
 ):
@@ -42,6 +43,7 @@ def graph_snapshot(
         minutes=minutes,
         include_flows=include_flows,
         include_policy=include_policy,
+        include_trusttwin=include_trusttwin,
     )
 
 
@@ -51,6 +53,7 @@ def graph_traverse(
     minutes: int = Query(default=1, ge=1, le=60),
     include_flows: bool = Query(default=True),
     include_policy: bool = Query(default=True),
+    include_trusttwin: bool = Query(default=True),
     _: None = Depends(verify_admin_api_token),
     service: TwinGraphService = Depends(get_twin_graph_service),
 ):
@@ -60,6 +63,7 @@ def graph_traverse(
         minutes=minutes,
         include_flows=include_flows,
         include_policy=include_policy,
+        include_trusttwin=include_trusttwin,
     )
 
 
@@ -72,6 +76,7 @@ def graph_neighbors(
     minutes: int = Query(default=1, ge=1, le=60),
     include_flows: bool = Query(default=True),
     include_policy: bool = Query(default=True),
+    include_trusttwin: bool = Query(default=True),
     _: None = Depends(verify_admin_api_token),
     service: TwinGraphService = Depends(get_twin_graph_service),
 ):
@@ -84,6 +89,7 @@ def graph_neighbors(
         minutes=minutes,
         include_flows=include_flows,
         include_policy=include_policy,
+        include_trusttwin=include_trusttwin,
     )
 
 
