@@ -90,6 +90,45 @@ services:
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
       "
 
+  redpanda:
+    image: redpandadata/redpanda:v24.2.4
+    container_name: trustedge-redpanda
+    command:
+      - redpanda
+      - start
+      - --mode
+      - dev-container
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:19092
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: always
+
+  detection-engine:
+    build:
+      context: ./detection-engine
+      dockerfile: Dockerfile
+    container_name: trustedge-detection-engine
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC: trusttwin.events
+      KAFKA_GROUP_ID: detection-engine
+      LOG_JSON: "1"
+      LOG_LEVEL: INFO
+      LOG_SERVICE: detection-engine
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: always
+
   trusttwin-api:
     profiles: ["trusttwin"]
     image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:missing}
@@ -102,10 +141,14 @@ services:
       TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:-}
       TRUSTTWIN_PRODUCTION: ${TRUSTTWIN_PRODUCTION:-1}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_TOPIC: trusttwin.events
     volumes:
       - trusttwin-data:/data
     depends_on:
       redis:
+        condition: service_healthy
+      redpanda:
         condition: service_healthy
     restart: always
     healthcheck:
@@ -153,4 +196,5 @@ volumes:
   ollama-data:
   policy-pack-snapshots:
   trusttwin-data:
+  redpanda-data:
 

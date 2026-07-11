@@ -37,6 +37,12 @@
             "log_group_name": "/trustedge/prod/dns-sync",
             "log_stream_name": "{instance_id}/dns-sync",
             "retention_in_days": 14
+          },
+          {
+            "docker_container": "trustedge-detection-engine",
+            "log_group_name": "/trustedge/prod/detection-engine",
+            "log_stream_name": "{instance_id}/detection-engine",
+            "retention_in_days": 14
           }
         ]
       }
