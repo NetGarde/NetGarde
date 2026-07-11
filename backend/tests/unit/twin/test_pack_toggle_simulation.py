@@ -6,7 +6,7 @@ from app.features.twin.services.pack_toggle_simulation_service import PackToggle
 from tests.helpers.factories import create_vpn_device, seed_policy_catalog
 
 
-def test_build_dns_sync_respects_global_pack_overrides(db_session):
+def test_build_dns_sync_respects_global_pack_overrides(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     create_vpn_device(db_session, mac_address="11:22:33:44:55:66")
     svc = PolicyDnsService(db_session)
@@ -25,7 +25,7 @@ def test_root_matches_block_set():
     assert not root_matches_block_set("google.com", blocks)
 
 
-def test_simulate_enabling_social_pack(db_session):
+def test_simulate_enabling_social_pack(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     device, lease = create_vpn_device(db_session, mac_address="11:22:33:44:55:66")
     now = datetime.now(timezone.utc)

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from app.features.dns_queries.models.domain_first_seen import DomainFirstSeen
 
 
-def test_simulate_pack_toggle_enable_social(api_client, seed_policy, vpn_device):
+def test_simulate_pack_toggle_enable_social(api_client, seed_policy, vpn_device, dns_blocking_env):
     response = api_client.post(
         "/twin/simulate/pack-toggle",
         json={"pack_slug": "social", "enabled_globally": True},
@@ -17,7 +17,9 @@ def test_simulate_pack_toggle_enable_social(api_client, seed_policy, vpn_device)
     assert body["summary"]["newly_blocked_domain_count"] > 0
 
 
-def test_simulate_pack_toggle_with_recent_activity(api_client, seed_policy, vpn_device, db_session):
+def test_simulate_pack_toggle_with_recent_activity(
+    api_client, seed_policy, vpn_device, db_session, dns_blocking_env
+):
     lease = vpn_device.ip_lease
     now = datetime.now(timezone.utc)
     db_session.add(
