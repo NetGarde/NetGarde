@@ -41,7 +41,7 @@ if [ -n "${TRUSTTWIN_API_IMAGE:-}" ]; then
 else
   if grep -q "^TRUSTTWIN_API_IMAGE=" "$COMPOSE_ENV" 2>/dev/null; then
     sed -i.bak '/^TRUSTTWIN_API_IMAGE=/d' "$COMPOSE_ENV" && rm -f "${COMPOSE_ENV}.bak"
-    echo "Cleared TRUSTTWIN_API_IMAGE (compose will build ./trusttwin)"
+    echo "Cleared TRUSTTWIN_API_IMAGE from ${COMPOSE_ENV}"
   fi
 fi
 chmod 600 "$COMPOSE_ENV" 2>/dev/null || true

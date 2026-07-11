@@ -24,8 +24,6 @@ node_modules/
 *.pem
 .DS_Store
 
-# TrustTwin (monorepo)
-trusttwin/data/
-trusttwin/bin/trusttwin
-trusttwin/bin/trusttwin-api
+# TrustTwin (separate repo — clone as sibling for local API builds)
+# trusttwin/data/
 

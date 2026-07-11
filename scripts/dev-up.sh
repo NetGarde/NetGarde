@@ -61,8 +61,8 @@ Dashboard (host):
   cd frontend && npm install && npm start
   → http://localhost:3000
 
-TrustTwin laptop agent (optional, API already in compose):
-  cd trusttwin
+TrustTwin laptop agent (clone github.com/TrustEdgeOrg/TrustTwin as ../TrustTwin):
+  cd ../TrustTwin
   TRUSTTWIN_API_URL=http://127.0.0.1:${TRUSTTWIN_PORT} go run ./cmd/trusttwin
 
 Useful commands
