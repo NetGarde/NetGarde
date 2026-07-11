@@ -91,7 +91,8 @@ services:
       "
 
   trusttwin-api:
-    image: ${TRUSTTWIN_API_IMAGE:?TRUSTTWIN_API_IMAGE is required (ECR trustedge-trusttwin-api image)}
+    profiles: ["trusttwin"]
+    image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:missing}
     container_name: trustedge-trusttwin-api
     ports:
       - "${TRUSTTWIN_API_HOST_BIND:-0.0.0.0}:${TRUSTTWIN_API_PORT:-8080}:8080"
