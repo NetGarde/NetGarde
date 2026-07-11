@@ -370,6 +370,22 @@ jobs:
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
+            # TrustTwin ingest API (sibling repo + enroll token for agents)
+            TRUSTTWIN_DIR="${TRUSTTWIN_DIR:-$HOME/TrustTwin}"
+            export TRUSTTWIN_BUILD_CONTEXT="$TRUSTTWIN_DIR"
+            if [ -d "$TRUSTTWIN_DIR/.git" ]; then
+              echo "Updating TrustTwin at $TRUSTTWIN_DIR..."
+              git -C "$TRUSTTWIN_DIR" fetch origin main
+              git -C "$TRUSTTWIN_DIR" checkout main
+              git -C "$TRUSTTWIN_DIR" pull origin main
+            else
+              echo "Cloning TrustTwin into $TRUSTTWIN_DIR..."
+              git clone -b main https://github.com/TrustEdgeOrg/TrustTwin.git "$TRUSTTWIN_DIR"
+            fi
+            chmod +x scripts/ec2-sync-trusttwin.sh
+            bash scripts/ec2-sync-trusttwin.sh
+            export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+
             export WG_AGENT_URL="$WG_AGENT_URL"
             export WG_AGENT_TOKEN="$WG_AGENT_TOKEN"
             if [ -n "$VPN_SERVER_PUBLIC_KEY" ]; then
@@ -428,6 +444,10 @@ jobs:
             # Build block-page container
             echo "Building block-page container..."
             docker compose -f docker-compose.yml build block-page || echo "Warning: block-page build failed, but continuing..."
+
+            # Build TrustTwin ingest API (separate repo; context from TRUSTTWIN_BUILD_CONTEXT)
+            echo "Building trusttwin-api container..."
+            docker compose -f docker-compose.yml build trusttwin-api || echo "Warning: trusttwin-api build failed, but continuing..."
             
             # Free disk after a failed Ollama pull (optional ai profile is not used in CI deploy)
             echo "Docker disk usage before deploy:"
