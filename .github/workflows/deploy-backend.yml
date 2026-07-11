@@ -371,13 +371,13 @@ jobs:
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
-            chmod +x scripts/ec2-sync-trusttwin.sh
-            if [ "${{ github.ref_name }}" == "develop" ]; then
-              export TRUSTTWIN_API_IMAGE="${{ env.ECR_REGISTRY }}/${{ env.TRUSTTWIN_ECR_REPOSITORY }}:develop"
-            else
-              export TRUSTTWIN_API_IMAGE="${{ env.ECR_REGISTRY }}/${{ env.TRUSTTWIN_ECR_REPOSITORY }}:latest"
+            chmod +x scripts/ec2-resolve-trusttwin-image.sh scripts/ec2-sync-trusttwin.sh
+            export TRUSTTWIN_IMAGE_BRANCH="${{ github.ref_name }}"
+            # shellcheck disable=SC1091
+            source scripts/ec2-resolve-trusttwin-image.sh
+            if [ -n "${TRUSTTWIN_API_IMAGE:-}" ]; then
+              bash scripts/ec2-sync-trusttwin.sh
             fi
-            bash scripts/ec2-sync-trusttwin.sh
             export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
 
             export WG_AGENT_URL="$WG_AGENT_URL"
@@ -420,13 +420,12 @@ jobs:
             fi
             
             # Handle image source based on branch
-            echo "Logging into ECR and pulling images..."
+            echo "Logging into ECR..."
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
             if [ "${{ github.ref_name }}" == "main" ]; then
-              docker compose -f docker-compose.yml pull backend trusttwin-api || echo "Warning: Failed to pull from ECR, will build locally"
+              docker compose -f docker-compose.yml pull backend || echo "Warning: Failed to pull backend from ECR"
             else
               docker compose -f docker-compose.yml build backend || echo "Warning: Backend build failed"
-              docker compose -f docker-compose.yml pull trusttwin-api || echo "Warning: Failed to pull trusttwin-api from ECR"
             fi
             
             # Build dns-sync (since it's not in ECR, it needs to be built locally)
@@ -437,19 +436,23 @@ jobs:
             echo "Building block-page container..."
             docker compose -f docker-compose.yml build block-page || echo "Warning: block-page build failed, but continuing..."
             
-            # Free disk after a failed Ollama pull (optional ai profile is not used in CI deploy)
+            # Free disk before deploy (EC2 root is often tight)
             echo "Docker disk usage before deploy:"
             df -h / /var/lib/docker 2>/dev/null || df -h /
-            docker image prune -f || true
+            docker image prune -af || true
+            docker builder prune -af || true
 
             # Run migrations without pulling optional services (Ollama uses compose profile "ai")
             # Note: alembic/env.py will handle escaping % characters for ConfigParser
             echo "Running database migrations..."
             docker compose -f docker-compose.yml run --rm --no-deps -e DB_URL="$DB_URL" backend alembic upgrade head
             
-            # Start core services only (Ollama: sudo bash scripts/ec2-setup-ollama.sh when disk allows)
+            # Start core services (trusttwin-api only when ECR image was pulled)
             echo "Starting services..."
-            docker compose -f docker-compose.yml up -d --remove-orphans
+            COMPOSE_PROFILES="${TRUSTTWIN_COMPOSE_PROFILE:-}" docker compose -f docker-compose.yml up -d --remove-orphans
+            if [ -z "${TRUSTTWIN_COMPOSE_PROFILE:-}" ]; then
+              echo "NOTE: trusttwin-api not started (no ECR image). Push TrustEdgeOrg/TrustTwin after AWS_ROLE_ARN is set."
+            fi
 
             echo "Ensuring block-page on WireGuard gateway..."
             sudo chmod +x /home/ubuntu/trustedge/scripts/setup-block-page-wg.sh
