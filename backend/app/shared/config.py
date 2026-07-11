@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     DNS_INGEST_TOKEN: str = ""
 
     # DNS blocking enforcement (policy packs → dnsmasq, block-page, quarantine).
-    # Disabled while focusing on digital twin; ingest and anomaly alerts still run.
+    # Disabled by default while focusing on observability; ingest and anomaly alerts still run.
     DNS_BLOCKING_ENABLED: bool = False
 
     # Admin identity: dashboard and policy APIs

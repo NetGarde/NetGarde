@@ -24,7 +24,7 @@ from rules.chain import (
 PRESENCE_ACTIVE = "active"
 PRESENCE_IDLE = "idle"
 
-WindowRule = Callable[[DeviceChain], list[TwinAlert]]
+from rules.process_rules import PROCESS_RULES
 
 
 def _alert(
@@ -549,7 +549,8 @@ def evaluate_chain(chain: DeviceChain) -> list[TwinAlert]:
     """Run all chain rules; dedupe by alert_type keeping highest severity."""
     severity_rank = {"low": 1, "medium": 2, "high": 3}
     by_type: dict[str, TwinAlert] = {}
-    for _name, rule in CHAIN_RULES:
+    all_rules = [*CHAIN_RULES, *PROCESS_RULES]
+    for _name, rule in all_rules:
         for alert in rule(chain):
             existing = by_type.get(alert.alert_type)
             if existing is None or severity_rank.get(alert.severity, 0) > severity_rank.get(

@@ -8,26 +8,29 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ## Product goals
 
-TrustEdge is a **self-hosted network digital twin** (VPN + live telemetry + behavior baselines + optional enforcement) for teams, branch sites, and operators who want SASE-style visibility without enterprise complexity. The core promise:
+TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibility + EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional enforcement) for teams, branch sites, and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Live mirror** — Clients enroll on WireGuard; DNS, apps, and connectivity are mirrored in real time (network map, client map, telemetry feed).
+1. **Live observability** — VPN clients and TrustTwin endpoint agents stream DNS, apps, connectivity, and process posture to the dashboard in real time (network map, client map, telemetry feed, detection alerts).
 2. **What-if before apply** — Policy pack changes can be simulated against recent DNS activity before syncing to dnsmasq.
 3. **Policy as desired state** — Domains are controlled via policy packs, device profiles, schedules, geo rules, and behavior scoring — not ad-hoc block lists in the UI.
 4. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
-5. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
-6. **Enforcement as actuator** — Admin actions (quarantine, per-device blocks, policy apply) propagate to host networking (iptables, dnsmasq) when operators choose to remediate.
+5. **EDR-lite endpoint detection** — TrustTwin process and network events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
+6. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
+7. **Enforcement as actuator** — Admin actions (quarantine, per-device blocks, policy apply) propagate to host networking (iptables, dnsmasq) when operators opt in (`DNS_BLOCKING_ENABLED`).
 
 ---
 
-## Digital twin model
+## Observability model
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
 | Connectivity | WireGuard peers, usage samples | Client map, live throughput |
-| Application | Foreground app reports (TrustEdgeClient) | Network map |
+| Application | Foreground app reports (TrustEdgeClient, TrustTwin) | Network map |
 | DNS telemetry | dnsmasq log ingest + `domain_first_seen` recency | Live feed, simulation lookback |
+| Endpoint posture | TrustTwin agent (process, network summary, app focus) | Network map, detection alerts |
 | Desired state | Policy profiles and packs in RDS | Policy page (+ preview) |
 | Drift | Behavior baselines vs live scoring | Client profiles |
+| Detection | TrustTwin events → detection-engine rules | Twin alerts, network map |
 
 Simulation (`POST /twin/simulate/pack-toggle`) compares **proposed policy** against **observed DNS roots** (last 24h) without writing to RDS or reloading dnsmasq.
 
@@ -85,9 +88,9 @@ See [host-agent/README.md](../host-agent/README.md) for the block → DNS sync f
 
 ## Domain concepts
 
-### Digital twin graph
+### Observability graph
 
-- **Twin graph engine** — Canonical entity/dependency model for impact analysis, blast radius, RCA, and policy simulation. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
+- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, RCA, and policy simulation. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
 
 ### Policy
 

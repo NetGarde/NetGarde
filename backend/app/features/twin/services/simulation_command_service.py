@@ -127,7 +127,7 @@ def _ollama_parse(body: SimulationCommandRequest) -> SimulationCommandResponse:
         '"message":"Simulate blocking HTTPS (port 443)."}'
     )
     system = (
-        "You translate network operator commands into JSON for a VPN digital twin simulator. "
+        "You translate network operator commands into JSON for a security observability simulator. "
         "Allowed actions: block_port, unblock_port, block_tunnel, unblock_tunnel, "
         "block_gateway, unblock_gateway, clear_simulation, enable_what_if, noop, unknown. "
         "Use block_tunnel for wireguard/vpn/tunnel down. "

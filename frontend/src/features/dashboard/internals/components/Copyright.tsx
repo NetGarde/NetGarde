@@ -19,7 +19,7 @@ export default function Copyright(props: TypographyProps) {
       <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
         TrustEdge
       </Box>
-      {` ${year}. VPN network monitoring & DNS security.`}
+      {` ${year}. Self-hosted security observability.`}
     </Typography>
   );
 }
