@@ -17,7 +17,7 @@ if [[ ! -f frontend/.env.development ]]; then
   echo "Created frontend/.env.development from frontend/.env.development.example"
 fi
 
-echo "Starting trustedge-dev (postgres, redis, backend, trusttwin-api)..."
+echo "Starting trustedge-dev (postgres, redis, redpanda, backend, trusttwin-api, detection-engine)..."
 "${COMPOSE[@]}" up -d --build
 
 echo
@@ -71,5 +71,6 @@ Useful commands
   ./scripts/dev-down.sh
   ${COMPOSE[*]} ps
   ${COMPOSE[*]} logs -f trusttwin-api
+  ${COMPOSE[*]} logs -f detection-engine
 
 EOF

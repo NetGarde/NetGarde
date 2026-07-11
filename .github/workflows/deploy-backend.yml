@@ -431,6 +431,10 @@ jobs:
             # Build dns-sync (since it's not in ECR, it needs to be built locally)
             echo "Building dns-sync container..."
             docker compose -f docker-compose.yml build dns-sync || echo "Warning: dns-sync build failed, but continuing..."
+
+            # Build detection-engine (Kafka consumer for TrustTwin events)
+            echo "Building detection-engine container..."
+            docker compose -f docker-compose.yml build detection-engine || echo "Warning: detection-engine build failed, but continuing..."
             
             # Build block-page container
             echo "Building block-page container..."
