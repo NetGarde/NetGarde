@@ -12,21 +12,59 @@ from app.features.twin.graph.schemas import (
     TwinRelation,
 )
 from app.features.twin.schemas.simulation_command import SimulationCommandRequest, SimulationCommandResponse
+from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
 from app.features.twin.schemas.twin_simulation import (
     PackToggleSimulationRequest,
     PackToggleSimulationResponse,
 )
 from app.features.twin.services.pack_toggle_simulation_service import PackToggleSimulationService
 from app.features.twin.services.simulation_command_service import SimulationCommandService
+from app.features.twin.services.twin_alert_service import TwinAlertService
 from app.features.twin.services.twin_graph_service import TwinGraphService
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
+from app.shared.service_auth import verify_dns_ingest_service
 
 router = APIRouter(prefix="/twin", tags=["Digital Twin"])
 
 
 def get_twin_graph_service(db: Session = Depends(get_db)) -> TwinGraphService:
     return TwinGraphService(db)
+
+
+def get_twin_alert_service(db: Session = Depends(get_db)) -> TwinAlertService:
+    return TwinAlertService(db)
+
+
+@router.get("/alerts", response_model=TwinAlertListResponse)
+def list_twin_alerts(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    alert_type: Optional[str] = Query(default=None),
+    trusttwin_device_id: Optional[str] = Query(default=None),
+    _: None = Depends(verify_admin_api_token),
+    service: TwinAlertService = Depends(get_twin_alert_service),
+):
+    """List TrustTwin detection alerts."""
+    return service.list_alerts(
+        page=page,
+        page_size=page_size,
+        alert_type=alert_type,
+        trusttwin_device_id=trusttwin_device_id,
+    )
+
+
+@router.post("/alerts/ingest")
+def ingest_twin_alerts(
+    body: list[TwinAlertCreate],
+    _: None = Depends(verify_dns_ingest_service),
+    service: TwinAlertService = Depends(get_twin_alert_service),
+):
+    """Ingest alerts from detection-engine (service token)."""
+    if not body:
+        return {"created": 0}
+    created = service.ingest(body)
+    return {"created": created}
 
 
 @router.get("/graph/snapshot", response_model=TwinGraphSnapshot)

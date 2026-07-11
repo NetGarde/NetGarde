@@ -18,6 +18,7 @@ from app.features.vpn.models.vpn_peer import VpnPeer
 from app.features.vpn.models.ip_lease import IpLease
 from app.features.vpn.models.vpn_enroll_event import VpnEnrollEvent
 from app.features.vpn.models.device_usage_sample import DeviceUsageSample
+from app.features.twin.models.twin_alert import TwinAlert
 
 
 config = context.config

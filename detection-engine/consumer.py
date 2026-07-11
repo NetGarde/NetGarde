@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Phase 1 TrustTwin event consumer — logs ingested events from Kafka/Redpanda."""
+"""TrustTwin event consumer — evaluates rules and posts twin alerts to the API."""
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import signal
 import sys
@@ -13,13 +14,17 @@ from typing import Any
 from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 
+from api_client import post_alerts
 from log_config import setup_logging, structured_extra
+from rules.engine import evaluate_event
+from rules.state import StateStore
 
 SERVICE = os.getenv("LOG_SERVICE", "detection-engine")
 LOG = setup_logging(service=SERVICE, logger_name=__name__)
 logging.getLogger("kafka").setLevel(logging.WARNING)
 
 _shutdown = False
+_state = StateStore()
 
 
 def _handle_signal(signum: int, _frame: Any) -> None:
@@ -56,12 +61,13 @@ def _create_consumer() -> KafkaConsumer:
     )
 
 
-def _log_event(raw: str) -> None:
+def _process_event(raw: str) -> None:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
         LOG.warning("invalid event json", extra=structured_extra("trusttwin_event_invalid", raw=raw[:500]))
         return
+
     LOG.info(
         "trusttwin event received",
         extra=structured_extra(
@@ -72,6 +78,22 @@ def _log_event(raw: str) -> None:
             ts=payload.get("ts"),
         ),
     )
+
+    alerts = evaluate_event(payload, _state)
+    if not alerts:
+        return
+    api_alerts = [alert.to_api() for alert in alerts]
+    for alert in alerts:
+        LOG.warning(
+            "twin alert raised",
+            extra=structured_extra(
+                "twin_alert_raised",
+                alert_type=alert.alert_type,
+                device_id=alert.trusttwin_device_id,
+                severity=alert.severity,
+            ),
+        )
+    post_alerts(api_alerts)
 
 
 def run() -> int:
@@ -102,7 +124,7 @@ def run() -> int:
             for message in consumer:
                 if _shutdown:
                     break
-                _log_event(message.value)
+                _process_event(message.value)
         except Exception as exc:
             LOG.exception("consumer loop error: %s", exc)
             try:
