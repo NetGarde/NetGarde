@@ -91,6 +91,9 @@ services:
       "
 
   trusttwin-api:
+    # Optional: enable with COMPOSE_PROFILES=trusttwin when TrustTwin source is on the host.
+    # Local dev uses docker-compose.dev.yml (builds ../TrustTwin on your Mac).
+    profiles: ["trusttwin"]
     build:
       context: ${TRUSTTWIN_BUILD_CONTEXT:-../TrustTwin}
       dockerfile: Dockerfile
@@ -100,7 +103,7 @@ services:
     environment:
       TRUSTTWIN_LISTEN: ":8080"
       TRUSTTWIN_DATA_DIR: /data
-      TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:?TRUSTTWIN_ENROLL_TOKEN is required (set in .env or /etc/trustedge/trusttwin-enroll.token)}
+      TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:-}
       TRUSTTWIN_PRODUCTION: ${TRUSTTWIN_PRODUCTION:-1}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     volumes:
