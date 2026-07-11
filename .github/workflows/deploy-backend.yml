@@ -10,6 +10,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: trustedge-backend
+  TRUSTTWIN_ECR_REPOSITORY: trustedge-trusttwin-api
   ECR_REGISTRY: 804012660077.dkr.ecr.us-east-1.amazonaws.com
   RDS_INSTANCE_ID: ${{ secrets.RDS_INSTANCE_ID || 'trustedge' }}
 
@@ -57,6 +58,12 @@ jobs:
           AWS_REGION: ${{ env.AWS_REGION }}
         run: bash aws/ensure-ecr-repo.sh
 
+      - name: Ensure TrustTwin ECR repository exists
+        env:
+          ECR_REPOSITORY: ${{ env.TRUSTTWIN_ECR_REPOSITORY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: bash aws/ensure-ecr-repo.sh
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076
@@ -75,6 +82,20 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Build, tag, and push trusttwin-api image to ECR
+        if: github.ref == 'refs/heads/main'
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          ECR_REPOSITORY: ${{ env.TRUSTTWIN_ECR_REPOSITORY }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -f trusttwin/Dockerfile ./trusttwin
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
       - name: Deploy to EC2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
@@ -370,6 +391,15 @@ jobs:
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
+            chmod +x scripts/ec2-sync-trusttwin.sh
+            if [ "${{ github.ref_name }}" == "main" ]; then
+              export TRUSTTWIN_API_IMAGE="${{ env.ECR_REGISTRY }}/${{ env.TRUSTTWIN_ECR_REPOSITORY }}:latest"
+            else
+              unset TRUSTTWIN_API_IMAGE
+            fi
+            bash scripts/ec2-sync-trusttwin.sh
+            export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+
             export WG_AGENT_URL="$WG_AGENT_URL"
             export WG_AGENT_TOKEN="$WG_AGENT_TOKEN"
             if [ -n "$VPN_SERVER_PUBLIC_KEY" ]; then
@@ -411,14 +441,14 @@ jobs:
             
             # Handle image source based on branch
             if [ "${{ github.ref_name }}" == "main" ]; then
-              # Production: Pull from ECR (image was just pushed)
-              echo "Production deployment: Pulling image from ECR..."
+              # Production: Pull from ECR (images pushed in CI)
+              echo "Production deployment: Pulling images from ECR..."
               aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
-              docker compose -f docker-compose.yml pull backend || echo "Warning: Failed to pull from ECR, will build locally"
+              docker compose -f docker-compose.yml pull backend trusttwin-api || echo "Warning: Failed to pull from ECR, will build locally"
             else
-              # Development: Build locally (no ECR push for develop branch)
-              echo "Development deployment: Building image locally..."
-              docker compose -f docker-compose.yml build backend || echo "Warning: Backend build failed"
+              # Development: Build locally from monorepo (no ECR push for develop branch)
+              echo "Development deployment: Building images locally..."
+              docker compose -f docker-compose.yml build backend trusttwin-api || echo "Warning: Image build failed"
             fi
             
             # Build dns-sync (since it's not in ECR, it needs to be built locally)

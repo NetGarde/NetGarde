@@ -62,7 +62,7 @@ Dashboard (host):
   → http://localhost:3000
 
 TrustTwin laptop agent (optional, API already in compose):
-  cd ../TrustTwin
+  cd trusttwin
   TRUSTTWIN_API_URL=http://127.0.0.1:${TRUSTTWIN_PORT} go run ./cmd/trusttwin
 
 Useful commands
