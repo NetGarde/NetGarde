@@ -17,7 +17,17 @@ def test_policy_sync_report(api_client, seed_policy, dns_ingest_env):
     assert body["last_message"] == "dns-sync ok"
 
 
-def test_apply_policy_now(api_client, seed_policy, mock_policy_notify, mock_host_dns_sync):
+def test_apply_policy_now_disabled_by_default(api_client, seed_policy, mock_policy_notify, mock_host_dns_sync):
+    response = api_client.post("/policy/apply")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["queued"] is False
+    assert "disabled" in body["message"].lower()
+    mock_policy_notify.assert_not_called()
+    mock_host_dns_sync.assert_not_called()
+
+
+def test_apply_policy_now(api_client, seed_policy, mock_policy_notify, mock_host_dns_sync, dns_blocking_env):
     response = api_client.post("/policy/apply")
     assert response.status_code == 200
     body = response.json()

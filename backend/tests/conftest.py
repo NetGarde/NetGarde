@@ -119,3 +119,9 @@ def behavior_env(monkeypatch):
 def topology_env(monkeypatch, enroll_env):
     """VPN pool settings for topology tests (reuses enroll_env VPN settings)."""
     pass
+
+
+@pytest.fixture
+def dns_blocking_env(monkeypatch):
+    """Enable DNS blocking enforcement for policy/quarantine integration tests."""
+    monkeypatch.setattr("app.shared.config.settings.DNS_BLOCKING_ENABLED", True)

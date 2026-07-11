@@ -101,7 +101,9 @@ def test_create_client_block_manual(api_client, vpn_device):
     assert len(listed.json()) == 1
 
 
-def test_start_and_end_quarantine(api_client, vpn_device, db_session, mock_host_dns_sync, mock_host_client_block):
+def test_start_and_end_quarantine(
+    api_client, vpn_device, db_session, mock_host_dns_sync, mock_host_client_block, dns_blocking_env
+):
     start = api_client.post(
         f"/devices/{vpn_device.id}/quarantine",
         json={"hours": 2},

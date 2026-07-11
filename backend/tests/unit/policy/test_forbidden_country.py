@@ -96,7 +96,7 @@ def test_forbidden_country_tlds_for_il_user(db_session, monkeypatch):
     assert ".ir" in patterns
 
 
-def test_policy_dns_sync_includes_country_tlds(db_session, monkeypatch):
+def test_policy_dns_sync_includes_country_tlds(db_session, monkeypatch, dns_blocking_env):
     monkeypatch.setattr(
         "app.shared.config.settings.FORBIDDEN_COUNTRY_RULES",
         '[{"user_country":"IL","blocked_countries":["IR"]}]',

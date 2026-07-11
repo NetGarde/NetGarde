@@ -42,7 +42,7 @@ class DnsAnomalyService:
         alerts = 0
         root = extract_root_domain(query.domain)
 
-        if query.blocked:
+        if query.blocked and settings.DNS_BLOCKING_ENABLED:
             self.alert_repo.create(
                 timestamp=query.timestamp,
                 client_ip=query.client_ip,

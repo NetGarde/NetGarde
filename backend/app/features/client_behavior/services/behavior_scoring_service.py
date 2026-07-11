@@ -130,13 +130,14 @@ class BehaviorScoringService:
             delete_cached_review(device_id)
             events = 1
 
-        blocks_added = self._apply_auto_blocks_if_needed(device_id, score, entries)
-        if self._maybe_start_quarantine(device_id, score, policy_profile):
-            if events == 0:
+        blocks_added = 0
+        if settings.DNS_BLOCKING_ENABLED:
+            blocks_added = self._apply_auto_blocks_if_needed(device_id, score, entries)
+            if self._maybe_start_quarantine(device_id, score, policy_profile):
+                if events == 0:
+                    events = 1
+            elif blocks_added > 0 and events == 0:
                 events = 1
-        elif blocks_added > 0 and events == 0:
-            events = 1
-
         return events
 
     def _get_device_policy_profile(self, device_id: int):

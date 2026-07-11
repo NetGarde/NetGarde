@@ -5,7 +5,7 @@ from app.features.policy.services.policy_dns_service import PolicyDnsService
 from tests.helpers.factories import create_behavior_block, create_vpn_device, seed_policy_catalog
 
 
-def test_build_dns_sync_includes_device(db_session):
+def test_build_dns_sync_includes_device(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     device, _ = create_vpn_device(db_session, mac_address="11:22:33:44:55:66")
     svc = PolicyDnsService(db_session)
@@ -18,7 +18,7 @@ def test_build_dns_sync_includes_device(db_session):
     assert entry.allowlist_only is False
 
 
-def test_build_dns_sync_includes_behavior_blocks(db_session):
+def test_build_dns_sync_includes_behavior_blocks(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     device, _ = create_vpn_device(db_session, mac_address="aa:bb:cc:dd:ee:01")
     create_behavior_block(db_session, device, domain="blocked.behavior.test")
@@ -29,7 +29,7 @@ def test_build_dns_sync_includes_behavior_blocks(db_session):
     assert "blocked.behavior.test" in entry.block_domains
 
 
-def test_admin_quarantine_blocks_all_dns(db_session):
+def test_admin_quarantine_blocks_all_dns(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     device, _ = create_vpn_device(db_session, mac_address="aa:bb:cc:dd:ee:02")
     now = datetime.now(timezone.utc)
@@ -49,7 +49,7 @@ def test_admin_quarantine_blocks_all_dns(db_session):
     assert entry.allowlist_domains == []
 
 
-def test_behavior_quarantine_keeps_allowlist(db_session):
+def test_behavior_quarantine_keeps_allowlist(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     device, _ = create_vpn_device(db_session, mac_address="aa:bb:cc:dd:ee:03")
     now = datetime.now(timezone.utc)
@@ -69,7 +69,15 @@ def test_behavior_quarantine_keeps_allowlist(db_session):
     assert len(entry.allowlist_domains) > 0
 
 
-def test_build_dns_sync_respects_global_pack_overrides(db_session):
+def test_build_dns_sync_empty_when_blocking_disabled(db_session):
+    seed_policy_catalog(db_session)
+    create_vpn_device(db_session, mac_address="11:22:33:44:55:66")
+    result = PolicyDnsService(db_session).build_dns_sync()
+    assert result.global_domains == []
+    assert result.entries == []
+
+
+def test_build_dns_sync_respects_global_pack_overrides(db_session, dns_blocking_env):
     seed_policy_catalog(db_session)
     create_vpn_device(db_session, mac_address="11:22:33:44:55:77")
     svc = PolicyDnsService(db_session)
