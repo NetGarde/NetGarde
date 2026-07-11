@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # Service identity: dns_log_watcher / automation posting DNS queries
     DNS_INGEST_TOKEN: str = ""
 
+    # DNS blocking enforcement (policy packs → dnsmasq, block-page, quarantine).
+    # Disabled while focusing on digital twin; ingest and anomaly alerts still run.
+    DNS_BLOCKING_ENABLED: bool = False
+
     # Admin identity: dashboard and policy APIs
     ADMIN_API_TOKEN: str = ""
 
@@ -63,7 +67,7 @@ class Settings(BaseSettings):
     BEHAVIOR_SCORE_WINDOW_MINUTES: int = 15
     BEHAVIOR_ALERT_THRESHOLD: int = 70
     BEHAVIOR_AUTO_BLOCK_THRESHOLD: int = 85
-    BEHAVIOR_AUTO_BLOCK_DEFAULT: bool = True
+    BEHAVIOR_AUTO_BLOCK_DEFAULT: bool = False
     BEHAVIOR_AUTO_BLOCK_TTL_HOURS: int = 24
     BEHAVIOR_AUTO_BLOCK_DOMAINS_PER_EVENT: int = 5
     BEHAVIOR_MAX_BLOCKS_PER_DAY: int = 10
@@ -84,7 +88,7 @@ class Settings(BaseSettings):
 
     # When VPN login country matches user_country, block destination ccTLDs (dnsmasq + alerts).
     # JSON list, e.g. [{"user_country":"IL","blocked_countries":["IR","SY","KP"]}]
-    FORBIDDEN_COUNTRY_ENABLED: bool = True
+    FORBIDDEN_COUNTRY_ENABLED: bool = False
     FORBIDDEN_COUNTRY_RULES: str = '[{"user_country":"IL","blocked_countries":["IR"]}]'
 
     # Endpoint network attribution (foreground app → DNS correlation)
@@ -108,7 +112,7 @@ class Settings(BaseSettings):
     # Policy packs: fetch upstream hosts lists into on-disk snapshots (all built-in packs).
     # Writable dir in Docker production (see docker-compose policy-pack-snapshots volume).
     POLICY_PACK_SNAPSHOT_DIR: str = ""
-    POLICY_PACK_FETCH_ENABLED: bool = True
+    POLICY_PACK_FETCH_ENABLED: bool = False
     POLICY_PACK_FETCH_TIMEOUT_SECONDS: float = 30.0
     POLICY_PACK_SNAPSHOT_MAX_AGE_SECONDS: int = 86400
     # Comma-separated slug=url overrides, e.g. social=https://example.com/hosts

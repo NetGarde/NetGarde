@@ -7,7 +7,6 @@ import Copyright from '../internals/components/Copyright';
 import DnsLiveFeed from './DnsLiveFeed';
 import LiveClientsView from './LiveClientsView';
 import LiveNetworkGraph from './LiveNetworkGraph';
-import BlockedAttemptsView from './BlockedAttemptsView';
 import DnsAlertsView from './DnsAlertsView';
 import NetworkOverviewCard from './NetworkOverviewCard';
 import { Link as RouterLink } from 'react-router-dom';
@@ -92,18 +91,11 @@ export default function MainGrid() {
       </Grid>
 
       <Typography component="h2" variant="h6" sx={{ mt: 4, mb: 2 }}>
-        Enforcement
+        Security signals
       </Typography>
-      <Grid container spacing={2} columns={12} sx={{ alignItems: 'stretch' }}>
-        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-          <Box sx={{ width: '100%' }}>
-            <DnsAlertsView />
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-          <Box sx={{ width: '100%' }}>
-            <BlockedAttemptsView />
-          </Box>
+      <Grid container spacing={2} columns={12}>
+        <Grid size={{ xs: 12 }}>
+          <DnsAlertsView />
         </Grid>
       </Grid>
 

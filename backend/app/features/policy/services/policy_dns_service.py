@@ -31,6 +31,10 @@ class PolicyDnsService:
         global_pack_overrides: Optional[Dict[str, bool]] = None,
     ) -> PolicyDnsSyncResponse:
         """Build dnsmasq rules: global_domains apply to all VPN/LAN DNS clients."""
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            return PolicyDnsSyncResponse(global_domains=[], entries=[])
         self.policy_repo.end_expired_quarantines()
         packs = self.policy_repo.list_packs()
         global_slugs = self._global_pack_slugs(packs, global_pack_overrides)

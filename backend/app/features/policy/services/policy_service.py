@@ -192,6 +192,13 @@ class PolicyService:
 
     def apply_policy_now(self) -> PolicyApplyResponse:
         """Push dns-sync on the EC2 host via wg-agent (runs run-sync.sh)."""
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            return PolicyApplyResponse(
+                queued=False,
+                message="DNS blocking is disabled on this deployment",
+            )
         self.sync_repo.notify_policy_changed(source="manual_apply")
         if self._run_host_dns_sync("manual_apply"):
             return PolicyApplyResponse(
@@ -204,6 +211,10 @@ class PolicyService:
         )
 
     def start_device_quarantine(self, device_id: int, *, hours: int = 4) -> QuarantineActionResponse:
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            raise HTTPException(status_code=403, detail="DNS blocking is disabled")
         device = self.device_repo.get_by_id(device_id)
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
@@ -261,6 +272,10 @@ class PolicyService:
         return str(lease.ip).strip()
 
     def _run_host_dns_sync(self, source: str) -> bool:
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            return False
         try:
             sync_dns_policy_on_host()
             return True
@@ -272,6 +287,10 @@ class PolicyService:
             return False
 
     def _apply_full_network_block(self, device) -> None:
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            return
         client_ip = self._client_vpn_ip(device)
         if not client_ip:
             return
@@ -289,6 +308,10 @@ class PolicyService:
             )
 
     def _release_full_network_block(self, device) -> None:
+        from app.shared.config import settings
+
+        if not settings.DNS_BLOCKING_ENABLED:
+            return
         client_ip = self._client_vpn_ip(device)
         if not client_ip:
             return

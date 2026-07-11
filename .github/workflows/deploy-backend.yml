@@ -392,18 +392,6 @@ jobs:
             # Export DB_URL for docker compose
             export DB_URL="$DB_URL"
             
-            # Block page on WireGuard gateway (not VPC 172.31.x.x)
-            export BLOCK_PAGE_IP="${BLOCK_PAGE_IP:-10.0.0.1}"
-            export BLOCK_IP="${BLOCK_IP:-$BLOCK_PAGE_IP}"
-            export BLOCK_IPV6_IP="${BLOCK_IPV6_IP:-::}"
-            echo "Using BLOCK_IP=$BLOCK_IP BLOCK_IPV6_IP=$BLOCK_IPV6_IP for blocked domains"
-            for kv in "BLOCK_PAGE_IP=$BLOCK_PAGE_IP" "BLOCK_IP=$BLOCK_IP" "BLOCK_IPV6_IP=$BLOCK_IPV6_IP"; do
-              key="${kv%%=*}"
-              grep -q "^${key}=" "$HOME/trustedge/.env" 2>/dev/null && \
-                sed -i.bak "s|^${key}=.*|${kv}|" "$HOME/trustedge/.env" && rm -f "$HOME/trustedge/.env.bak" || \
-                echo "$kv" >> "$HOME/trustedge/.env"
-            done
-
             # Install WireGuard host agent (applies wg set for /v1/enroll)
             if command -v wg >/dev/null 2>&1; then
               echo "Installing trustedge-wg-agent systemd service..."
@@ -428,17 +416,9 @@ jobs:
               docker compose -f docker-compose.yml build backend || echo "Warning: Backend build failed"
             fi
             
-            # Build dns-sync (since it's not in ECR, it needs to be built locally)
-            echo "Building dns-sync container..."
-            docker compose -f docker-compose.yml build dns-sync || echo "Warning: dns-sync build failed, but continuing..."
-
             # Build detection-engine (Kafka consumer for TrustTwin events)
             echo "Building detection-engine container..."
             docker compose -f docker-compose.yml build detection-engine || echo "Warning: detection-engine build failed, but continuing..."
-            
-            # Build block-page container
-            echo "Building block-page container..."
-            docker compose -f docker-compose.yml build block-page || echo "Warning: block-page build failed, but continuing..."
             
             # Free disk before deploy (EC2 root is often tight)
             echo "Docker disk usage before deploy:"
@@ -457,16 +437,6 @@ jobs:
             if [ -z "${TRUSTTWIN_COMPOSE_PROFILE:-}" ]; then
               echo "NOTE: trusttwin-api not started (no ECR image). Push TrustEdgeOrg/TrustTwin after AWS_ROLE_ARN is set."
             fi
-
-            echo "Ensuring block-page on WireGuard gateway..."
-            sudo chmod +x /home/ubuntu/trustedge/scripts/setup-block-page-wg.sh
-            sudo bash /home/ubuntu/trustedge/scripts/setup-block-page-wg.sh || true
-
-            echo "Applying policy DNS (block page IP)..."
-            export BLOCK_PAGE_IP="${BLOCK_PAGE_IP:-10.0.0.1}"
-            export BLOCK_IP="${BLOCK_IP:-$BLOCK_PAGE_IP}"
-            export BLOCK_IPV6_IP="${BLOCK_IPV6_IP:-::}"
-            bash /home/ubuntu/trustedge/dns-sync/run-sync.sh || true
 
             # Show status
             echo "Service status:"
