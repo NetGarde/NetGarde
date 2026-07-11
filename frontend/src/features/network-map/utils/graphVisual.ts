@@ -35,6 +35,10 @@ export function getNodeVisualSpec(type: NetworkMapNode['type']): NodeVisualSpec 
 /** Compact, readable pin label — avoids truncating session summaries. */
 export function formatPinLabel(node: NetworkMapNode): string | null {
   if (node.type === 'port') {
+    // Prefer "HTTPS :443" when already labeled; otherwise ":443".
+    if (node.label.includes(':')) {
+      return node.label;
+    }
     return `:${node.label}`;
   }
   if (node.type === 'flow_summary') {
@@ -70,11 +74,11 @@ export function estimateBadgeWidth(label: string, monospace = false): number {
 }
 
 export const GRAPH_BADGE = {
-  height: 18,
-  fontSize: 9.5,
-  fontWeight: 600,
-  rx: 9,
-  offsetY: 10,
+  height: 16,
+  fontSize: 10,
+  fontWeight: 500,
+  rx: 2,
+  offsetY: 8,
 } as const;
 
 const FLOW_LANES = [0.1, 0.26, 0.4, 0.62, 0.84] as const;

@@ -1,5 +1,5 @@
 import { NetworkMapEdge, NetworkMapNode } from '../types/networkMap';
-import { globalPortNodeId } from './flowLabels';
+import { globalPortNodeId, parsePortLabel } from './flowLabels';
 import { edgeKey } from './whatIfSimulation';
 
 export type PortDestExpansion = 'summary' | 'partial' | 'full';
@@ -156,8 +156,8 @@ export function aggregateFlowDestinations(
 
   if (portNodes.length > 0) {
     for (const portNode of portNodes) {
-      const portNum = Number(portNode.label);
-      if (!Number.isFinite(portNum)) {
+      const portNum = parsePortLabel(portNode.label);
+      if (portNum == null) {
         continue;
       }
       const hubKey = String(portNum);
@@ -170,8 +170,8 @@ export function aggregateFlowDestinations(
     }
 
     for (const portNode of portNodes) {
-      const portNum = Number(portNode.label);
-      if (!Number.isFinite(portNum)) {
+      const portNum = parsePortLabel(portNode.label);
+      if (portNum == null) {
         continue;
       }
       const hubKey = String(portNum);
@@ -289,6 +289,6 @@ export function portNodeIdForNumber(port: number, nodes: NetworkMapNode[]): stri
   if (nodes.some((n) => n.id === direct)) {
     return direct;
   }
-  const match = nodes.find((n) => n.type === 'port' && Number(n.label) === port);
+  const match = nodes.find((n) => n.type === 'port' && parsePortLabel(n.label) === port);
   return match?.id ?? null;
 }

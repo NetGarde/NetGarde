@@ -8,7 +8,8 @@ from app.features.twin.services.trusttwin_store import TwinDeviceLatest, twin_de
 from app.shared.config import settings
 
 
-def test_builder_ingests_trusttwin_device_and_apps(db_session, monkeypatch):
+def test_builder_ingests_trusttwin_security_destinations(db_session, monkeypatch):
+    """Security map: client identity + egress path + port destinations (not host posture)."""
     monkeypatch.setattr(settings, "NETWORK_ATTRIBUTION_ENABLED", True)
     monkeypatch.setattr(settings, "NETWORK_FLOWS_ENABLED", False)
 
@@ -20,7 +21,25 @@ def test_builder_ingests_trusttwin_device_and_apps(db_session, monkeypatch):
             "os": "darwin",
             "status": "online",
         },
-        network_summary={"public_ip": "8.8.8.8", "established_count": 5},
+        network_summary={
+            "public_ip": "203.0.113.10",
+            "network_type": "wifi",
+            "established_count": 5,
+            "top_remote_ports": [
+                {
+                    "port": 443,
+                    "count": 28,
+                    "app_name": "Code",
+                    "bundle_id": "com.microsoft.VSCode",
+                },
+                {
+                    "port": 5223,
+                    "count": 4,
+                    "app_name": "Slack",
+                    "bundle_id": "com.tinyspeck.slackmacgap",
+                },
+            ],
+        },
         action_summary={
             "presence": "active",
             "focus": [
@@ -51,21 +70,64 @@ def test_builder_ingests_trusttwin_device_and_apps(db_session, monkeypatch):
     node = graph.nodes[device_nid]
     assert node.label == "elad-mbp"
     assert node.properties["source"] == "trusttwin"
-    assert node.properties["public_ip"] == "8.8.8.8"
+    assert node.properties["public_ip"] == "203.0.113.10"
+    assert node.properties["client_ip"] == "203.0.113.10"
+    # Host posture stays on properties only.
     assert node.properties["presence"] == "active"
+    assert node.properties["os"] == "darwin"
 
-    code_nid = app_id("com-microsoft-vscode")
-    assert code_nid in graph.nodes
-    runs = graph.neighbors(device_nid, direction="out", relations=["runs"], layers=["observed"])
-    assert any(edge.target_id == code_nid for edge in runs)
+    # No host-posture nodes; processes are attributed on destinations.
+    assert f"infra:tt:dev_mbp:tt_os" not in graph.nodes
+    assert f"infra:tt:dev_mbp:tt_agent" not in graph.nodes
+    assert f"infra:tt:dev_mbp:tt_presence" not in graph.nodes
+    assert f"infra:tt:dev_mbp:tt_established" not in graph.nodes
+    assert app_id("com-microsoft-vscode") in graph.nodes
+    assert app_id("com-tinyspeck-slackmacgap") in graph.nodes
+    assert app_id("cat-development") not in graph.nodes
+
+    # Client → LAN → Internet → public IP.
+    public_net = infra_id("public_network")
+    lan_nid = f"infra:tt:dev_mbp:tt_lan"
+    assert public_net in graph.nodes
+    assert lan_nid in graph.nodes
+    routed_obs = graph.neighbors(
+        device_nid,
+        direction="out",
+        relations=["routed_via"],
+        layers=["observed"],
+    )
+    assert {edge.target_id for edge in routed_obs} == {lan_nid}
+    lan_out = graph.neighbors(
+        lan_nid,
+        direction="out",
+        relations=["routed_via"],
+        layers=["observed"],
+    )
+    assert any(edge.target_id == public_net for edge in lan_out)
 
     # TrustTwin devices are not attached to the VPN infra chain.
-    routed = graph.neighbors(
+    routed_vpn = graph.neighbors(
         device_nid,
         direction="out",
         relations=["routed_via"],
         layers=["desired"],
     )
-    assert routed == []
+    assert routed_vpn == []
     assert infra_id("wireguard") in graph.nodes
+
+    # Remote ports hang off Internet egress (not the client node).
+    opens = graph.neighbors(
+        public_net,
+        direction="out",
+        relations=["opens_direct"],
+        layers=["observed"],
+    )
+    assert len(opens) == 2
+    client_opens = graph.neighbors(
+        device_nid,
+        direction="out",
+        relations=["opens_direct"],
+        layers=["observed"],
+    )
+    assert client_opens == []
     assert snapshot.meta["trusttwin_devices"] == 1

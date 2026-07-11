@@ -1,4 +1,5 @@
 import { NetworkMapEdge, NetworkMapNode } from '../types/networkMap';
+import { parsePortLabel } from './flowLabels';
 import { edgeKey } from './whatIfSimulation';
 
 export interface PortWhatIfSimulationResult {
@@ -15,7 +16,13 @@ export function computePortWhatIfSimulation(
 ): PortWhatIfSimulationResult {
   const disabledPortIds = new Set(
     nodes
-      .filter((n) => n.type === 'port' && disabledPortNumbers.has(Number(n.label)))
+      .filter((n) => {
+        if (n.type !== 'port') {
+          return false;
+        }
+        const port = parsePortLabel(n.label);
+        return port != null && disabledPortNumbers.has(port);
+      })
       .map((n) => n.id),
   );
 
@@ -67,8 +74,8 @@ export function listActivePortNumbers(nodes: NetworkMapNode[]): number[] {
   const ports = new Set<number>();
   for (const node of nodes) {
     if (node.type === 'port') {
-      const num = Number(node.label);
-      if (Number.isFinite(num)) {
+      const num = parsePortLabel(node.label);
+      if (num != null) {
         ports.add(num);
       }
     }

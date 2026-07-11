@@ -6,7 +6,7 @@ import {
   TwinGraphSnapshot,
 } from '../types/twinGraph';
 
-export const DEFAULT_TWIN_GRAPH_MINUTES = 1;
+export const DEFAULT_TWIN_GRAPH_MINUTES = 15;
 export const DEFAULT_TWIN_GRAPH_POLL_SEC = 10;
 
 export async function fetchTwinGraphSnapshot(
@@ -17,6 +17,7 @@ export async function fetchTwinGraphSnapshot(
   const params = new URLSearchParams({
     minutes: String(minutes),
     include_policy: String(includePolicy),
+    include_trusttwin: 'true',
   });
   if (includeFlows) {
     params.set('include_flows', 'true');

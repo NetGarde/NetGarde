@@ -2,7 +2,7 @@ import { getAdminAuthHeaders } from '../../../shared/utils/authHeaders';
 import { API_BASE_URL } from '../../../shared/config/apiBaseUrl';
 import { NetworkMapResponse } from '../types/networkMap';
 
-export const DEFAULT_NETWORK_MAP_MINUTES = 1;
+export const DEFAULT_NETWORK_MAP_MINUTES = 15;
 export const DEFAULT_NETWORK_MAP_POLL_SEC = 10;
 
 export async function fetchNetworkAttributionMap(

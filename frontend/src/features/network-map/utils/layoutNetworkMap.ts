@@ -1,4 +1,5 @@
 import { NetworkMapEdge, NetworkMapLayoutMode, NetworkMapNode, PositionedNode } from '../types/networkMap';
+import { parsePortLabel } from './flowLabels';
 
 const PAD_Y = 56;
 const MIN_GAP = 44;
@@ -142,7 +143,9 @@ export function layoutNetworkMap(
   const flows = nodes.filter(
     (n) => n.type === 'flow' || n.type === 'flow_summary' || n.type === 'flow_more',
   ).sort((a, b) => a.label.localeCompare(b.label));
-  const ports = nodes.filter((n) => n.type === 'port').sort((a, b) => Number(a.label) - Number(b.label));
+  const ports = nodes
+    .filter((n) => n.type === 'port')
+    .sort((a, b) => (parsePortLabel(a.label) ?? 0) - (parsePortLabel(b.label) ?? 0));
   const infra = nodes.filter((n) => n.type === 'tunnel' || n.type === 'gateway' || n.type === 'policy');
 
   const domainGroups = new Map<string, NetworkMapNode[]>();
