@@ -91,11 +91,9 @@ services:
       "
 
   trusttwin-api:
-    # Optional: enable with COMPOSE_PROFILES=trusttwin when TrustTwin source is on the host.
-    # Local dev uses docker-compose.dev.yml (builds ../TrustTwin on your Mac).
-    profiles: ["trusttwin"]
+    image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:local}
     build:
-      context: ${TRUSTTWIN_BUILD_CONTEXT:-../TrustTwin}
+      context: ./trusttwin
       dockerfile: Dockerfile
     container_name: trustedge-trusttwin-api
     ports:

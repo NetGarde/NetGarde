@@ -4,7 +4,7 @@
 #
 # Does not include block-page, dns-sync, or WireGuard host agents.
 # Frontend runs on the host: cd frontend && npm start
-# TrustTwin ingest API runs in compose; run the laptop agent on the host (scripts/dev-up.sh).
+# TrustTwin ingest API runs in compose from ./trusttwin; run the laptop agent on the host.
 
 name: trustedge-dev
 
@@ -86,8 +86,9 @@ services:
     restart: unless-stopped
 
   trusttwin-api:
+    image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:local}
     build:
-      context: ${TRUSTTWIN_BUILD_CONTEXT:-../TrustTwin}
+      context: ./trusttwin
       dockerfile: Dockerfile
     container_name: trustedge-dev-trusttwin-api
     ports:

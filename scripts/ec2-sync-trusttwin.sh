@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ensure TrustTwin ingest token + compose env for trusttwin-api container.
+# Enroll token + optional TRUSTTWIN_API_IMAGE for compose on EC2.
 set -euo pipefail
 
 REPO_ROOT="${TRUSTEDGE_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -24,13 +24,25 @@ else
 fi
 
 touch "$COMPOSE_ENV"
-for kv in "TRUSTTWIN_ENROLL_TOKEN=${TRUSTTWIN_ENROLL_TOKEN}" "TRUSTTWIN_BUILD_CONTEXT=${TRUSTTWIN_BUILD_CONTEXT:-$HOME/TrustTwin}"; do
-  key="${kv%%=*}"
+upsert_env() {
+  local key="$1"
+  local val="$2"
   if grep -q "^${key}=" "$COMPOSE_ENV" 2>/dev/null; then
-    sed -i.bak "s|^${key}=.*|${kv}|" "$COMPOSE_ENV" && rm -f "${COMPOSE_ENV}.bak"
+    sed -i.bak "s|^${key}=.*|${key}=${val}|" "$COMPOSE_ENV" && rm -f "${COMPOSE_ENV}.bak"
   else
-    echo "$kv" >>"$COMPOSE_ENV"
+    echo "${key}=${val}" >>"$COMPOSE_ENV"
   fi
-done
+}
+
+upsert_env "TRUSTTWIN_ENROLL_TOKEN" "$TRUSTTWIN_ENROLL_TOKEN"
+if [ -n "${TRUSTTWIN_API_IMAGE:-}" ]; then
+  upsert_env "TRUSTTWIN_API_IMAGE" "$TRUSTTWIN_API_IMAGE"
+  echo "Set TRUSTTWIN_API_IMAGE in ${COMPOSE_ENV}"
+else
+  if grep -q "^TRUSTTWIN_API_IMAGE=" "$COMPOSE_ENV" 2>/dev/null; then
+    sed -i.bak '/^TRUSTTWIN_API_IMAGE=/d' "$COMPOSE_ENV" && rm -f "${COMPOSE_ENV}.bak"
+    echo "Cleared TRUSTTWIN_API_IMAGE (compose will build ./trusttwin)"
+  fi
+fi
 chmod 600 "$COMPOSE_ENV" 2>/dev/null || true
 echo "Synced TrustTwin keys in ${COMPOSE_ENV}"

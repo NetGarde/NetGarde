@@ -24,5 +24,8 @@ node_modules/
 *.pem
 .DS_Store
 
-# Fetched policy pack snapshots (regenerated on server)
-backend/app/features/policy/data/snapshots/*.txt
+# TrustTwin (monorepo)
+trusttwin/data/
+trusttwin/bin/trusttwin
+trusttwin/bin/trusttwin-api
+
