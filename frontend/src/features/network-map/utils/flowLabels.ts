@@ -66,16 +66,38 @@ const WELL_KNOWN_PORTS: Record<number, string> = {
   80: 'HTTP',
   53: 'DNS',
   5222: 'XMPP/chat',
+  5223: 'APNs',
+  993: 'IMAPS',
+  995: 'POP3S',
+  587: 'SMTP',
+  853: 'DoT',
+  3478: 'STUN',
+  8443: 'HTTPS-alt',
+  8080: 'HTTP-alt',
+  19302: 'WebRTC',
   22: 'SSH',
+  123: 'NTP',
   3389: 'RDP',
+  4444: 'Unknown',
 };
+
+/** Parse "443" or "HTTPS :443" style port labels. */
+export function parsePortLabel(label: string): number | null {
+  const text = String(label).trim();
+  const match = text.match(/:(\d+)\s*$/) || text.match(/^(\d+)$/);
+  if (!match) {
+    return null;
+  }
+  const port = Number(match[1]);
+  return Number.isFinite(port) ? port : null;
+}
 
 export function portNodeTooltip(port: number): string {
   const name = WELL_KNOWN_PORTS[port];
   if (name) {
-    return `Port ${port} (${name}) — all traffic on this port`;
+    return `Remote port ${port} (${name}) — outbound sessions to this service port`;
   }
-  return `Port ${port} — network-wide (TCP + UDP)`;
+  return `Remote port ${port} — outbound sessions`;
 }
 
 export function formatFlowNodeLabel(raw: string, max = 20): string {

@@ -8,6 +8,15 @@ export type TwinProjectionMode = 'attribution' | 'path' | 'flow' | 'unified';
 
 const WIREGUARD_ID = 'infra:wireguard';
 const DNS_RESOLVER_ID = 'infra:dns_resolver';
+const PUBLIC_NETWORK_ID = 'infra:public_network';
+
+function isTrustTwinDeviceId(nodeId: string): boolean {
+  return nodeId.startsWith('device:twin:');
+}
+
+function isTrustTwinNode(node: TwinNode | undefined): boolean {
+  return node?.properties?.source === 'trusttwin';
+}
 
 const OBSERVED_RELATION_TO_KIND: Partial<Record<TwinEdge['relation'], NetworkMapEdge['kind']>> = {
   runs: 'foreground',
@@ -27,12 +36,18 @@ function edgeCounts(edge: TwinEdge): Pick<NetworkMapEdge, 'query_count' | 'block
 }
 
 function twinDeviceToMap(node: TwinNode): NetworkMapNode {
+  const clientIp =
+    (node.properties.client_ip as string | undefined) ||
+    (node.properties.public_ip as string | undefined) ||
+    null;
+  const deviceId = node.properties.device_id;
   return {
     id: node.id,
     type: 'device',
     label: node.label,
-    client_ip: (node.properties.client_ip as string) ?? null,
-    device_id: (node.properties.device_id as number) ?? null,
+    client_ip: clientIp,
+    // VPN devices use numeric PKs; TrustTwin agents use string ids in properties.
+    device_id: typeof deviceId === 'number' ? deviceId : null,
     fresh: node.properties.fresh as boolean | undefined,
     blocked: node.properties.blocked as boolean | undefined,
   };
@@ -64,10 +79,71 @@ function twinInfraToMap(node: TwinNode): NetworkMapNode | null {
   if (kind === 'dns_resolver') {
     return { id: node.id, type: 'gateway', label: 'EC2 DNS' };
   }
+  if (kind === 'public_network') {
+    return { id: node.id, type: 'gateway', label: node.label || 'Internet' };
+  }
+  // TrustTwin egress link only (security path, not host posture).
+  if (kind === 'tt_lan') {
+    return { id: node.id, type: 'tunnel', label: node.label };
+  }
   if (kind === 'ec2_gateway') {
     return null;
   }
+  // Ignore legacy host-posture kinds if present in older snapshots.
+  if (kind.startsWith('tt_')) {
+    return null;
+  }
   return { id: node.id, type: 'gateway', label: node.label };
+}
+
+/** Apps that participate in DNS or L4 destinations (who talked to what). */
+function networkActiveAppIds(snapshot: TwinGraphSnapshot): Set<string> {
+  const ids = new Set<string>();
+  for (const edge of snapshot.edges) {
+    if (
+      edge.relation !== 'queries' &&
+      edge.relation !== 'queries_direct' &&
+      edge.relation !== 'opens' &&
+      edge.relation !== 'opens_direct' &&
+      edge.relation !== 'correlates'
+    ) {
+      continue;
+    }
+    if (edge.source_id.startsWith('app:')) {
+      ids.add(edge.source_id);
+    }
+    if (edge.target_id.startsWith('app:')) {
+      ids.add(edge.target_id);
+    }
+  }
+  return ids;
+}
+
+function portLabelFromL4(l4Node: TwinNode, port: number): string {
+  const service = String(l4Node.properties.service ?? '').trim();
+  if (service) {
+    return `${service} :${port}`;
+  }
+  return String(port);
+}
+
+function mapTrustTwinNode(node: TwinNode): NetworkMapNode | null {
+  if (node.entity_type === 'device') {
+    return twinDeviceToMap(node);
+  }
+  if (node.entity_type === 'app') {
+    return twinAppToMap(node);
+  }
+  if (node.entity_type === 'domain') {
+    return twinDomainToMap(node);
+  }
+  if (node.entity_type === 'infra_component') {
+    return twinInfraToMap(node);
+  }
+  if (node.entity_type === 'ip_address' && isTrustTwinNode(node)) {
+    return { id: node.id, type: 'flow', label: node.label };
+  }
+  return null;
 }
 
 function twinPolicyProfileToMap(node: TwinNode): NetworkMapNode {
@@ -75,12 +151,26 @@ function twinPolicyProfileToMap(node: TwinNode): NetworkMapNode {
 }
 
 function twinFlowSessionToMap(node: TwinNode, destinationLabel: string): NetworkMapNode {
+  const processName = String(node.properties.app_name ?? '').trim() || null;
+  const appSlug = String(node.properties.app_slug ?? '').trim() || null;
+  // TrustTwin port aggregates have no remote IP — keep the prebuilt label.
+  if (node.properties.aggregate || node.properties.source === 'trusttwin') {
+    return {
+      id: node.id,
+      type: 'flow',
+      label: node.label,
+      process_name: processName,
+      app_slug: appSlug,
+    };
+  }
   const protocol = String(node.properties.protocol ?? 'tcp');
   const port = Number(node.properties.dest_port ?? 0);
   return {
     id: node.id,
     type: 'flow',
     label: destinationLabel || `${protocol.toUpperCase()}/${port} → ${node.properties.dest_ip ?? ''}`,
+    process_name: processName,
+    app_slug: appSlug,
   };
 }
 
@@ -431,7 +521,7 @@ export function projectFlowGraph(snapshot: TwinGraphSnapshot): NetworkMapRespons
   };
 }
 
-/** Unified digital-twin view: DNS path + port hubs + live flows (no policy gates). */
+/** Security map: who talked to what (DNS, ports, sessions, path) — not host posture. */
 export function projectUnifiedGraph(
   snapshot: TwinGraphSnapshot,
   attributionOverride?: NetworkMapResponse | null,
@@ -441,8 +531,17 @@ export function projectUnifiedGraph(
   const nodeMap = new Map<string, NetworkMapNode>();
   const edgeMap = new Map<string, NetworkMapEdge>();
   const flowParticipantIds = new Set<string>();
+  const activeApps = networkActiveAppIds(snapshot);
 
   for (const node of attribution.nodes) {
+    // Only apps that have destinations (DNS/flows). Skip TrustTwin focus-only apps.
+    if (node.type === 'app' && !activeApps.has(node.id)) {
+      continue;
+    }
+    // Policy chips are not part of the security destination graph.
+    if (node.type === 'policy') {
+      continue;
+    }
     nodeMap.set(node.id, node);
   }
 
@@ -456,6 +555,9 @@ export function projectUnifiedGraph(
   }
 
   for (const edge of attribution.edges) {
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target)) {
+      continue;
+    }
     upsertMapEdge(edgeMap, edge);
   }
 
@@ -515,12 +617,9 @@ export function projectUnifiedGraph(
     if (!twin) {
       return;
     }
-    if (twin.entity_type === 'device') {
-      nodeMap.set(nodeId, twinDeviceToMap(twin));
-    } else if (twin.entity_type === 'app') {
-      nodeMap.set(nodeId, twinAppToMap(twin));
-    } else if (twin.entity_type === 'domain') {
-      nodeMap.set(nodeId, twinDomainToMap(twin));
+    const mapped = mapTrustTwinNode(twin);
+    if (mapped) {
+      nodeMap.set(nodeId, mapped);
     }
   };
 
@@ -546,6 +645,38 @@ export function projectUnifiedGraph(
     });
   };
 
+  /**
+   * TrustTwin egress: Internet → remote port → session aggregate.
+   * Ports must not hang off the client (that reads as a local peer).
+   */
+  const linkTrustTwinPort = (
+    _sourceId: string,
+    portId: string,
+    flowId: string,
+    counts: Pick<NetworkMapEdge, 'query_count' | 'blocked_count'>,
+  ) => {
+    const infra = index.nodes.get(PUBLIC_NETWORK_ID);
+    if (infra) {
+      const mapped = twinInfraToMap(infra);
+      if (mapped) {
+        nodeMap.set(mapped.id, mapped);
+      }
+    }
+    flowParticipantIds.add(PUBLIC_NETWORK_ID);
+    upsertMapEdge(edgeMap, {
+      source: PUBLIC_NETWORK_ID,
+      target: portId,
+      kind: 'to_port',
+      ...counts,
+    });
+    upsertMapEdge(edgeMap, {
+      source: portId,
+      target: flowId,
+      kind: 'port_to_flow',
+      ...counts,
+    });
+  };
+
   const destLabelByFlow = new Map<string, string>();
   for (const edge of snapshot.edges) {
     if (edge.relation !== 'destinates') {
@@ -558,7 +689,8 @@ export function projectUnifiedGraph(
   }
 
   const flowSessions = snapshot.nodes.filter((node) => node.entity_type === 'flow_session');
-  if (flowSessions.length > 0) {
+  const hasVpnFlows = flowSessions.some((node) => !isTrustTwinNode(node));
+  if (hasVpnFlows) {
     ensureGateway();
   }
 
@@ -579,7 +711,11 @@ export function projectUnifiedGraph(
     const protocol = String(l4Node.properties.protocol ?? 'tcp');
     const port = Number(l4Node.properties.port ?? 0);
     const portId = globalPortNodeId(protocol, port);
-    nodeMap.set(portId, { id: portId, type: 'port', label: String(port) });
+    nodeMap.set(portId, {
+      id: portId,
+      type: 'port',
+      label: portLabelFromL4(l4Node, port),
+    });
   }
 
   for (const edge of snapshot.edges) {
@@ -613,7 +749,20 @@ export function projectUnifiedGraph(
     const protocol = String(l4Node.properties.protocol ?? 'tcp');
     const port = Number(l4Node.properties.port ?? 0);
     const portId = globalPortNodeId(protocol, port);
+    nodeMap.set(portId, {
+      id: portId,
+      type: 'port',
+      label: portLabelFromL4(l4Node, port),
+    });
     const counts = edgeCounts(edge);
+    const trustTwinFlow = isTrustTwinNode(flowNode);
+
+    if (trustTwinFlow) {
+      if (edge.relation === 'opens' || edge.relation === 'opens_direct') {
+        linkTrustTwinPort(edge.source_id, portId, flowId, counts);
+      }
+      continue;
+    }
 
     if (edge.relation === 'correlates') {
       const upstream = snapshot.edges.filter(
@@ -651,12 +800,12 @@ export function projectUnifiedGraph(
     if (edge.relation !== 'runs') {
       continue;
     }
-    if (!flowParticipantIds.has(edge.target_id)) {
+    // Only apps that talked to something (DNS/flow destinations).
+    if (!activeApps.has(edge.target_id) && !flowParticipantIds.has(edge.target_id)) {
       continue;
     }
     ensureTwinNode(edge.source_id);
     ensureTwinNode(edge.target_id);
-    flowParticipantIds.add(edge.source_id);
     upsertMapEdge(edgeMap, {
       source: edge.source_id,
       target: edge.target_id,
@@ -665,15 +814,71 @@ export function projectUnifiedGraph(
     });
   }
 
+  // TrustTwin egress: client → LAN → Internet (not host posture).
+  for (const edge of snapshot.edges) {
+    if (edge.relation !== 'routed_via') {
+      continue;
+    }
+    const src = index.nodes.get(edge.source_id);
+    const tgt = index.nodes.get(edge.target_id);
+    const trustTwinPath =
+      isTrustTwinDeviceId(edge.source_id) ||
+      isTrustTwinNode(src) ||
+      isTrustTwinNode(tgt);
+    if (!trustTwinPath) {
+      continue;
+    }
+    if (src?.entity_type === 'flow_session') {
+      continue;
+    }
+    const tgtKind = String(tgt?.properties?.kind ?? '');
+    if (tgtKind !== 'tt_lan' && edge.target_id !== PUBLIC_NETWORK_ID) {
+      continue;
+    }
+    ensureTwinNode(edge.source_id);
+    ensureTwinNode(edge.target_id);
+    upsertMapEdge(edgeMap, {
+      source: edge.source_id,
+      target: edge.target_id,
+      kind: edge.target_id === PUBLIC_NETWORK_ID ? 'path_tunnel' : 'path_egress',
+      query_count: Math.max(1, Math.round(edge.weight)),
+      blocked_count: 0,
+    });
+  }
+
+  // Annotate Internet with public egress IP (no extra leaf node).
+  for (const edge of snapshot.edges) {
+    if (edge.relation !== 'destinates' || edge.source_id !== PUBLIC_NETWORK_ID) {
+      continue;
+    }
+    const ipNode = index.nodes.get(edge.target_id);
+    if (!ipNode || ipNode.entity_type !== 'ip_address' || !isTrustTwinNode(ipNode)) {
+      continue;
+    }
+    const gateway = nodeMap.get(PUBLIC_NETWORK_ID);
+    if (gateway) {
+      nodeMap.set(PUBLIC_NETWORK_ID, {
+        ...gateway,
+        label: `Internet (${ipNode.label})`,
+      });
+    }
+  }
+
   const connectedIds = new Set<string>();
   for (const edge of edgeMap.values()) {
     connectedIds.add(edge.source);
     connectedIds.add(edge.target);
   }
   for (const nodeId of [...nodeMap.keys()]) {
-    if (!connectedIds.has(nodeId)) {
-      nodeMap.delete(nodeId);
+    if (connectedIds.has(nodeId)) {
+      continue;
     }
+    const node = nodeMap.get(nodeId);
+    // Keep devices even without edges (TrustTwin heartbeat before first action_summary).
+    if (node?.type === 'device') {
+      continue;
+    }
+    nodeMap.delete(nodeId);
   }
 
   return {

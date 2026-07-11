@@ -32,6 +32,8 @@ export interface NetworkMapNode {
   type: NetworkMapNodeType;
   label: string;
   app_slug?: string | null;
+  /** Process / app display name (e.g. on session nodes). */
+  process_name?: string | null;
   client_ip?: string | null;
   device_id?: number | null;
   blocked?: boolean | null;

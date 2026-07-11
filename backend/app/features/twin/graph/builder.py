@@ -436,9 +436,52 @@ class TwinGraphBuilder:
                 layer="desired",
             )
 
+    @staticmethod
+    def _tt_component_id(device_id: str, kind: str) -> str:
+        """Per-device TrustTwin infra node id (stable, graph-unique)."""
+        return f"infra:tt:{device_id}:{kind}"
+
+    @staticmethod
+    def _tt_port_service_name(port: int) -> str:
+        return {
+            443: "HTTPS",
+            80: "HTTP",
+            53: "DNS",
+            22: "SSH",
+            993: "IMAPS",
+            995: "POP3S",
+            587: "SMTP",
+            853: "DoT",
+            5223: "APNs",
+            3478: "STUN",
+            8443: "HTTPS-alt",
+            8080: "HTTP-alt",
+            19302: "WebRTC",
+            123: "NTP",
+        }.get(port, f"TCP/{port}")
+
     def _ingest_trusttwin(self) -> int:
-        """Merge live TrustTwin agent state from Redis into the observed layer."""
+        """Merge TrustTwin agents for security map: who talked to what.
+
+        Graph (no VPN DNS/remote IPs — TrustTwin privacy contract):
+          client → LAN → Internet → remote ports → session aggregates
+
+        Ports hang off Internet (egress), not the client node.
+        Host posture stays on device properties only.
+        """
         devices = trusttwin_store.list_latest()
+        public_net_id = infra_id("public_network")
+        if devices:
+            self._upsert_node(
+                TwinNode(
+                    id=public_net_id,
+                    entity_type="infra_component",
+                    layer="observed",
+                    label="Internet",
+                    properties={"kind": "public_network", "source": "trusttwin"},
+                )
+            )
+
         for rec in devices:
             node_id = trusttwin_store.twin_device_node_id(rec.device_id)
             details = rec.client_details
@@ -471,6 +514,10 @@ class TwinGraphBuilder:
             ):
                 if key in network and network[key] is not None:
                     props[key] = network[key]
+            public_ip = network.get("public_ip")
+            public_ip_s = str(public_ip).strip() if public_ip is not None else ""
+            if public_ip_s and not props.get("client_ip"):
+                props["client_ip"] = public_ip_s
             for key in ("presence", "idle_sec", "app_switches"):
                 if key in action and action[key] is not None:
                     props[key] = action[key]
@@ -487,42 +534,234 @@ class TwinGraphBuilder:
                 )
             )
 
-            focus = action.get("focus")
-            if not isinstance(focus, list):
-                continue
-            for entry in focus:
-                if not isinstance(entry, dict):
-                    continue
-                slug = trusttwin_store.app_slug_from_focus(entry)
-                app_nid = app_id(slug)
-                app_label = str(entry.get("app_name") or slug)
-                app_props: dict = {"source": "trusttwin", "app_slug": slug}
-                if entry.get("bundle_id"):
-                    app_props["bundle_id"] = entry["bundle_id"]
-                if entry.get("category"):
-                    app_props["category"] = entry["category"]
+            # Egress path: client → LAN → Internet → public IP.
+            net_type = str(network.get("network_type") or "network").strip() or "network"
+            lan_label = {
+                "wifi": "Wi‑Fi",
+                "ethernet": "Ethernet",
+                "cellular": "Cellular",
+                "wired": "Ethernet",
+            }.get(net_type.lower(), net_type.capitalize())
+            lan_id = self._tt_component_id(rec.device_id, "tt_lan")
+            self._upsert_node(
+                TwinNode(
+                    id=lan_id,
+                    entity_type="infra_component",
+                    layer="observed",
+                    label=lan_label,
+                    properties={
+                        "kind": "tt_lan",
+                        "source": "trusttwin",
+                        "network_type": net_type,
+                        "trusttwin_device_id": rec.device_id,
+                    },
+                    last_seen_at=rec.last_seen_at,
+                )
+            )
+            self._upsert_edge(
+                relation="routed_via",
+                source_id=node_id,
+                target_id=lan_id,
+                layer="observed",
+                weight=1.0,
+                properties={"source": "trusttwin"},
+            )
+            self._upsert_edge(
+                relation="routed_via",
+                source_id=lan_id,
+                target_id=public_net_id,
+                layer="observed",
+                weight=1.0,
+                properties={"source": "trusttwin"},
+            )
+            if public_ip_s:
+                egress_ip_id = ip_id(public_ip_s)
                 self._upsert_node(
                     TwinNode(
-                        id=app_nid,
-                        entity_type="app",
+                        id=egress_ip_id,
+                        entity_type="ip_address",
                         layer="observed",
-                        label=app_label,
-                        properties=app_props,
+                        label=public_ip_s,
+                        properties={
+                            "source": "trusttwin",
+                            "role": "public_egress",
+                            "addr": public_ip_s,
+                        },
                         last_seen_at=rec.last_seen_at,
                     )
                 )
-                duration = entry.get("duration_sec")
-                try:
-                    weight = float(duration) if duration is not None else 1.0
-                except (TypeError, ValueError):
-                    weight = 1.0
                 self._upsert_edge(
-                    relation="runs",
-                    source_id=node_id,
-                    target_id=app_nid,
+                    relation="destinates",
+                    source_id=public_net_id,
+                    target_id=egress_ip_id,
                     layer="observed",
-                    weight=max(weight, 0.0),
-                    properties={"duration_sec": weight},
+                    weight=1.0,
+                    properties={"source": "trusttwin"},
+                )
+
+            # Focus apps (processes) for attribution on destinations.
+            focus_apps: list[tuple[str, str, str]] = []  # slug, label, node_id
+            focus = action.get("focus")
+            if isinstance(focus, list):
+                for entry in focus:
+                    if not isinstance(entry, dict):
+                        continue
+                    slug = trusttwin_store.app_slug_from_focus(entry)
+                    app_label = str(entry.get("app_name") or slug)
+                    app_nid = app_id(slug)
+                    app_props: dict = {
+                        "source": "trusttwin",
+                        "app_slug": slug,
+                        "app_name": app_label,
+                    }
+                    if entry.get("bundle_id"):
+                        app_props["bundle_id"] = entry["bundle_id"]
+                    self._upsert_node(
+                        TwinNode(
+                            id=app_nid,
+                            entity_type="app",
+                            layer="observed",
+                            label=app_label,
+                            properties=app_props,
+                            last_seen_at=rec.last_seen_at,
+                        )
+                    )
+                    duration = entry.get("duration_sec")
+                    try:
+                        weight = float(duration) if duration is not None else 1.0
+                    except (TypeError, ValueError):
+                        weight = 1.0
+                    self._upsert_edge(
+                        relation="runs",
+                        source_id=node_id,
+                        target_id=app_nid,
+                        layer="observed",
+                        weight=max(weight, 0.0),
+                        properties={"source": "trusttwin", "duration_sec": weight},
+                    )
+                    focus_apps.append((slug, app_label, app_nid))
+
+            # Destinations: remote port aggregates attributed to processes when known.
+            client_key = public_ip_s or rec.device_id
+            top_ports = network.get("top_remote_ports")
+            if not isinstance(top_ports, list):
+                continue
+            for idx, entry in enumerate(top_ports):
+                if not isinstance(entry, dict):
+                    continue
+                try:
+                    port = int(entry.get("port"))
+                except (TypeError, ValueError):
+                    continue
+                if port <= 0 or port > 65535:
+                    continue
+                try:
+                    count = float(entry.get("count") or 1)
+                except (TypeError, ValueError):
+                    count = 1.0
+                count = max(count, 1.0)
+                protocol = "tcp"
+                service = self._tt_port_service_name(port)
+
+                app_slug = ""
+                app_name = str(entry.get("app_name") or "").strip()
+                bundle_id = str(entry.get("bundle_id") or "").strip()
+                if app_name or bundle_id:
+                    app_slug = trusttwin_store.app_slug_from_focus(
+                        {"app_name": app_name, "bundle_id": bundle_id}
+                    )
+                    app_nid = app_id(app_slug)
+                    if not app_name:
+                        app_name = app_slug
+                    self._upsert_node(
+                        TwinNode(
+                            id=app_nid,
+                            entity_type="app",
+                            layer="observed",
+                            label=app_name,
+                            properties={
+                                "source": "trusttwin",
+                                "app_slug": app_slug,
+                                "app_name": app_name,
+                                "bundle_id": bundle_id or None,
+                            },
+                            last_seen_at=rec.last_seen_at,
+                        )
+                    )
+                    self._upsert_edge(
+                        relation="runs",
+                        source_id=node_id,
+                        target_id=app_nid,
+                        layer="observed",
+                        weight=count,
+                        properties={"source": "trusttwin"},
+                    )
+                elif focus_apps:
+                    app_slug, app_name, app_nid = focus_apps[idx % len(focus_apps)]
+
+                # Unique per process+port so Safari:443 and Code:443 both appear.
+                flow_token = app_slug.replace(":", "_") if app_slug else "agg"
+                l4_nid = l4_service_id(protocol, port)
+                flow_nid = flow_session_id(protocol, flow_token, port, client_key)
+
+                self._upsert_node(
+                    TwinNode(
+                        id=l4_nid,
+                        entity_type="l4_service",
+                        layer="observed",
+                        label=f"{service} :{port}",
+                        properties={
+                            "protocol": protocol,
+                            "port": port,
+                            "service": service,
+                            "source": "trusttwin",
+                        },
+                        last_seen_at=rec.last_seen_at,
+                    )
+                )
+                flow_props: dict = {
+                    "protocol": protocol,
+                    "dest_ip": "*",
+                    "dest_port": port,
+                    "client_ip": client_key,
+                    "source": "trusttwin",
+                    "aggregate": True,
+                    "connection_count": count,
+                    "service": service,
+                }
+                if app_slug:
+                    flow_props["app_slug"] = app_slug
+                if app_name:
+                    flow_props["app_name"] = app_name
+                session_label = (
+                    f"{app_name} · {service} ×{int(count)}" if app_name else f"{service} ×{int(count)}"
+                )
+                self._upsert_node(
+                    TwinNode(
+                        id=flow_nid,
+                        entity_type="flow_session",
+                        layer="observed",
+                        label=session_label,
+                        properties=flow_props,
+                        last_seen_at=rec.last_seen_at,
+                    )
+                )
+                # Remote ports hang off Internet egress, not the client node.
+                self._upsert_edge(
+                    relation="opens_direct",
+                    source_id=public_net_id,
+                    target_id=flow_nid,
+                    layer="observed",
+                    weight=count,
+                    properties={"source": "trusttwin"},
+                )
+                self._upsert_edge(
+                    relation="uses_service",
+                    source_id=flow_nid,
+                    target_id=l4_nid,
+                    layer="observed",
+                    weight=count,
+                    properties={"source": "trusttwin"},
                 )
         return len(devices)
 

@@ -205,6 +205,199 @@ describe('projectUnifiedGraph', () => {
     expect(result.edges.some((e) => e.kind === 'port_to_flow')).toBe(true);
     expect(result.edges.some((e) => e.kind === 'dns')).toBe(true);
   });
+
+  it('drops TrustTwin focus apps that have no destinations', () => {
+    const snapshot: TwinGraphSnapshot = {
+      generated_at: '2026-07-04T00:00:00Z',
+      window_minutes: 1,
+      nodes: [
+        {
+          id: 'device:twin:dev_mbp',
+          entity_type: 'device',
+          layer: 'observed',
+          label: 'elad-mbp',
+          properties: {
+            source: 'trusttwin',
+            trusttwin_device_id: 'dev_mbp',
+            public_ip: '203.0.113.10',
+          },
+        },
+        {
+          id: 'app:com-microsoft-vscode',
+          entity_type: 'app',
+          layer: 'observed',
+          label: 'Code',
+          properties: { source: 'trusttwin', app_slug: 'com-microsoft-vscode' },
+        },
+      ],
+      edges: [
+        {
+          id: 'runs:device:twin:dev_mbp->app:com-microsoft-vscode',
+          source_id: 'device:twin:dev_mbp',
+          target_id: 'app:com-microsoft-vscode',
+          relation: 'runs',
+          layer: 'observed',
+          weight: 55,
+          properties: { duration_sec: 55 },
+        },
+      ],
+    };
+    const result = projectUnifiedGraph(snapshot);
+    expect(result.nodes.some((n) => n.id === 'device:twin:dev_mbp')).toBe(true);
+    expect(result.nodes.some((n) => n.id === 'app:com-microsoft-vscode')).toBe(false);
+    expect(result.edges.some((e) => e.kind === 'foreground')).toBe(false);
+    expect(result.nodes.find((n) => n.id === 'device:twin:dev_mbp')?.client_ip).toBe('203.0.113.10');
+  });
+
+  it('projects TrustTwin path: client → LAN → Internet → remote ports', () => {
+    const snapshot: TwinGraphSnapshot = {
+      generated_at: '2026-07-04T00:00:00Z',
+      window_minutes: 1,
+      nodes: [
+        {
+          id: 'device:twin:dev_mbp',
+          entity_type: 'device',
+          layer: 'observed',
+          label: 'elad-mbp',
+          properties: {
+            source: 'trusttwin',
+            trusttwin_device_id: 'dev_mbp',
+            public_ip: '203.0.113.10',
+            client_ip: '203.0.113.10',
+          },
+        },
+        {
+          id: 'infra:tt:dev_mbp:tt_lan',
+          entity_type: 'infra_component',
+          layer: 'observed',
+          label: 'Wi‑Fi',
+          properties: { kind: 'tt_lan', source: 'trusttwin' },
+        },
+        {
+          id: 'infra:public_network',
+          entity_type: 'infra_component',
+          layer: 'observed',
+          label: 'Internet',
+          properties: { kind: 'public_network', source: 'trusttwin' },
+        },
+        {
+          id: 'ip:203.0.113.10',
+          entity_type: 'ip_address',
+          layer: 'observed',
+          label: '203.0.113.10',
+          properties: { source: 'trusttwin', role: 'public_egress', addr: '203.0.113.10' },
+        },
+        {
+          id: 'l4:tcp:443',
+          entity_type: 'l4_service',
+          layer: 'observed',
+          label: 'HTTPS :443',
+          properties: { protocol: 'tcp', port: 443, service: 'HTTPS', source: 'trusttwin' },
+        },
+        {
+          id: 'flow:tcp:agg:443:203.0.113.10',
+          entity_type: 'flow_session',
+          layer: 'observed',
+          label: 'HTTPS ×28',
+          properties: {
+            protocol: 'tcp',
+            dest_ip: '*',
+            dest_port: 443,
+            client_ip: '203.0.113.10',
+            source: 'trusttwin',
+            aggregate: true,
+            service: 'HTTPS',
+          },
+        },
+      ],
+      edges: [
+        {
+          id: 'routed_via:device:twin:dev_mbp->infra:tt:dev_mbp:tt_lan',
+          source_id: 'device:twin:dev_mbp',
+          target_id: 'infra:tt:dev_mbp:tt_lan',
+          relation: 'routed_via',
+          layer: 'observed',
+          weight: 1,
+          properties: { source: 'trusttwin' },
+        },
+        {
+          id: 'routed_via:infra:tt:dev_mbp:tt_lan->infra:public_network',
+          source_id: 'infra:tt:dev_mbp:tt_lan',
+          target_id: 'infra:public_network',
+          relation: 'routed_via',
+          layer: 'observed',
+          weight: 1,
+          properties: { source: 'trusttwin' },
+        },
+        {
+          id: 'destinates:infra:public_network->ip:203.0.113.10',
+          source_id: 'infra:public_network',
+          target_id: 'ip:203.0.113.10',
+          relation: 'destinates',
+          layer: 'observed',
+          weight: 1,
+          properties: { source: 'trusttwin' },
+        },
+        {
+          id: 'opens_direct:infra:public_network->flow:tcp:agg:443:203.0.113.10',
+          source_id: 'infra:public_network',
+          target_id: 'flow:tcp:agg:443:203.0.113.10',
+          relation: 'opens_direct',
+          layer: 'observed',
+          weight: 28,
+          properties: { source: 'trusttwin' },
+        },
+        {
+          id: 'uses_service:flow:tcp:agg:443:203.0.113.10->l4:tcp:443',
+          source_id: 'flow:tcp:agg:443:203.0.113.10',
+          target_id: 'l4:tcp:443',
+          relation: 'uses_service',
+          layer: 'observed',
+          weight: 28,
+          properties: { source: 'trusttwin' },
+        },
+      ],
+    };
+    const result = projectUnifiedGraph(snapshot);
+    expect(result.nodes.some((n) => n.id === 'device:twin:dev_mbp')).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'tunnel' && n.label === 'Wi‑Fi')).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'gateway' && n.label.includes('Internet'))).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'gateway' && n.label.includes('203.0.113.10'))).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'port' && n.label.includes('443'))).toBe(true);
+    expect(result.nodes.some((n) => n.type === 'flow' && n.label.includes('HTTPS'))).toBe(true);
+    // Ports hang off Internet, not the client.
+    expect(
+      result.edges.some(
+        (e) => e.kind === 'to_port' && e.source === 'infra:public_network' && e.target.includes('443'),
+      ),
+    ).toBe(true);
+    expect(
+      result.edges.some((e) => e.kind === 'to_port' && e.source === 'device:twin:dev_mbp'),
+    ).toBe(false);
+    expect(result.edges.some((e) => e.kind === 'path_egress')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'path_tunnel')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'port_to_flow')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'flow_via_gateway')).toBe(false);
+  });
+
+  it('keeps TrustTwin devices with no focus apps yet', () => {
+    const snapshot: TwinGraphSnapshot = {
+      generated_at: '2026-07-04T00:00:00Z',
+      window_minutes: 1,
+      nodes: [
+        {
+          id: 'device:twin:dev_idle',
+          entity_type: 'device',
+          layer: 'observed',
+          label: 'idle-mac',
+          properties: { source: 'trusttwin', trusttwin_device_id: 'dev_idle' },
+        },
+      ],
+      edges: [],
+    };
+    const result = projectUnifiedGraph(snapshot);
+    expect(result.nodes.some((n) => n.id === 'device:twin:dev_idle')).toBe(true);
+  });
 });
 
 describe('projectTwinGraph', () => {

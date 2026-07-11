@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -9,11 +9,22 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import { alpha, keyframes, useTheme } from '@mui/material/styles';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import { alpha, useTheme } from '@mui/material/styles';
 import HubIcon from '@mui/icons-material/Hub';
 import ScienceIcon from '@mui/icons-material/Science';
 import BlockIcon from '@mui/icons-material/Block';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
+import DestinationTable from './DestinationTable';
+import {
+  buildDestinationRows,
+  DestinationRow,
+  focusPathGraph,
+  listClientsFromRows,
+} from '../utils/buildDestinationRows';
 import { useTwinGraph } from '../../twin-graph/hooks/useTwinGraph';
 import { SimulationCommandResponse } from '../../twin-graph/api/twinGraphApi';
 import { projectTwinGraph } from '../../twin-graph/projections/projectGraph';
@@ -26,7 +37,7 @@ import {
   shortenLabel,
 } from '../utils/layoutNetworkMap';
 import { layoutForceDirected } from '../utils/layoutForceDirected';
-import { flowNodeTooltip, parseFlowNode, portNodeTooltip } from '../utils/flowLabels';
+import { flowNodeTooltip, parseFlowNode, parsePortLabel, portNodeTooltip } from '../utils/flowLabels';
 import {
   computePortWhatIfSimulation,
   listActivePortNumbers,
@@ -65,12 +76,6 @@ import {
 import PathFlowDetailPanel from './PathFlowDetailPanel';
 import SimulationCommandBar from './SimulationCommandBar';
 
-const flowPulse = keyframes`
-  to {
-    stroke-dashoffset: -18;
-  }
-`;
-
 interface MapNodeGlyphProps {
   node: PositionedNode;
   whatIfMode: boolean;
@@ -107,47 +112,55 @@ function MapNodeGlyph({
     type: node.type,
     app_slug: node.app_slug,
     blocked: node.blocked || simulatedBlocked,
+    label: node.label,
   });
   const visual = getNodeVisualSpec(node.type);
   const nodeR = visual.radius;
   const iconSize = visual.iconSize;
 
   const isInfra = node.type === 'tunnel' || node.type === 'gateway' || node.type === 'policy';
+  const isLanTunnel =
+    node.type === 'tunnel' && /wi-?fi|ethernet|cellular|network/i.test(node.label);
 
   const ring = appDisabled || portDisabled || infraDisabled
     ? theme.palette.error.main
     : selected
-      ? theme.palette.info.main
-      : node.type === 'device' && node.fresh
-        ? theme.palette.success.main
-        : node.type === 'domain' && (node.blocked || simulatedBlocked)
-          ? theme.palette.error.main
-          : isInfra
-            ? style.color
-            : alpha(style.color, 0.85);
+      ? theme.palette.text.primary
+      : node.type === 'domain' && (node.blocked || simulatedBlocked)
+        ? theme.palette.error.main
+        : alpha(theme.palette.text.primary, 0.35);
 
   const tooltipParts = [
     node.type === 'app'
-      ? `${node.label} (foreground process)`
+      ? `${node.label} (process with network activity)`
       : node.type === 'domain'
         ? `${node.label}${node.blocked ? ' · blocked' : ''}${simulatedBlocked ? ' · would lose access (what-if)' : ''}`
         : node.type === 'flow'
           ? (() => {
               const parsed = parseFlowNode(node);
               return parsed
-                ? `Open ${parsed.protocol.toUpperCase()} connection to ${node.label} on port ${parsed.port}`
+                ? `${parsed.protocol.toUpperCase()}/${parsed.port} · ${node.label}`
                 : flowNodeTooltip(node.label);
             })()
           : node.type === 'flow_summary'
-            ? `${node.label} · click to expand top destinations`
+            ? `${node.label} · click to expand destinations`
             : node.type === 'flow_more'
               ? `${node.label} · click to show all destinations`
           : node.type === 'port'
-            ? portNodeTooltip(Number(node.label))
+            ? (() => {
+                const portNum = Number(String(node.label).replace(/.*:/, ''));
+                return Number.isFinite(portNum)
+                  ? portNodeTooltip(portNum)
+                  : `${node.label} · remote service port`;
+              })()
           : node.type === 'gateway'
-            ? `${node.label} · dnsmasq resolver on EC2`
+            ? node.label.toLowerCase().startsWith('internet')
+              ? `${node.label} · public egress path`
+              : `${node.label} · DNS resolver`
           : node.type === 'tunnel'
-            ? `${node.label} · VPN tunnel to gateway`
+            ? isLanTunnel
+              ? `${node.label} · local network link`
+              : `${node.label} · VPN tunnel`
               : `${node.label}${node.client_ip ? ` · ${node.client_ip}` : ''}`,
   ];
   if (whatIfMode && node.type === 'app') {
@@ -193,14 +206,18 @@ function MapNodeGlyph({
             : 'default',
         opacity: disabledVisual ? 0.45 : 1,
       }}
-      filter="url(#network-map-node-shadow)"
       onClick={
         selectableApp
           ? () => onSelectApp?.(node.id)
           : selectableDomain
             ? () => onSelectDomain?.(node.id)
             : selectablePort
-              ? () => onSelectPort?.(Number(node.label))
+              ? () => {
+                  const port = parsePortLabel(node.label);
+                  if (port != null) {
+                    onSelectPort?.(port);
+                  }
+                }
               : selectableTunnel
                 ? () => onSelectTunnel?.()
                 : selectableGateway
@@ -212,20 +229,23 @@ function MapNodeGlyph({
     >
       <title>{tooltipParts.join(' · ')}</title>
       <circle
-        r={nodeR + 4}
+        r={nodeR}
         fill={theme.palette.background.paper}
         stroke={ring}
-        strokeWidth={
-          selected ? 2 : disabledVisual ? 2 : node.type === 'device' && node.fresh ? 1.75 : 1.5
-        }
-        strokeDasharray={disabledVisual ? '4 3' : undefined}
+        strokeWidth={selected || disabledVisual ? 1.5 : 1}
+        strokeDasharray={disabledVisual ? '3 2' : undefined}
       />
-      <circle r={nodeR} fill={style.bg} stroke={alpha(style.color, 0.35)} strokeWidth={1} />
+      <circle
+        r={nodeR - 1}
+        fill={style.bg}
+        stroke={alpha(theme.palette.divider, 0.9)}
+        strokeWidth={1}
+      />
       {isInfra && (
         <circle
-          r={nodeR - 3}
+          r={nodeR - 4}
           fill="none"
-          stroke={alpha(style.color, 0.2)}
+          stroke={alpha(theme.palette.divider, 0.6)}
           strokeWidth={1}
         />
       )}
@@ -269,8 +289,8 @@ function MapNodeGlyph({
             width={badgeWidth}
             height={GRAPH_BADGE.height}
             rx={GRAPH_BADGE.rx}
-            fill={alpha(theme.palette.background.paper, 0.92)}
-            stroke={alpha(ring, 0.55)}
+            fill={theme.palette.background.paper}
+            stroke={theme.palette.divider}
             strokeWidth={1}
           />
           <text
@@ -278,8 +298,8 @@ function MapNodeGlyph({
             textAnchor="middle"
             fontSize={GRAPH_BADGE.fontSize}
             fontWeight={GRAPH_BADGE.fontWeight}
-            fill={theme.palette.text.primary}
-            style={{ fontFamily: visual.badgeMonospace ? 'ui-monospace, monospace' : undefined }}
+            fill={theme.palette.text.secondary}
+            style={{ fontFamily: visual.badgeMonospace ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : undefined }}
           >
             {pinLabel}
           </text>
@@ -371,43 +391,23 @@ function edgeStroke(
   theme: ReturnType<typeof useTheme>,
   simulatedCut: boolean,
 ): string {
-  if (simulatedCut) {
+  const muted = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.45 : 0.38);
+  const strong = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.62 : 0.52);
+  if (simulatedCut || edge.blocked_count > 0) {
     return theme.palette.error.main;
   }
-  if (edge.kind === 'foreground') {
-    return theme.palette.info.main;
+  if (edge.kind === 'dns_direct' || edge.kind === 'flow_session') {
+    return alpha(theme.palette.text.primary, 0.28);
   }
-  if (edge.kind === 'path_tunnel' || edge.kind === 'path_resolve') {
-    return theme.palette.secondary.main;
+  if (
+    edge.kind === 'path_tunnel' ||
+    edge.kind === 'path_resolve' ||
+    edge.kind === 'path_egress' ||
+    edge.kind === 'to_port'
+  ) {
+    return strong;
   }
-  if (edge.kind === 'path_egress') {
-    return theme.palette.primary.main;
-  }
-  if (edge.kind === 'path_forward') {
-    return edge.blocked_count > 0 ? theme.palette.error.main : theme.palette.success.main;
-  }
-  if (edge.kind === 'flow_via_gateway') {
-    return theme.palette.info.main;
-  }
-  if (edge.kind === 'to_port') {
-    return alpha(theme.palette.secondary.main, 0.72);
-  }
-  if (edge.kind === 'port_to_flow') {
-    return alpha(theme.palette.info.main, 0.78);
-  }
-  if (edge.kind === 'gateway_to_flow') {
-    return alpha(theme.palette.info.main, 0.78);
-  }
-  if (edge.kind === 'dns_to_flow') {
-    return alpha(theme.palette.info.main, 0.65);
-  }
-  if (edge.kind === 'flow_session') {
-    return alpha(theme.palette.info.main, 0.55);
-  }
-  if (edge.kind === 'dns_direct') {
-    return theme.palette.text.disabled;
-  }
-  return edge.blocked_count > 0 ? theme.palette.error.main : theme.palette.success.main;
+  return muted;
 }
 
 interface NetworkAttributionMapGraphProps {
@@ -426,13 +426,16 @@ export default function NetworkAttributionMapGraph({
     true,
   );
   const [whatIfMode, setWhatIfMode] = useState(false);
-  const [graphLayout, setGraphLayout] = useState<NetworkMapLayoutStyle>('force');
+  const [graphLayout, setGraphLayout] = useState<NetworkMapLayoutStyle>('columns');
   const [disabledAppIds, setDisabledAppIds] = useState<Set<string>>(new Set());
   const [disabledPortNumbers, setDisabledPortNumbers] = useState<Set<number>>(new Set());
   const [tunnelBlocked, setTunnelBlocked] = useState(false);
   const [gatewayBlocked, setGatewayBlocked] = useState(false);
   const [flowDestExpansion, setFlowDestExpansion] = useState<Record<string, PortDestExpansion>>({});
   const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | 'all'>('all');
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'vpn' | 'trusttwin'>('all');
 
   const layoutMode = 'unified' as const;
 
@@ -443,12 +446,53 @@ export default function NetworkAttributionMapGraph({
     return projectTwinGraph(snapshot, 'unified', attribution);
   }, [snapshot, attribution]);
 
+  const allRows = useMemo(() => buildDestinationRows(graphData), [graphData]);
+
+  const filteredRows = useMemo(() => {
+    return allRows.filter((row) => {
+      if (sourceFilter !== 'all' && row.source !== sourceFilter) {
+        return false;
+      }
+      if (selectedClientId !== 'all' && row.clientId !== selectedClientId) {
+        return false;
+      }
+      return true;
+    });
+  }, [allRows, sourceFilter, selectedClientId]);
+
+  const clients = useMemo(() => listClientsFromRows(allRows), [allRows]);
+
+  useEffect(() => {
+    if (clients.length === 0) {
+      return;
+    }
+    if (selectedClientId !== 'all' && !clients.some((c) => c.id === selectedClientId)) {
+      setSelectedClientId(clients[0].id);
+      return;
+    }
+    if (selectedClientId === 'all' && clients.length > 0) {
+      setSelectedClientId(clients[0].id);
+    }
+  }, [clients, selectedClientId]);
+
+  const selectedRow = useMemo(
+    () => allRows.find((row) => row.id === selectedRowId) ?? null,
+    [allRows, selectedRowId],
+  );
+
   const displayGraph = useMemo(() => {
     if (!graphData) {
       return null;
     }
-    return aggregateFlowDestinations(graphData.nodes, graphData.edges, flowDestExpansion);
-  }, [graphData, flowDestExpansion]);
+    const aggregated = aggregateFlowDestinations(
+      graphData.nodes,
+      graphData.edges,
+      flowDestExpansion,
+    );
+    const clientScope = selectedClientId === 'all' ? clients[0]?.id ?? 'all' : selectedClientId;
+    // Minimal path: spine only; expand one destination when a table row is selected.
+    return focusPathGraph(aggregated, clientScope, selectedRow);
+  }, [graphData, flowDestExpansion, selectedClientId, clients, selectedRow]);
 
   const data = attribution;
 
@@ -603,10 +647,29 @@ export default function NetworkAttributionMapGraph({
     setSelectedDomainId((prev) => (prev === domainId ? null : domainId));
   };
 
-  const deviceCount = data?.nodes.filter((n) => n.type === 'device').length ?? 0;
-  const appCount = data?.nodes.filter((n) => n.type === 'app').length ?? 0;
-  const domainCount = data?.nodes.filter((n) => n.type === 'domain').length ?? 0;
-  const flowCount = graphData?.nodes.filter((n) => n.type === 'flow').length ?? 0;
+  const handleSelectRow = (row: DestinationRow) => {
+    if (selectedRowId === row.id) {
+      setSelectedRowId(null);
+      setSelectedDomainId(null);
+      return;
+    }
+    setSelectedRowId(row.id);
+    setSelectedClientId(row.clientId);
+    if (row.destinationKind === 'domain') {
+      setSelectedDomainId(row.destinationId);
+    } else {
+      setSelectedDomainId(null);
+    }
+  };
+
+  const pathClientLabel =
+    clients.find((c) => c.id === selectedClientId)?.label ??
+    (selectedClientId === 'all' ? 'All clients' : selectedClientId);
+
+  const deviceCount = clients.length;
+  const blockCount = filteredRows.filter((r) => r.action === 'block').length;
+  const domainCount = filteredRows.filter((r) => r.destinationKind === 'domain').length;
+  const flowCount = filteredRows.filter((r) => r.destinationKind === 'session').length;
 
   const summaryNodes = useMemo(() => {
     if (!layout) {
@@ -627,9 +690,9 @@ export default function NetworkAttributionMapGraph({
     return [...visible].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9));
   }, [layout]);
 
-  const landFill = theme.palette.mode === 'dark' ? '#0B1220' : '#F8FAFC';
-  const gridDot = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.08 : 0.06);
-  const laneStroke = alpha(theme.palette.divider, 0.45);
+  const landFill = theme.palette.mode === 'dark' ? '#0F1419' : '#F4F6F8';
+  const gridDot = alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.04 : 0.035);
+  const laneStroke = alpha(theme.palette.divider, 0.35);
   const columnLabels = pathColumnLabels(layoutMode);
   const showColumnGuides = graphLayout === 'columns';
 
@@ -648,22 +711,62 @@ export default function NetworkAttributionMapGraph({
       )}
 
       <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ xs: 'stretch', md: 'center' }}
         justifyContent="space-between"
         spacing={1}
         sx={{ mb: 1.5 }}
       >
-        <Stack direction="row" flexWrap="wrap" gap={0.75}>
-          <Chip size="small" variant="outlined" label={`${deviceCount} devices`} />
-          <Chip size="small" variant="outlined" label={`${appCount} apps`} />
-          <Chip size="small" variant="outlined" label={`${domainCount} DNS names`} />
-          {data && <Chip size="small" variant="outlined" label={`Last ${data.minutes} min`} />}
-          {flowCount > 0 && (
-            <Chip size="small" variant="outlined" label={`${flowCount} live sessions`} />
+        <Stack direction="row" flexWrap="wrap" gap={0.75} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel id="network-map-client-label">Client</InputLabel>
+            <Select
+              labelId="network-map-client-label"
+              label="Client"
+              value={clients.some((c) => c.id === selectedClientId) ? selectedClientId : ''}
+              displayEmpty
+              onChange={(e) => {
+                setSelectedClientId(e.target.value as string);
+                setSelectedRowId(null);
+              }}
+            >
+              {clients.length === 0 && (
+                <MenuItem value="" disabled>
+                  No clients
+                </MenuItem>
+              )}
+              {clients.map((client) => (
+                <MenuItem key={client.id} value={client.id}>
+                  {client.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel id="network-map-source-label">Source</InputLabel>
+            <Select
+              labelId="network-map-source-label"
+              label="Source"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as 'all' | 'vpn' | 'trusttwin')}
+            >
+              <MenuItem value="all">All</MenuItem>
+              <MenuItem value="vpn">VPN</MenuItem>
+              <MenuItem value="trusttwin">Agents</MenuItem>
+            </Select>
+          </FormControl>
+          <Chip size="small" variant="outlined" label={`${deviceCount} clients`} />
+          <Chip size="small" variant="outlined" label={`${filteredRows.length} destinations`} />
+          <Chip size="small" variant="outlined" label={`${domainCount} DNS`} />
+          {blockCount > 0 && (
+            <Chip size="small" color="error" variant="outlined" label={`${blockCount} blocked`} />
           )}
+          {flowCount > 0 && (
+            <Chip size="small" variant="outlined" label={`${flowCount} sessions`} />
+          )}
+          {data && <Chip size="small" variant="outlined" label={`Last ${data.minutes} min`} />}
         </Stack>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={0.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
+        <Stack direction="row" spacing={0.5} alignItems="center">
           <FormControlLabel
             control={
               <Switch
@@ -675,7 +778,7 @@ export default function NetworkAttributionMapGraph({
             label={
               <Stack direction="row" spacing={0.5} alignItems="center">
                 <ScatterPlotIcon sx={{ fontSize: 16 }} />
-                <Typography variant="body2">Graph layout</Typography>
+                <Typography variant="body2">Organic layout</Typography>
               </Stack>
             }
             sx={{ m: 0 }}
@@ -698,6 +801,36 @@ export default function NetworkAttributionMapGraph({
           />
         </Stack>
       </Stack>
+
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.75 }}>
+        Destinations
+      </Typography>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        Who talked to what. Click a row to inspect that destination on the path (click again to clear).
+      </Typography>
+      {loading && allRows.length === 0 ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={28} />
+        </Box>
+      ) : (
+        <Box sx={{ mb: 2, border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
+          <DestinationTable
+            rows={filteredRows}
+            selectedRowId={selectedRowId}
+            onSelectRow={handleSelectRow}
+          />
+        </Box>
+      )}
+
+      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.75 }}>
+        Path · {pathClientLabel}
+        {selectedRow ? ` · ${selectedRow.destination}` : ''}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        {selectedRow
+          ? 'Path for the selected destination. Click another row or clear selection to return to the summary path.'
+          : 'Summary path only (egress). Click a table row to inspect one destination.'}
+      </Typography>
 
       <SimulationCommandBar
         activePorts={activePortNumbers}
@@ -829,14 +962,9 @@ export default function NetworkAttributionMapGraph({
           position: 'relative',
           borderRadius: 1,
           overflow: 'auto',
-          border: `1px solid ${whatIfMode ? theme.palette.info.main : theme.palette.divider}`,
+          border: `1px solid ${whatIfMode ? theme.palette.warning.main : theme.palette.divider}`,
           bgcolor: landFill,
           minHeight: 300,
-          boxShadow: theme.palette.mode === 'dark' ? 'inset 0 1px 0 rgba(255,255,255,0.04)' : 'inset 0 1px 0 rgba(0,0,0,0.03)',
-          '& .network-flow-active': {
-            strokeDasharray: '6 6',
-            animation: `${flowPulse} 2s linear infinite`,
-          },
         }}
       >
         {loading && !layout && (
@@ -855,13 +983,16 @@ export default function NetworkAttributionMapGraph({
             aria-label="Network digital twin graph with devices, DNS, and live sessions"
           >
             <defs>
-              <pattern id="network-map-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                <circle cx="1" cy="1" r="0.75" fill={gridDot} />
+              <pattern id="network-map-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                <path
+                  d="M 24 0 L 0 0 0 24"
+                  fill="none"
+                  stroke={gridDot}
+                  strokeWidth={1}
+                />
               </pattern>
-              <filter id="network-map-node-shadow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="1" stdDeviation="1.8" floodColor="#000" floodOpacity={theme.palette.mode === 'dark' ? 0.35 : 0.12} />
-              </filter>
             </defs>
+            <rect x={0} y={0} width={layout.width} height={layout.height} fill={landFill} />
             <rect x={0} y={0} width={layout.width} height={layout.height} fill="url(#network-map-grid)" />
 
             {showColumnGuides &&
@@ -894,63 +1025,33 @@ export default function NetworkAttributionMapGraph({
                 return null;
               }
               const simulatedCut = isEdgeSimulatedCut(edge, whatIf, portWhatIf, tunnelWhatIf);
-              const animated =
-                !simulatedCut &&
-                (edge.kind === 'dns' ||
-                  edge.kind === 'dns_direct' ||
-                  edge.kind === 'path_forward' ||
-                  edge.kind === 'path_egress' ||
-                  edge.kind === 'port_to_flow' ||
-                  edge.kind === 'gateway_to_flow');
               const stroke = edgeStroke(edge, theme, simulatedCut);
               const clickable =
                 edge.kind === 'path_forward' || edge.kind === 'dns' || edge.kind === 'dns_direct';
               const strokeWidth =
                 edge.kind === 'foreground' || edge.kind === 'path_tunnel' || edge.kind === 'path_resolve'
-                  ? 1.25
-                  : Math.min(2.5, 1 + Math.log2(edge.query_count + 1) * 0.45);
+                  ? 1
+                  : Math.min(1.75, 0.9 + Math.log2(edge.query_count + 1) * 0.28);
               const pathD = edgePath(from.x, from.y, to.x, to.y);
               return (
                 <g key={`${edge.source}-${edge.target}-${edge.kind}`}>
                   <path
                     d={pathD}
                     fill="none"
-                    stroke={alpha(stroke, 0.18)}
-                    strokeWidth={strokeWidth + 2.5}
-                    strokeLinecap="round"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                  <path
-                    d={pathD}
-                    fill="none"
                     stroke={stroke}
                     strokeWidth={strokeWidth}
-                  strokeDasharray={
-                    simulatedCut ||
-                    edge.kind === 'dns_direct' ||
-                    edge.kind === 'flow_session' ||
-                    edge.kind === 'path_tunnel'
-                      ? '5 4'
-                      : undefined
-                  }
-                  opacity={
-                    simulatedCut
-                      ? 0.55
-                      : edge.kind === 'foreground'
-                        ? 0.5
-                        : edge.kind === 'dns_direct'
-                          ? 0.45
-                          : edge.kind === 'path_tunnel' || edge.kind === 'path_resolve'
-                            ? 0.65
-                            : 0.8
-                  }
-                  strokeLinecap="round"
-                  className={animated ? 'network-flow-active' : undefined}
-                  style={{ cursor: clickable ? 'pointer' : undefined }}
-                  onClick={clickable ? () => handleEdgeClick(edge) : undefined}
-                >
-                  <title>{edgeTooltip(edge, nodeMap, simulatedCut)}</title>
-                </path>
+                    strokeDasharray={
+                      simulatedCut || edge.kind === 'dns_direct' || edge.kind === 'flow_session'
+                        ? '4 3'
+                        : undefined
+                    }
+                    opacity={simulatedCut ? 0.5 : 0.9}
+                    strokeLinecap="square"
+                    style={{ cursor: clickable ? 'pointer' : undefined }}
+                    onClick={clickable ? () => handleEdgeClick(edge) : undefined}
+                  >
+                    <title>{edgeTooltip(edge, nodeMap, simulatedCut)}</title>
+                  </path>
                 </g>
               );
             })}
@@ -962,7 +1063,11 @@ export default function NetworkAttributionMapGraph({
                 whatIfMode={whatIfMode}
                 portDisabled={
                   whatIfMode &&
-                  ((node.type === 'port' && disabledPortNumbers.has(Number(node.label))) ||
+                  ((node.type === 'port' &&
+                    (() => {
+                      const port = parsePortLabel(node.label);
+                      return port != null && disabledPortNumbers.has(port);
+                    })()) ||
                     ((node.type === 'flow_summary' || node.type === 'flow_more') &&
                       (() => {
                         const port = parseAggregatePortFromNode(node);
@@ -993,8 +1098,9 @@ export default function NetworkAttributionMapGraph({
         {!loading && layout && layout.nodes.length === 0 && (
           <Box sx={{ p: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              No network activity in the last {data?.minutes ?? minutes} minutes. Connect a client and browse
-              to populate the map.
+              No destinations in the last {data?.minutes ?? minutes} minutes. VPN clients appear after DNS
+              queries or L4 flows; TrustTwin agents need shared Redis (<code>REDIS_URL</code>) and a
+              network_summary with remote ports.
             </Typography>
           </Box>
         )}
@@ -1049,6 +1155,7 @@ export default function NetworkAttributionMapGraph({
                   type: node.type,
                   app_slug: node.app_slug,
                   blocked: node.blocked || (whatIf?.simulatedBlockedDomainIds.has(node.id) ?? false),
+                  label: node.label,
                 });
                 const appDisabled = whatIfMode && disabledAppIds.has(node.id);
                 const domainSelected = selectedDomainId === node.id;
