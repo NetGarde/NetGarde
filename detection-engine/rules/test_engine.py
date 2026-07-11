@@ -1,23 +1,40 @@
+from rules.chain_rules import CHAIN_RULES, evaluate_chain
 from rules.engine import evaluate_event
 from rules.state import StateStore
 
 
-def _network_event(device_id: str, network_type: str, public_ip: str, ts: str = "2026-07-11T12:00:00Z"):
+def _network_event(
+    device_id: str,
+    network_type: str,
+    public_ip: str,
+    ts: str = "2026-07-11T12:00:00Z",
+    **extra_payload,
+):
+    payload = {"network_type": network_type, "public_ip": public_ip, **extra_payload}
     return {
-        "event_id": "evt_1",
+        "event_id": f"evt_{ts}",
         "device_id": device_id,
         "type": "network_summary",
         "ts": ts,
-        "payload": {"network_type": network_type, "public_ip": public_ip},
+        "payload": payload,
     }
 
 
-def _action_event(device_id: str, presence: str):
+def _action_event(device_id: str, presence: str, ts: str = "2026-07-11T12:00:00Z"):
     return {
         "device_id": device_id,
         "type": "action_summary",
-        "ts": "2026-07-11T12:00:00Z",
+        "ts": ts,
         "payload": {"presence": presence},
+    }
+
+
+def _client_event(device_id: str, ts: str = "2026-07-11T12:00:00Z"):
+    return {
+        "device_id": device_id,
+        "type": "client_details",
+        "ts": ts,
+        "payload": {"hostname": "test-host"},
     }
 
 
@@ -53,3 +70,64 @@ def test_first_network_event_no_alerts():
     store = StateStore()
     alerts = evaluate_event(_network_event("dev_new", "wifi", "1.1.1.1"), store)
     assert alerts == []
+
+
+def test_chain_rules_registry_has_many_rules():
+    assert len(CHAIN_RULES) >= 15
+    names = {name for name, _ in CHAIN_RULES}
+    assert "rapid_public_ip_changes" in names
+    assert "network_type_flapping" in names
+    assert "stale_client_details" in names
+
+
+def test_rapid_public_ip_changes():
+    store = StateStore()
+    device = "dev_ip_churn"
+    base = "2026-07-11T12:00:00Z"
+    evaluate_event(_network_event(device, "wifi", "1.1.1.1", base), store)
+    evaluate_event(_network_event(device, "wifi", "2.2.2.2", "2026-07-11T12:02:00Z"), store)
+    alerts = evaluate_event(_network_event(device, "wifi", "3.3.3.3", "2026-07-11T12:04:00Z"), store)
+    types = {a.alert_type for a in alerts}
+    assert "rapid_public_ip_changes" in types
+
+
+def test_simultaneous_ip_and_type_change():
+    store = StateStore()
+    device = "dev_both"
+    evaluate_event(_network_event(device, "wifi", "1.1.1.1"), store)
+    alerts = evaluate_event(
+        _network_event(device, "ethernet", "2.2.2.2", "2026-07-11T12:01:00Z"), store
+    )
+    types = {a.alert_type for a in alerts}
+    assert "simultaneous_ip_and_type_change" in types
+
+
+def test_stale_client_details():
+    store = StateStore()
+    device = "dev_stale"
+    evaluate_event(_client_event(device, "2026-07-11T11:00:00Z"), store)
+    evaluate_event(_network_event(device, "wifi", "1.1.1.1", "2026-07-11T12:00:00Z"), store)
+    alerts = evaluate_event(_network_event(device, "wifi", "1.1.1.1", "2026-07-11T12:05:00Z"), store)
+    types = {a.alert_type for a in alerts}
+    assert "stale_client_details" in types
+
+
+def test_established_count_spike():
+    store = StateStore()
+    device = "dev_sock"
+    evaluate_event(
+        _network_event(device, "wifi", "1.1.1.1", established_count=10),
+        store,
+    )
+    alerts = evaluate_event(
+        _network_event(
+            device,
+            "wifi",
+            "1.1.1.1",
+            "2026-07-11T12:01:00Z",
+            established_count=80,
+        ),
+        store,
+    )
+    types = {a.alert_type for a in alerts}
+    assert "established_count_spike" in types
