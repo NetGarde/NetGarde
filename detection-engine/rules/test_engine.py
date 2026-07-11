@@ -131,3 +131,50 @@ def test_established_count_spike():
     )
     types = {a.alert_type for a in alerts}
     assert "established_count_spike" in types
+
+
+def _process_event(device_id: str, pid: int, ppid: int, comm: str, executable: str, ts: str):
+    return {
+        "event_id": f"evt_proc_{pid}_{ts}",
+        "device_id": device_id,
+        "type": "process_start",
+        "ts": ts,
+        "payload": {
+            "pid": pid,
+            "ppid": ppid,
+            "user": "tester",
+            "comm": comm,
+            "executable": executable,
+        },
+    }
+
+
+def test_shell_spawns_downloader_alert():
+    store = StateStore()
+    device = "dev_edr"
+    evaluate_event(_process_event(device, 100, 1, "bash", "bash", "2026-07-11T12:00:00Z"), store)
+    alerts = evaluate_event(
+        _process_event(device, 200, 100, "curl", "curl", "2026-07-11T12:00:05Z"), store
+    )
+    types = {a.alert_type for a in alerts}
+    assert "shell_spawns_downloader" in types
+
+
+def test_temp_path_execution_alert():
+    store = StateStore()
+    device = "dev_tmp"
+    evaluate_event(_process_event(device, 1, 0, "launchd", "launchd", "2026-07-11T12:00:00Z"), store)
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            2,
+            1,
+            "malware",
+            "/tmp/.hidden/malware",
+            "2026-07-11T12:00:01Z",
+        ),
+        store,
+    )
+    types = {a.alert_type for a in alerts}
+    assert "temp_path_execution" in types
+

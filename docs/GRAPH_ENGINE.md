@@ -1,6 +1,6 @@
-# Network Security Digital Twin — Graph Engine
+# Security Observability Graph Engine
 
-This document defines the **canonical graph data model** for TrustEdge’s digital twin. The graph is the source of truth for dependency reasoning. UI layout modes (attribution, path, flow) are **projections** of this graph, not its structure.
+This document defines the **canonical graph data model** for TrustEdge’s security observability platform. The graph is the source of truth for dependency reasoning. UI layout modes (attribution, path, flow) are **projections** of this graph, not its structure.
 
 For product context see [DESIGN.md](DESIGN.md). For current map API see [API.md](API.md).
 

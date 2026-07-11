@@ -92,7 +92,7 @@ export default function PathFlowDetailPanel({ flows, onClose }: PathFlowDetailPa
             DNS path — {primary.domainLabel}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Logical digital-twin path (not packet capture). Click a destination or path arc to inspect.
+            Logical observability path (not packet capture). Click a destination or path arc to inspect.
           </Typography>
         </Box>
         <IconButton size="small" aria-label="Close path detail" onClick={onClose}>

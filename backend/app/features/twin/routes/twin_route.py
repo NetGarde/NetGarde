@@ -25,7 +25,7 @@ from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
 from app.shared.service_auth import verify_dns_ingest_service
 
-router = APIRouter(prefix="/twin", tags=["Digital Twin"])
+router = APIRouter(prefix="/twin", tags=["Security Observability"])
 
 
 def get_twin_graph_service(db: Session = Depends(get_db)) -> TwinGraphService:
@@ -76,7 +76,7 @@ def graph_snapshot(
     _: None = Depends(verify_admin_api_token),
     service: TwinGraphService = Depends(get_twin_graph_service),
 ):
-    """Canonical entity/dependency graph for the digital twin."""
+    """Canonical entity/dependency graph for security observability."""
     return service.build_snapshot(
         minutes=minutes,
         include_flows=include_flows,

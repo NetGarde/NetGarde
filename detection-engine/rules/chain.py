@@ -8,6 +8,8 @@ from typing import Any
 TYPE_CLIENT_DETAILS = "client_details"
 TYPE_NETWORK_SUMMARY = "network_summary"
 TYPE_ACTION_SUMMARY = "action_summary"
+TYPE_PROCESS_START = "process_start"
+TYPE_PROCESS_EXIT = "process_exit"
 
 
 def parse_ts(raw: Any) -> datetime:

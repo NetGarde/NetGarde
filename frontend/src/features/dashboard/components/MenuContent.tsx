@@ -162,7 +162,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
                   <HubIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Digital twin"
+                  primary="Observability"
                   sx={{ color: 'text.secondary' }}
                   primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 400 }}
                 />

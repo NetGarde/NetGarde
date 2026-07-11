@@ -1,6 +1,6 @@
 # TrustEdge dashboard (frontend)
 
-React 19 admin UI for the [TrustEdge platform](https://github.com/TrustEdge/TrustEdge).
+React 19 admin UI for the [TrustEdge security observability platform](https://github.com/TrustEdge/TrustEdge).
 
 See the [root README](../README.md) for overview and [docs/DEPLOY.md](../docs/DEPLOY.md) for production deployment.
 

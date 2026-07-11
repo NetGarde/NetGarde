@@ -36,7 +36,7 @@ export interface ExpandedPathGraph {
   edges: NetworkMapEdge[];
 }
 
-/** Expand attribution graph with WireGuard → dnsmasq → policy hops (digital-twin path). */
+/** Expand attribution graph with WireGuard → dnsmasq → policy hops (observability path). */
 export function expandToPathView(nodes: NetworkMapNode[], edges: NetworkMapEdge[]): ExpandedPathGraph {
   const nodeMap = new Map<string, NetworkMapNode>();
   for (const node of nodes) {

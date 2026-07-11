@@ -1,6 +1,6 @@
 # System architecture
 
-Component topology and data flows for the TrustEdge platform. For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
+Component topology and data flows for the TrustEdge **security observability platform** (VPN/DNS visibility, TrustTwin endpoint telemetry, rules-based detection, optional enforcement). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
@@ -15,11 +15,12 @@ Component topology and data flows for the TrustEdge platform. For design princip
 | Layer | Components | Role |
 |-------|------------|------|
 | **Clients** | Site router, laptops, phones | DNS traffic tunneled via WireGuard to EC2 |
+| **Endpoint agents** | TrustTwin (`trusttwin`) | Process, app, and network posture telemetry (no VPN) |
 | **EC2 host** | WireGuard, dnsmasq, iptables | VPN termination, DNS resolution, traffic blocking |
 | **Host services** | `trustedge-wg-agent`, `trustedge-log-watcher` | Peer apply, quarantine iptables, DNS log ingest, trigger policy sync |
-| **Docker** | FastAPI backend, dns-sync | API, policy computation, dnsmasq config generation |
+| **Docker** | FastAPI backend, dns-sync, detection-engine, trusttwin-api | API, policy computation, dnsmasq config generation, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
-| **Redis** | Usage samples (EC2) | Real-time VPN throughput for live charts |
+| **Redis** | Usage samples + TrustTwin live state (EC2) | Real-time VPN throughput; endpoint agent mirror for observability graph |
 
 ---
 
@@ -32,6 +33,14 @@ Client → WireGuard → dnsmasq → dnsmasq.log
                               → log_watcher → POST /dns-queries/bulk → Backend
                               → WebSocket → Dashboard (live feed)
                               → RDS (blocked queries only, by default)
+```
+
+### Endpoint telemetry path
+
+```
+TrustTwin agent → POST /v1/events → trusttwin-api → Redis + Kafka (trusttwin.events)
+                 → detection-engine → POST /twin/alerts/ingest → Backend
+                 → observability graph + dashboard alerts
 ```
 
 ### Policy enforcement path

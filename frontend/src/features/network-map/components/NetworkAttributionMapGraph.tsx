@@ -839,7 +839,7 @@ export default function NetworkAttributionMapGraph({
       />
 
       <Alert severity="info" sx={{ mb: 1.5 }} icon={<HubIcon fontSize="small" />}>
-        Digital twin graph: device → process → WireGuard → EC2 DNS → port → DNS name or session IP.
+        Observability graph: device → process → WireGuard → EC2 DNS → port → DNS name or session IP.
         Many sessions aggregate per port (click hub to expand). Policy gates are hidden.
       </Alert>
 
@@ -980,7 +980,7 @@ export default function NetworkAttributionMapGraph({
             preserveAspectRatio="xMidYMid meet"
             sx={{ width: '100%', minWidth: showColumnGuides ? 640 : undefined, height: 'auto', display: 'block', minHeight: 300 }}
             role="img"
-            aria-label="Network digital twin graph with devices, DNS, and live sessions"
+            aria-label="Security observability graph with devices, DNS, endpoint agents, and live sessions"
           >
             <defs>
               <pattern id="network-map-grid" width="24" height="24" patternUnits="userSpaceOnUse">

@@ -67,7 +67,7 @@ export default function MainGrid() {
                 variant="text"
                 startIcon={<HubIcon fontSize="small" />}
               >
-                Twin: network map
+                Observability: network map
               </Button>
               <Button
                 component={RouterLink}
@@ -76,7 +76,7 @@ export default function MainGrid() {
                 variant="text"
                 startIcon={<MapIcon fontSize="small" />}
               >
-                Twin: client map
+                Observability: client map
               </Button>
             </Stack>
           </Stack>
