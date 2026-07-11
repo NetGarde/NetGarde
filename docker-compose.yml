@@ -90,6 +90,32 @@ services:
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'
       "
 
+  trusttwin-api:
+    build:
+      context: ${TRUSTTWIN_BUILD_CONTEXT:-../TrustTwin}
+      dockerfile: Dockerfile
+    container_name: trustedge-trusttwin-api
+    ports:
+      - "${TRUSTTWIN_API_HOST_BIND:-0.0.0.0}:${TRUSTTWIN_API_PORT:-8080}:8080"
+    environment:
+      TRUSTTWIN_LISTEN: ":8080"
+      TRUSTTWIN_DATA_DIR: /data
+      TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:?TRUSTTWIN_ENROLL_TOKEN is required (set in .env or /etc/trustedge/trusttwin-enroll.token)}
+      TRUSTTWIN_PRODUCTION: ${TRUSTTWIN_PRODUCTION:-1}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    volumes:
+      - trusttwin-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   dns-sync:
     build:
       context: ./dns-sync
@@ -127,4 +153,5 @@ services:
 volumes:
   ollama-data:
   policy-pack-snapshots:
+  trusttwin-data:
 
