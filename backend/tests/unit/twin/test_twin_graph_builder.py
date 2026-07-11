@@ -15,6 +15,7 @@ from tests.helpers.factories import create_vpn_device, seed_policy_catalog
 @pytest.fixture(autouse=True)
 def enable_attribution(monkeypatch):
     monkeypatch.setattr(settings, "NETWORK_ATTRIBUTION_ENABLED", True)
+    monkeypatch.setattr(settings, "DNS_BLOCKING_ENABLED", True)
 
 
 def test_builder_includes_observed_and_policy_layers(db_session):
