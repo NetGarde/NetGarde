@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TrustTwin event consumer — evaluates rules and posts twin alerts to the API."""
+"""TrustEdge Agent event consumer — evaluates rules and posts twin alerts to the API."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _brokers() -> list[str]:
 
 
 def _create_consumer() -> KafkaConsumer:
-    topic = _env("KAFKA_TOPIC", "trusttwin.events")
+    topic = _env("KAFKA_TOPIC", "trustedge.agent.events")
     group_id = _env("KAFKA_GROUP_ID", "detection-engine")
     brokers = _brokers()
     LOG.info(

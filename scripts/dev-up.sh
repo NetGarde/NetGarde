@@ -17,7 +17,7 @@ if [[ ! -f frontend/.env.development ]]; then
   echo "Created frontend/.env.development from frontend/.env.development.example"
 fi
 
-echo "Starting trustedge-dev (postgres, redis, redpanda, backend, trusttwin-api, detection-engine)..."
+echo "Starting trustedge-dev (postgres, redis, redpanda, backend, trustedge-agent-api, detection-engine)..."
 "${COMPOSE[@]}" up -d --build
 
 echo
@@ -39,15 +39,13 @@ if ! curl -sf "http://127.0.0.1:${API_PORT}/health" >/dev/null; then
   exit 1
 fi
 
-REDIS_PORT="$(grep -E '^DEV_REDIS_PORT=' .env.dev 2>/dev/null | cut -d= -f2- || true)"
-REDIS_PORT="${REDIS_PORT:-6379}"
-TRUSTTWIN_PORT="$(grep -E '^DEV_TRUSTTWIN_API_PORT=' .env.dev 2>/dev/null | cut -d= -f2- || true)"
-TRUSTTWIN_PORT="${TRUSTTWIN_PORT:-8080}"
+AGENT_API_PORT="$(grep -E '^DEV_TRUSTEDGE_AGENT_API_PORT=' .env.dev 2>/dev/null | cut -d= -f2- || true)"
+AGENT_API_PORT="${AGENT_API_PORT:-8080}"
 
-echo "Waiting for TrustTwin ingest API..."
+echo "Waiting for TrustEdge Agent ingest API..."
 for _ in $(seq 1 30); do
-  if curl -sf "http://127.0.0.1:${TRUSTTWIN_PORT}/healthz" >/dev/null; then
-    echo "TrustTwin API is up: http://127.0.0.1:${TRUSTTWIN_PORT}"
+  if curl -sf "http://127.0.0.1:${AGENT_API_PORT}/healthz" >/dev/null; then
+    echo "TrustEdge Agent API is up: http://127.0.0.1:${AGENT_API_PORT}"
     break
   fi
   sleep 2
@@ -61,16 +59,16 @@ Dashboard (host):
   cd frontend && npm install && npm start
   → http://localhost:3000
 
-TrustTwin laptop agent (clone github.com/TrustEdgeOrg/TrustTwin as ../TrustTwin):
+TrustEdge Agent (clone github.com/TrustEdgeOrg/TrustTwin as ../TrustTwin):
   cd ../TrustTwin
-  TRUSTTWIN_API_URL=http://127.0.0.1:${TRUSTTWIN_PORT} go run ./cmd/trusttwin
+  TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:${AGENT_API_PORT} go run ./cmd/trustedge-agent
 
 Useful commands
 ---------------
   ./scripts/dev-logs.sh
   ./scripts/dev-down.sh
   ${COMPOSE[*]} ps
-  ${COMPOSE[*]} logs -f trusttwin-api
+  ${COMPOSE[*]} logs -f trustedge-agent-api
   ${COMPOSE[*]} logs -f detection-engine
 
 EOF

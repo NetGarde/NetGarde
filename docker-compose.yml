@@ -105,7 +105,7 @@ services:
     container_name: trustedge-detection-engine
     environment:
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_TOPIC: trusttwin.events
+      KAFKA_TOPIC: trustedge.agent.events
       KAFKA_GROUP_ID: detection-engine
       API_BASE_URL: http://backend:8000
       DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
@@ -119,22 +119,22 @@ services:
         condition: service_healthy
     restart: always
 
-  trusttwin-api:
-    profiles: ["trusttwin"]
-    image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:missing}
-    container_name: trustedge-trusttwin-api
+  trustedge-agent-api:
+    profiles: ["agent"]
+    image: ${TRUSTEDGE_AGENT_API_IMAGE:-trustedge-agent-api:missing}
+    container_name: trustedge-agent-api
     ports:
-      - "${TRUSTTWIN_API_HOST_BIND:-0.0.0.0}:${TRUSTTWIN_API_PORT:-8080}:8080"
+      - "${TRUSTEDGE_AGENT_API_HOST_BIND:-0.0.0.0}:${TRUSTEDGE_AGENT_API_PORT:-8080}:8080"
     environment:
-      TRUSTTWIN_LISTEN: ":8080"
-      TRUSTTWIN_DATA_DIR: /data
-      TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:-}
-      TRUSTTWIN_PRODUCTION: ${TRUSTTWIN_PRODUCTION:-1}
+      TRUSTEDGE_AGENT_LISTEN: ":8080"
+      TRUSTEDGE_AGENT_DATA_DIR: /data
+      TRUSTEDGE_AGENT_ENROLL_TOKEN: ${TRUSTEDGE_AGENT_ENROLL_TOKEN:-}
+      TRUSTEDGE_AGENT_PRODUCTION: ${TRUSTEDGE_AGENT_PRODUCTION:-1}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_TOPIC: trusttwin.events
+      KAFKA_TOPIC: trustedge.agent.events
     volumes:
-      - trusttwin-data:/data
+      - trustedge-agent-data:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -151,6 +151,6 @@ services:
 volumes:
   ollama-data:
   policy-pack-snapshots:
-  trusttwin-data:
+  trustedge-agent-data:
   redpanda-data:
 

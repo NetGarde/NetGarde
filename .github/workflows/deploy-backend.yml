@@ -10,7 +10,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: trustedge-backend
-  TRUSTTWIN_ECR_REPOSITORY: trustedge-trusttwin-api
+  TRUSTEDGE_AGENT_ECR_REPOSITORY: trustedge-agent-api
   ECR_REGISTRY: 804012660077.dkr.ecr.us-east-1.amazonaws.com
   RDS_INSTANCE_ID: ${{ secrets.RDS_INSTANCE_ID || 'trustedge' }}
 
@@ -371,14 +371,14 @@ jobs:
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
-            chmod +x scripts/ec2-resolve-trusttwin-image.sh scripts/ec2-sync-trusttwin.sh
-            export TRUSTTWIN_IMAGE_BRANCH="${{ github.ref_name }}"
+            chmod +x scripts/ec2-resolve-agent-api.sh scripts/ec2-sync-agent-api.sh
+            export TRUSTEDGE_AGENT_IMAGE_BRANCH="${{ github.ref_name }}"
             # shellcheck disable=SC1091
-            source scripts/ec2-resolve-trusttwin-image.sh
-            if [ -n "${TRUSTTWIN_API_IMAGE:-}" ]; then
-              bash scripts/ec2-sync-trusttwin.sh
+            source scripts/ec2-resolve-agent-api.sh
+            if [ -n "${TRUSTEDGE_AGENT_API_IMAGE:-}" ]; then
+              bash scripts/ec2-sync-agent-api.sh
             fi
-            export TRUSTTWIN_ENROLL_TOKEN="$(sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+            export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(sudo cat /etc/trustedge/agent-enroll.token 2>/dev/null || sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
 
             export WG_AGENT_URL="$WG_AGENT_URL"
             export WG_AGENT_TOKEN="$WG_AGENT_TOKEN"
@@ -416,7 +416,7 @@ jobs:
               docker compose -f docker-compose.yml build backend || echo "Warning: Backend build failed"
             fi
             
-            # Build detection-engine (Kafka consumer for TrustTwin events)
+            # Build detection-engine (Kafka consumer for TrustEdge Agent events)
             echo "Building detection-engine container..."
             docker compose -f docker-compose.yml build detection-engine || echo "Warning: detection-engine build failed, but continuing..."
             
@@ -431,11 +431,11 @@ jobs:
             echo "Running database migrations..."
             docker compose -f docker-compose.yml run --rm --no-deps -e DB_URL="$DB_URL" backend alembic upgrade head
             
-            # Start core services (trusttwin-api only when ECR image was pulled)
+            # Start core services (trustedge-agent-api only when ECR image was pulled)
             echo "Starting services..."
-            COMPOSE_PROFILES="${TRUSTTWIN_COMPOSE_PROFILE:-}" docker compose -f docker-compose.yml up -d --remove-orphans
-            if [ -z "${TRUSTTWIN_COMPOSE_PROFILE:-}" ]; then
-              echo "NOTE: trusttwin-api not started (no ECR image). Push TrustEdgeOrg/TrustTwin after AWS_ROLE_ARN is set."
+            COMPOSE_PROFILES="${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" docker compose -f docker-compose.yml up -d --remove-orphans
+            if [ -z "${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" ]; then
+              echo "NOTE: trustedge-agent-api not started (no ECR image). Push TrustEdgeOrg/TrustTwin after AWS_ROLE_ARN is set."
             fi
 
             # Show status

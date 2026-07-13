@@ -1,6 +1,6 @@
 # System architecture
 
-Component topology and data flows for the TrustEdge **security observability platform** (VPN/DNS visibility, TrustTwin endpoint telemetry, rules-based detection, optional enforcement). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
+Component topology and data flows for the TrustEdge **security observability platform** (VPN/DNS visibility, TrustEdge Agent endpoint telemetry, rules-based detection, optional enforcement). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
@@ -15,12 +15,12 @@ Component topology and data flows for the TrustEdge **security observability pla
 | Layer | Components | Role |
 |-------|------------|------|
 | **Clients** | Site router, laptops, phones | DNS traffic tunneled via WireGuard to EC2 |
-| **Endpoint agents** | TrustTwin (`trusttwin`) | Process, app, and network posture telemetry (no VPN) |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry (no VPN) |
 | **EC2 host** | WireGuard, dnsmasq, iptables | VPN termination, DNS resolution, traffic blocking |
 | **Host services** | `trustedge-wg-agent`, `trustedge-log-watcher` | Peer apply, quarantine iptables, DNS log ingest, trigger policy sync |
-| **Docker** | FastAPI backend, dns-sync, detection-engine, trusttwin-api | API, policy computation, dnsmasq config generation, endpoint ingest, rules engine |
+| **Docker** | FastAPI backend, dns-sync, detection-engine, trustedge-agent-api | API, policy computation, dnsmasq config generation, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
-| **Redis** | Usage samples + TrustTwin live state (EC2) | Real-time VPN throughput; endpoint agent mirror for observability graph |
+| **Redis** | Usage samples + TrustEdge Agent live state (EC2) | Real-time VPN throughput; endpoint agent mirror for observability graph |
 
 ---
 
@@ -38,7 +38,7 @@ Client → WireGuard → dnsmasq → dnsmasq.log
 ### Endpoint telemetry path
 
 ```
-TrustTwin agent → POST /v1/events → trusttwin-api → Redis + Kafka (trusttwin.events)
+TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
                  → detection-engine → POST /twin/alerts/ingest → Backend
                  → observability graph + dashboard alerts
 ```

@@ -29,13 +29,13 @@ Deploy workflows automatically create the S3 bucket and ECR repository if missin
 
 CloudFront origin update still requires one local run of `setup-trustedge-ci.sh` (or `cloudfront-frontend-update-origin.sh` only).
 
-### TrustTwin API (separate repo)
+### TrustEdge Agent API (separate repo)
 
-`TrustEdgeOrg/TrustTwin` uses the same OIDC role to push `trustedge-trusttwin-api` to ECR.
+`TrustEdgeOrg/TrustTwin` uses the same OIDC role to push `trustedge-agent-api` to ECR.
 
 1. Run **`update-github-actions-trust-policy.sh`** once (adds `TrustEdgeOrg/TrustTwin` to the role trust policy).
 2. In the TrustTwin repo, set GitHub secret **`AWS_ROLE_ARN`** to the same ARN as TrustEdge (e.g. `arn:aws:iam::804012660077:role/GitHubActionsDeployRole`).
-3. Push to `develop` or run the **Build and Push trusttwin-api** workflow.
+3. Push to `develop` or run the **Build and Deploy trustedge-agent-api** workflow.
 
 See `TrustTwin/aws/README.md` for details.
 

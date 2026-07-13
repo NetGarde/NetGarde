@@ -2,9 +2,9 @@
 
 **Self-hosted security observability platform** — VPN/DNS visibility, EDR-lite endpoint telemetry, rules-based detection, and optional enforcement.
 
-Built end-to-end: React dashboard, FastAPI backend, macOS endpoint agent ([TrustTwin](https://github.com/TrustEdgeOrg/TrustTwin)), WireGuard enrollment client, host-level enforcement agents, and AWS production deployment with CI/CD.
+Built end-to-end: React dashboard, FastAPI backend, macOS endpoint agent ([TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustTwin)), WireGuard enrollment client, host-level enforcement agents, and AWS production deployment with CI/CD.
 
-**Organization:** [github.com/TrustEdge](https://github.com/TrustEdge) · **Platform:** [TrustEdge](https://github.com/TrustEdge/TrustEdge) · **Endpoint agent:** [TrustTwin](https://github.com/TrustEdgeOrg/TrustTwin) · **VPN client:** [TrustEdgeClient](https://github.com/TrustEdge/TrustEdgeClient) · **Docs:** [docs/README.md](docs/README.md)
+**Organization:** [github.com/TrustEdge](https://github.com/TrustEdge) · **Platform:** [TrustEdge](https://github.com/TrustEdge/TrustEdge) · **Endpoint agent:** [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustTwin) · **VPN client:** [TrustEdgeClient](https://github.com/TrustEdge/TrustEdgeClient) · **Docs:** [docs/README.md](docs/README.md)
 
 ---
 
@@ -14,7 +14,7 @@ Most security tools are either enterprise appliances with heavy lock-in, or narr
 
 **VPN path:** clients enroll over **WireGuard**; DNS flows through a central policy engine (dnsmasq + custom sync). The dashboard streams live queries over **WebSocket**, scores per-device behavior against baselines, and surfaces observability views (network map, client map, detection alerts).
 
-**Endpoint path:** [TrustTwin](https://github.com/TrustEdgeOrg/TrustTwin) agents report process chains, foreground-app focus, and coarse network posture — no VPN required. Events feed Redis/Kafka into a rules-based detection engine.
+**Endpoint path:** [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustTwin) agents report process chains, foreground-app focus, and coarse network posture — no VPN required. Events feed Redis/Kafka into a rules-based detection engine.
 
 Enforcement (quarantine, DNS blocks) is **opt-in** (`DNS_BLOCKING_ENABLED`). Optional **LLM summaries** (OpenAI or Ollama) explain network and device state — detection and scoring stay rules-based.
 
@@ -27,8 +27,8 @@ The system is deployed on **AWS** (EC2, RDS, S3, CloudFront, ECR) with GitHub Ac
 | Capability | Implementation |
 |------------|----------------|
 | Security observability | Network map, client map, live telemetry, endpoint posture, detection alerts |
-| Endpoint telemetry | TrustTwin agent: process chains, app focus, network posture (EDR-lite) |
-| Detection | Kafka-backed rules engine on TrustTwin events (process chains, network drift) |
+| Endpoint telemetry | TrustEdge Agent: process chains, app focus, network posture (EDR-lite) |
+| Detection | Kafka-backed rules engine on TrustEdge Agent events (process chains, network drift) |
 | What-if simulation | Preview global pack toggle impact before apply |
 | Secure access | WireGuard VPN, device enrollment API, IP pool allocation |
 | Desired-state policy | Policy packs, per-device profiles, schedules, geo/country rules |
@@ -68,7 +68,7 @@ TrustEdge runs as a **control plane on EC2**. Application logic lives in Docker;
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
 | **Edge clients** | Laptops, phones, enrolled devices | DNS and traffic via WireGuard tunnel |
-| **Endpoint agents** | TrustTwin (`trusttwin`) | Process, app, and network posture telemetry |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
 | **EC2 host** | WireGuard, dnsmasq, iptables | VPN termination, DNS resolution, quarantine |
 | **Host agents** | `trustedge-wg-agent`, `trustedge-log-watcher` | Peer apply, block/unblock, log ingest, policy sync trigger |
 | **Application** | FastAPI, dns-sync, detection-engine, React (S3/CloudFront) | Policy engine, ingest, detection, REST + WebSocket API, admin UI |
@@ -78,7 +78,7 @@ TrustEdge runs as a **control plane on EC2**. Application logic lives in Docker;
 
 ```
 DNS:       Client → WireGuard → dnsmasq → log_watcher → API → WebSocket → Dashboard
-Endpoint:  TrustTwin agent → trusttwin-api → Redis/Kafka → detection-engine → API alerts
+Endpoint:  TrustEdge Agent → trustedge-agent-api → Redis/Kafka → detection-engine → API alerts
 Policy:    Dashboard → API → RDS → wg-agent → dns-sync → dnsmasq reload
 Enroll:    TrustEdgeClient → POST /v1/enroll → wg-agent → WireGuard config
 ```
@@ -101,7 +101,7 @@ Full write-up: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) · [do
 |------|----------------|
 | Frontend | React 19, TypeScript, Material UI 7, MUI X Charts |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
-| Endpoint agent | Go 1.22 (TrustTwin) |
+| Endpoint agent | Go 1.22 (TrustEdge Agent) |
 | Real-time | WebSocket, Redis, Kafka/Redpanda |
 | Data | PostgreSQL 16 (RDS) |
 | Network | WireGuard, dnsmasq, iptables |
@@ -123,7 +123,7 @@ cd TrustEdge
 
 Follow [docs/DEPLOY.md](docs/DEPLOY.md) for EC2 setup, secrets in `/etc/trustedge/backend.env`, and CI/CD.
 
-Enroll a device with [TrustEdgeClient](https://github.com/TrustEdge/TrustEdgeClient). Deploy endpoint agents with [TrustTwin](https://github.com/TrustEdgeOrg/TrustTwin).
+Enroll a device with [TrustEdgeClient](https://github.com/TrustEdge/TrustEdgeClient). Deploy endpoint agents with [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustTwin).
 
 **Configuration:** [docs/ENV_SETUP.md](docs/ENV_SETUP.md)
 
