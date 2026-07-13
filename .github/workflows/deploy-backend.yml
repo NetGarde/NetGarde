@@ -435,7 +435,7 @@ jobs:
             echo "Starting services..."
             COMPOSE_PROFILES="${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" docker compose -f docker-compose.yml up -d --remove-orphans
             if [ -z "${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" ]; then
-              echo "NOTE: trustedge-agent-api not started (no ECR image). Push TrustEdgeOrg/TrustTwin after AWS_ROLE_ARN is set."
+              echo "NOTE: trustedge-agent-api not started (no ECR image). Push TrustEdgeOrg/TrustEdge-Agent after AWS_ROLE_ARN is set."
             fi
 
             # Show status

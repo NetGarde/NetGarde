@@ -4,7 +4,7 @@
 #
 # Does not include block-page, dns-sync, or WireGuard host agents.
 # Frontend runs on the host: cd frontend && npm start
-# TrustEdge Agent ingest API: build from sibling ../TrustTwin repo (see TrustEdgeOrg/TrustTwin).
+# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent repo (see TrustEdgeOrg/TrustEdge-Agent).
 
 name: trustedge-dev
 
@@ -133,7 +133,7 @@ services:
   trustedge-agent-api:
     image: ${TRUSTEDGE_AGENT_API_IMAGE:-trustedge-agent-api:local}
     build:
-      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustTwin}
+      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent}
       dockerfile: Dockerfile
     container_name: trustedge-dev-agent-api
     # Fresh named volumes are root-owned; run as root in local dev only.

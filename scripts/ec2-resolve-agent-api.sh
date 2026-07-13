@@ -59,5 +59,5 @@ for repo in "$AGENT_ECR_REPOSITORY" "$LEGACY_ECR_REPOSITORY"; do
 done
 
 echo "WARNING: No trustedge-agent-api image in ECR (${AGENT_ECR_REPOSITORY} or ${LEGACY_ECR_REPOSITORY}). Skipping trustedge-agent-api." >&2
-echo "Push TrustEdgeOrg/TrustTwin (develop/main) after setting AWS_ROLE_ARN secret." >&2
+echo "Push TrustEdgeOrg/TrustEdge-Agent (develop/main) after setting AWS_ROLE_ARN secret." >&2
 return 0

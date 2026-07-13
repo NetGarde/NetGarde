@@ -59,8 +59,8 @@ Dashboard (host):
   cd frontend && npm install && npm start
   → http://localhost:3000
 
-TrustEdge Agent (clone github.com/TrustEdgeOrg/TrustTwin as ../TrustTwin):
-  cd ../TrustTwin
+TrustEdge Agent (clone github.com/TrustEdgeOrg/TrustEdge-Agent as ../TrustEdge-Agent):
+  cd ../TrustEdge-Agent
   TRUSTEDGE_AGENT_API_URL=http://127.0.0.1:${AGENT_API_PORT} go run ./cmd/trustedge-agent
 
 Useful commands
