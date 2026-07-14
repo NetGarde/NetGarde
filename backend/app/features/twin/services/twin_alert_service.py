@@ -48,12 +48,14 @@ class TwinAlertService:
         page_size: int = 50,
         alert_type: Optional[str] = None,
         device_id: Optional[str] = None,
+        severity: Optional[str] = None,
     ) -> TwinAlertListResponse:
         items, total = self.repo.get_recent(
             page=page,
             page_size=page_size,
             alert_type=alert_type,
             device_id=device_id,
+            severity=severity,
         )
         return TwinAlertListResponse(
             items=[TwinAlertResponse.model_validate(item) for item in items],

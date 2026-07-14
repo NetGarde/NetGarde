@@ -42,6 +42,7 @@ def list_twin_alerts(
     page_size: int = Query(default=20, ge=1, le=100),
     alert_type: Optional[str] = Query(default=None),
     device_id: Optional[str] = Query(default=None),
+    severity: Optional[str] = Query(default=None),
     _: None = Depends(verify_admin_api_token),
     service: TwinAlertService = Depends(get_twin_alert_service),
 ):
@@ -51,6 +52,7 @@ def list_twin_alerts(
         page_size=page_size,
         alert_type=alert_type,
         device_id=device_id,
+        severity=severity,
     )
 
 
