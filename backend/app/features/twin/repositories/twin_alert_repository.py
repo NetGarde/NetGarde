@@ -15,7 +15,7 @@ class TwinAlertRepository:
         self,
         *,
         timestamp: datetime,
-        trusttwin_device_id: str,
+        device_id: str,
         alert_type: str,
         severity: str,
         event_id: Optional[str] = None,
@@ -25,7 +25,7 @@ class TwinAlertRepository:
     ) -> TwinAlert:
         alert = TwinAlert(
             timestamp=timestamp,
-            trusttwin_device_id=trusttwin_device_id,
+            device_id=device_id,
             event_id=event_id,
             event_type=event_type,
             alert_type=alert_type,
@@ -43,15 +43,15 @@ class TwinAlertRepository:
         page: int = 1,
         page_size: int = 50,
         alert_type: Optional[str] = None,
-        trusttwin_device_id: Optional[str] = None,
+        device_id: Optional[str] = None,
         days: int = 90,
     ) -> tuple[List[TwinAlert], int]:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         query = self.db.query(TwinAlert).filter(TwinAlert.timestamp >= cutoff)
         if alert_type:
             query = query.filter(TwinAlert.alert_type == alert_type)
-        if trusttwin_device_id:
-            query = query.filter(TwinAlert.trusttwin_device_id == trusttwin_device_id)
+        if device_id:
+            query = query.filter(TwinAlert.device_id == device_id)
         total = query.count()
         offset = (page - 1) * page_size
         items = (

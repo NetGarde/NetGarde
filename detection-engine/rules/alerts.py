@@ -7,7 +7,7 @@ from typing import Any
 @dataclass
 class TwinAlert:
     timestamp: str
-    trusttwin_device_id: str
+    device_id: str
     alert_type: str
     severity: str
     message: str
@@ -18,7 +18,7 @@ class TwinAlert:
     def to_api(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "timestamp": self.timestamp,
-            "trusttwin_device_id": self.trusttwin_device_id,
+            "device_id": self.device_id,
             "alert_type": self.alert_type,
             "severity": self.severity,
             "message": self.message,

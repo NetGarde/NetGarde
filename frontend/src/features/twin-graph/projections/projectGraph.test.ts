@@ -218,7 +218,7 @@ describe('projectUnifiedGraph', () => {
           label: 'elad-mbp',
           properties: {
             source: 'trusttwin',
-            trusttwin_device_id: 'dev_mbp',
+            device_id: 'dev_mbp',
             public_ip: '203.0.113.10',
           },
         },
@@ -261,7 +261,7 @@ describe('projectUnifiedGraph', () => {
           label: 'elad-mbp',
           properties: {
             source: 'trusttwin',
-            trusttwin_device_id: 'dev_mbp',
+            device_id: 'dev_mbp',
             public_ip: '203.0.113.10',
             client_ip: '203.0.113.10',
           },
@@ -390,7 +390,7 @@ describe('projectUnifiedGraph', () => {
           entity_type: 'device',
           layer: 'observed',
           label: 'idle-mac',
-          properties: { source: 'trusttwin', trusttwin_device_id: 'dev_idle' },
+          properties: { source: 'trusttwin', device_id: 'dev_idle' },
         },
       ],
       edges: [],

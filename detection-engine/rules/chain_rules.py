@@ -1,4 +1,4 @@
-"""Multi-event (chain) detection rules for TrustTwin telemetry.
+"""Multi-event (chain) detection rules for TrustEdge Agent telemetry.
 
 Each rule inspects recent events for one device and may emit zero or more alerts.
 Rules are intentionally explicit and auditable (no LLM).
@@ -38,7 +38,7 @@ def _alert(
 ) -> TwinAlert:
     return TwinAlert(
         timestamp=ts_iso(source.ts),
-        trusttwin_device_id=chain.device_id,
+        device_id=chain.device_id,
         event_id=source.event_id,
         event_type=source.event_type,
         alert_type=alert_type,

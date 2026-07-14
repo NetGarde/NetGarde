@@ -10,7 +10,7 @@ class TwinAlert(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
-    trusttwin_device_id = Column(String(64), nullable=False, index=True)
+    device_id = Column(String(64), nullable=False, index=True)
     event_id = Column(String(64), nullable=True)
     event_type = Column(String(32), nullable=True)
     alert_type = Column(String(32), nullable=False, index=True)
@@ -21,5 +21,5 @@ class TwinAlert(Base):
 
     __table_args__ = (
         Index("ix_twin_alerts_type_ts", "alert_type", "timestamp"),
-        Index("ix_twin_alerts_device_ts", "trusttwin_device_id", "timestamp"),
+        Index("ix_twin_alerts_device_ts", "device_id", "timestamp"),
     )

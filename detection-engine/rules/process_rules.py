@@ -1,4 +1,4 @@
-"""Process (EDR-lite) chain rules for TrustTwin process_start / process_exit events."""
+"""Process (EDR-lite) chain rules for TrustEdge Agent process_start / process_exit events."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def _alert(
 ) -> TwinAlert:
     return TwinAlert(
         timestamp=ts_iso(source.ts),
-        trusttwin_device_id=chain.device_id,
+        device_id=chain.device_id,
         event_id=source.event_id,
         event_type=source.event_type,
         alert_type=alert_type,

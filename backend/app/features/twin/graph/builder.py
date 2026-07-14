@@ -490,7 +490,7 @@ class TwinGraphBuilder:
             hostname = str(details.get("hostname") or rec.device_id)
             props: dict = {
                 "source": "trusttwin",
-                "trusttwin_device_id": rec.device_id,
+                "device_id": rec.device_id,
             }
             for key in (
                 "hostname",
@@ -553,7 +553,7 @@ class TwinGraphBuilder:
                         "kind": "tt_lan",
                         "source": "trusttwin",
                         "network_type": net_type,
-                        "trusttwin_device_id": rec.device_id,
+                        "device_id": rec.device_id,
                     },
                     last_seen_at=rec.last_seen_at,
                 )

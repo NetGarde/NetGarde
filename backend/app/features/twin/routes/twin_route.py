@@ -41,16 +41,16 @@ def list_twin_alerts(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     alert_type: Optional[str] = Query(default=None),
-    trusttwin_device_id: Optional[str] = Query(default=None),
+    device_id: Optional[str] = Query(default=None),
     _: None = Depends(verify_admin_api_token),
     service: TwinAlertService = Depends(get_twin_alert_service),
 ):
-    """List TrustTwin detection alerts."""
+    """List TrustEdge Agent detection alerts."""
     return service.list_alerts(
         page=page,
         page_size=page_size,
         alert_type=alert_type,
-        trusttwin_device_id=trusttwin_device_id,
+        device_id=device_id,
     )
 
 
