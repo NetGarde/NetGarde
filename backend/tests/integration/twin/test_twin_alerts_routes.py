@@ -68,3 +68,33 @@ def test_list_twin_alerts_filter_type(api_client, db_session):
     assert response.status_code == 200
     items = response.json()["items"]
     assert all(item["alert_type"] == "new_public_ip" for item in items)
+
+
+def test_list_twin_alerts_filter_severity(api_client, db_session):
+    ts_high = datetime(2026, 7, 11, 14, 0, 0, tzinfo=timezone.utc).isoformat()
+    ts_low = datetime(2026, 7, 11, 14, 1, 0, tzinfo=timezone.utc).isoformat()
+    api_client.post(
+        "/twin/alerts/ingest",
+        json=[
+            {
+                "timestamp": ts_high,
+                "device_id": "dev_sev",
+                "alert_type": "temp_path_execution",
+                "severity": "high",
+                "message": "Process started from /tmp/sim_attack",
+            },
+            {
+                "timestamp": ts_low,
+                "device_id": "dev_sev",
+                "alert_type": "event_burst",
+                "severity": "low",
+                "message": "Burst of events",
+            },
+        ],
+    )
+    response = api_client.get("/twin/alerts?device_id=dev_sev&severity=high")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+    assert all(item["severity"] == "high" for item in body["items"])
+    assert all(item["alert_type"] == "temp_path_execution" for item in body["items"])

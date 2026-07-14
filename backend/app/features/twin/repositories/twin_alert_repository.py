@@ -44,6 +44,7 @@ class TwinAlertRepository:
         page_size: int = 50,
         alert_type: Optional[str] = None,
         device_id: Optional[str] = None,
+        severity: Optional[str] = None,
         days: int = 90,
     ) -> tuple[List[TwinAlert], int]:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
@@ -52,6 +53,8 @@ class TwinAlertRepository:
             query = query.filter(TwinAlert.alert_type == alert_type)
         if device_id:
             query = query.filter(TwinAlert.device_id == device_id)
+        if severity:
+            query = query.filter(TwinAlert.severity == severity)
         total = query.count()
         offset = (page - 1) * page_size
         items = (
