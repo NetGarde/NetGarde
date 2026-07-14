@@ -1,12 +1,16 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class TwinAlertCreate(BaseModel):
     timestamp: datetime
-    trusttwin_device_id: str = Field(min_length=1, max_length=64)
+    device_id: str = Field(
+        min_length=1,
+        max_length=64,
+        validation_alias=AliasChoices("device_id", "trusttwin_device_id"),
+    )
     event_id: Optional[str] = Field(default=None, max_length=64)
     event_type: Optional[str] = Field(default=None, max_length=32)
     alert_type: str = Field(min_length=1, max_length=32)
@@ -18,7 +22,7 @@ class TwinAlertCreate(BaseModel):
 class TwinAlertResponse(BaseModel):
     id: int
     timestamp: datetime
-    trusttwin_device_id: str
+    device_id: str
     event_id: Optional[str] = None
     event_type: Optional[str] = None
     alert_type: str

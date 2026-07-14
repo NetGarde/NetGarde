@@ -65,13 +65,13 @@ def _process_event(raw: str) -> None:
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
-        LOG.warning("invalid event json", extra=structured_extra("trusttwin_event_invalid", raw=raw[:500]))
+        LOG.warning("invalid event json", extra=structured_extra("agent_event_invalid", raw=raw[:500]))
         return
 
     LOG.info(
-        "trusttwin event received",
+        "trustedge agent event received",
         extra=structured_extra(
-            "trusttwin_event",
+            "agent_event",
             event_id=payload.get("event_id"),
             device_id=payload.get("device_id"),
             event_type=payload.get("type"),
@@ -89,7 +89,7 @@ def _process_event(raw: str) -> None:
             extra=structured_extra(
                 "twin_alert_raised",
                 alert_type=alert.alert_type,
-                device_id=alert.trusttwin_device_id,
+                device_id=alert.device_id,
                 severity=alert.severity,
             ),
         )

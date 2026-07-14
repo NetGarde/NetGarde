@@ -24,7 +24,7 @@ class TwinAlertService:
         for item in alerts:
             self.repo.create(
                 timestamp=item.timestamp,
-                trusttwin_device_id=item.trusttwin_device_id,
+                device_id=item.device_id,
                 event_id=item.event_id,
                 event_type=item.event_type,
                 alert_type=item.alert_type,
@@ -47,13 +47,13 @@ class TwinAlertService:
         page: int = 1,
         page_size: int = 50,
         alert_type: Optional[str] = None,
-        trusttwin_device_id: Optional[str] = None,
+        device_id: Optional[str] = None,
     ) -> TwinAlertListResponse:
         items, total = self.repo.get_recent(
             page=page,
             page_size=page_size,
             alert_type=alert_type,
-            trusttwin_device_id=trusttwin_device_id,
+            device_id=device_id,
         )
         return TwinAlertListResponse(
             items=[TwinAlertResponse.model_validate(item) for item in items],

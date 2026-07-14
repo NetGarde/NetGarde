@@ -11,7 +11,7 @@ def test_twin_alert_service_ingest_and_list(db_session):
         [
             TwinAlertCreate(
                 timestamp=ts,
-                trusttwin_device_id="dev_unit",
+                device_id="dev_unit",
                 alert_type="network_type_change",
                 severity="medium",
                 message="wifi -> ethernet",
@@ -19,6 +19,7 @@ def test_twin_alert_service_ingest_and_list(db_session):
         ]
     )
     assert created == 1
-    result = service.list_alerts(trusttwin_device_id="dev_unit")
+    result = service.list_alerts(device_id="dev_unit")
     assert result.total == 1
     assert result.items[0].alert_type == "network_type_change"
+    assert result.items[0].device_id == "dev_unit"
