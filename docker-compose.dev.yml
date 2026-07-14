@@ -4,7 +4,7 @@
 #
 # Does not include block-page, dns-sync, or WireGuard host agents.
 # Frontend runs on the host: cd frontend && npm start
-# TrustTwin ingest API: build from sibling ../TrustTwin repo (see TrustEdgeOrg/TrustTwin).
+# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent repo (see TrustEdgeOrg/TrustEdge-Agent).
 
 name: trustedge-dev
 
@@ -116,7 +116,7 @@ services:
     container_name: trustedge-dev-detection-engine
     environment:
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_TOPIC: trusttwin.events
+      KAFKA_TOPIC: trustedge.agent.events
       KAFKA_GROUP_ID: detection-engine
       API_BASE_URL: http://backend:8000
       DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
@@ -130,26 +130,26 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  trusttwin-api:
-    image: ${TRUSTTWIN_API_IMAGE:-trustedge-trusttwin-api:local}
+  trustedge-agent-api:
+    image: ${TRUSTEDGE_AGENT_API_IMAGE:-trustedge-agent-api:local}
     build:
-      context: ${TRUSTTWIN_BUILD_CONTEXT:-../TrustTwin}
+      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent}
       dockerfile: Dockerfile
-    container_name: trustedge-dev-trusttwin-api
+    container_name: trustedge-dev-agent-api
     # Fresh named volumes are root-owned; run as root in local dev only.
     user: "0:0"
     ports:
-      - "${DEV_TRUSTTWIN_API_PORT:-8080}:8080"
+      - "${DEV_TRUSTEDGE_AGENT_API_PORT:-8080}:8080"
     environment:
-      TRUSTTWIN_LISTEN: ":8080"
-      TRUSTTWIN_DATA_DIR: /data
-      TRUSTTWIN_ENROLL_TOKEN: ${TRUSTTWIN_ENROLL_TOKEN:-}
-      TRUSTTWIN_PRODUCTION: "0"
+      TRUSTEDGE_AGENT_LISTEN: ":8080"
+      TRUSTEDGE_AGENT_DATA_DIR: /data
+      TRUSTEDGE_AGENT_ENROLL_TOKEN: ${TRUSTEDGE_AGENT_ENROLL_TOKEN:-}
+      TRUSTEDGE_AGENT_PRODUCTION: "0"
       REDIS_URL: redis://redis:6379/0
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_TOPIC: trusttwin.events
+      KAFKA_TOPIC: trustedge.agent.events
     volumes:
-      - trustedge-dev-trusttwin-data:/data
+      - trustedge-dev-agent-data:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -166,5 +166,5 @@ services:
 volumes:
   trustedge-dev-pg:
   trustedge-dev-policy-snapshots:
-  trustedge-dev-trusttwin-data:
+  trustedge-dev-agent-data:
   trustedge-dev-redpanda-data:

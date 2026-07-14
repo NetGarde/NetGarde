@@ -1,6 +1,6 @@
-"""Read TrustTwin live device state from Redis (written by trusttwin-api).
+"""Read TrustEdge Agent live device state from Redis (written by trustedge-agent-api).
 
-Key contract (shared with TrustTwin Go store):
+Key contract (shared with TrustEdge Agent Go store):
   twin:devices                  SET of device_id
   twin:device:{id}:latest       JSON DeviceLatest
   twin:device:{id}:events       ZSET of event envelopes (score = unix ms)

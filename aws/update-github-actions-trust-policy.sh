@@ -2,7 +2,7 @@
 # Extend the GitHub Actions OIDC IAM role trust policy for additional repos.
 #
 # The deploy role is scoped by repo in the trust policy (token.actions.githubusercontent.com:sub).
-# TrustTwin CI needs TrustEdgeOrg/TrustTwin in addition to TrustEdgeOrg/TrustEdge.
+# TrustEdge Agent CI needs TrustEdgeOrg/TrustEdge-Agent in addition to TrustEdgeOrg/TrustEdge.
 #
 # Usage (from TrustEdge repo root):
 #   bash aws/update-github-actions-trust-policy.sh
@@ -25,7 +25,7 @@ AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account 
 OIDC_PROVIDER_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
 
 # Space-separated GitHub repos allowed to assume the role (org/repo).
-GITHUB_OIDC_REPOS="${GITHUB_OIDC_REPOS:-TrustEdgeOrg/TrustEdge TrustEdgeOrg/TrustTwin}"
+GITHUB_OIDC_REPOS="${GITHUB_OIDC_REPOS:-TrustEdgeOrg/TrustEdge TrustEdgeOrg/TrustEdge-Agent}"
 
 echo "Updating OIDC trust policy for role: $ROLE_NAME"
 echo "Allowed repos: $GITHUB_OIDC_REPOS"
@@ -67,4 +67,4 @@ echo ""
 echo "Add this GitHub Actions secret to each repo that deploys to AWS:"
 echo "  AWS_ROLE_ARN=arn:aws:iam::${AWS_ACCOUNT_ID}:role/${ROLE_NAME}"
 echo ""
-echo "TrustTwin: Settings → Secrets and variables → Actions → New repository secret"
+echo "TrustEdge-Agent: Settings → Secrets and variables → Actions → New repository secret"
