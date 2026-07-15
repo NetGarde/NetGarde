@@ -1,10 +1,39 @@
-export type NetworkMapNodeType = 'device' | 'app' | 'domain';
+export type NetworkMapNodeType =
+  | 'device'
+  | 'app'
+  | 'domain'
+  | 'flow'
+  | 'flow_summary'
+  | 'flow_more'
+  | 'port'
+  | 'tunnel'
+  | 'gateway'
+  | 'policy';
+
+export type NetworkMapEdgeKind =
+  | 'foreground'
+  | 'dns'
+  | 'dns_direct'
+  | 'path_egress'
+  | 'path_tunnel'
+  | 'path_resolve'
+  | 'path_forward'
+  | 'flow_session'
+  | 'dns_to_flow'
+  | 'to_port'
+  | 'port_to_flow'
+  | 'gateway_to_flow'
+  | 'flow_via_gateway';
+
+export type NetworkMapLayoutMode = 'attribution' | 'path' | 'flow' | 'unified';
 
 export interface NetworkMapNode {
   id: string;
   type: NetworkMapNodeType;
   label: string;
   app_slug?: string | null;
+  /** Process / app display name (e.g. on session nodes). */
+  process_name?: string | null;
   client_ip?: string | null;
   device_id?: number | null;
   blocked?: boolean | null;
@@ -14,7 +43,7 @@ export interface NetworkMapNode {
 export interface NetworkMapEdge {
   source: string;
   target: string;
-  kind: 'foreground' | 'dns';
+  kind: NetworkMapEdgeKind;
   query_count: number;
   blocked_count: number;
 }

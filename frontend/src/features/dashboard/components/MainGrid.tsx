@@ -7,8 +7,8 @@ import Copyright from '../internals/components/Copyright';
 import DnsLiveFeed from './DnsLiveFeed';
 import LiveClientsView from './LiveClientsView';
 import LiveNetworkGraph from './LiveNetworkGraph';
-import BlockedAttemptsView from './BlockedAttemptsView';
 import DnsAlertsView from './DnsAlertsView';
+import AttackAlertsView from './AttackAlertsView';
 import NetworkOverviewCard from './NetworkOverviewCard';
 import { Link as RouterLink } from 'react-router-dom';
 import Button from '@mui/material/Button';
@@ -30,7 +30,7 @@ export default function MainGrid() {
       <Grid container spacing={2} columns={12} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12 }}>
           <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-            Live network
+            Live telemetry
           </Typography>
           <Paper variant="outlined">
             <LiveNetworkGraph
@@ -68,7 +68,7 @@ export default function MainGrid() {
                 variant="text"
                 startIcon={<HubIcon fontSize="small" />}
               >
-                Network map
+                Observability: network map
               </Button>
               <Button
                 component={RouterLink}
@@ -77,7 +77,7 @@ export default function MainGrid() {
                 variant="text"
                 startIcon={<MapIcon fontSize="small" />}
               >
-                Client map
+                Observability: client map
               </Button>
             </Stack>
           </Stack>
@@ -85,22 +85,21 @@ export default function MainGrid() {
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
           <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-            Live DNS Feed
+            Live telemetry feed
           </Typography>
           <DnsLiveFeed />
         </Grid>
       </Grid>
 
-      <Grid container spacing={2} columns={12} sx={{ mt: 4, alignItems: 'stretch' }}>
-        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-          <Box sx={{ width: '100%' }}>
-            <DnsAlertsView />
-          </Box>
+      <Typography component="h2" variant="h6" sx={{ mt: 4, mb: 2 }}>
+        Security signals
+      </Typography>
+      <Grid container spacing={2} columns={12}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <AttackAlertsView />
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-          <Box sx={{ width: '100%' }}>
-            <BlockedAttemptsView />
-          </Box>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <DnsAlertsView />
         </Grid>
       </Grid>
 

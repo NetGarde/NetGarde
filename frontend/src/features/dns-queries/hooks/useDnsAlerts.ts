@@ -17,8 +17,8 @@ export function useDnsAlerts(pageSize = 20) {
         throw new Error(`HTTP ${response.status}`);
       }
       const data: DnsAlertListResponse = await response.json();
-      setItems(data.items);
-      setTotal(data.total);
+      setItems(data.items.filter((item) => item.alert_type !== 'blocked_attempt'));
+      setTotal(data.items.filter((item) => item.alert_type !== 'blocked_attempt').length);
     } catch (error) {
       console.error('Failed to fetch DNS alerts:', error);
       setItems([]);

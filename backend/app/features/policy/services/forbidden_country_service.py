@@ -106,14 +106,15 @@ class ForbiddenCountryService:
                 if dest not in blocked_set:
                     continue
                 root = extract_root_domain(q.domain)
-                self.block_repo.create_block(
-                    device_id=device.id,
-                    domain=q.domain.lower(),
-                    root_domain=root,
-                    source=_BLOCK_SOURCE,
-                    score=None,
-                    expires_at=None,
-                )
+                if settings.DNS_BLOCKING_ENABLED:
+                    self.block_repo.create_block(
+                        device_id=device.id,
+                        domain=q.domain.lower(),
+                        root_domain=root,
+                        source=_BLOCK_SOURCE,
+                        score=None,
+                        expires_at=None,
+                    )
                 dest_name = country_display_name(dest)
                 message = (
                     f"{label} ({user_name}) attempted DNS for {q.domain} "

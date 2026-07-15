@@ -1,124 +1,97 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDnsQueriesWebSocketUrl } from '../../../shared/config/apiWebSocketUrl';
-import { fetchNetworkAttributionMap } from '../config/api';
-import { NetworkMapEdge, NetworkMapNode, NetworkMapResponse } from '../types/networkMap';
+import { devicesApi } from '../../devices/config/api';
+import {
+  DEFAULT_NETWORK_MAP_MINUTES,
+  DEFAULT_NETWORK_MAP_POLL_SEC,
+  fetchNetworkAttributionMap,
+} from '../config/api';
+import {
+  buildLiveMapFromQueries,
+  filterQueriesWithinMinutes,
+  LiveDnsAttributed,
+} from '../utils/mergeLiveQueryIntoMap';
+import { mergeMapSnapshots } from '../utils/mergeMapSnapshots';
+import { NetworkMapResponse } from '../types/networkMap';
 
-interface LiveDnsAttributed {
-  timestamp: string;
-  client_ip: string;
-  domain: string;
-  blocked: boolean;
-  attributed_app_slug?: string | null;
-  attributed_app_display_name?: string | null;
-}
-
-function mergeLiveQuery(
-  graph: NetworkMapResponse,
-  query: LiveDnsAttributed,
-  ipToDevice: Map<string, { deviceId: number; label: string }>,
-): NetworkMapResponse {
-  const slug = query.attributed_app_slug?.trim();
-  if (!slug) {
-    return graph;
-  }
-
-  const device = ipToDevice.get(query.client_ip);
-  if (!device) {
-    return graph;
-  }
-
-  const deviceId = `device:${device.deviceId}`;
-  const appId = `app:${slug}`;
-  const domainId = `domain:${query.domain}`;
-  const display = query.attributed_app_display_name || slug.replace(/_/g, ' ');
-
-  const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
-  if (!nodes.has(deviceId)) {
-    nodes.set(deviceId, {
-      id: deviceId,
-      type: 'device',
-      label: device.label,
-      client_ip: query.client_ip,
-      device_id: device.deviceId,
-      fresh: true,
-    });
-  }
-  if (!nodes.has(appId)) {
-    nodes.set(appId, {
-      id: appId,
-      type: 'app',
-      label: display,
-      app_slug: slug,
-    });
-  }
-  const existingDomain = nodes.get(domainId);
-  nodes.set(domainId, {
-    id: domainId,
-    type: 'domain',
-    label: query.domain,
-    blocked: query.blocked || existingDomain?.blocked || false,
-  });
-
-  const edgeKey = (e: NetworkMapEdge) => `${e.source}|${e.target}|${e.kind}`;
-  const edges = new Map(graph.edges.map((e) => [edgeKey(e), e]));
-
-  const fgKey = `${deviceId}|${appId}|foreground`;
-  if (!edges.has(fgKey)) {
-    edges.set(fgKey, { source: deviceId, target: appId, kind: 'foreground', query_count: 1, blocked_count: 0 });
-  }
-
-  const dnsKey = `${appId}|${domainId}|dns`;
-  const prev = edges.get(dnsKey);
-  if (prev) {
-    edges.set(dnsKey, {
-      ...prev,
-      query_count: prev.query_count + 1,
-      blocked_count: prev.blocked_count + (query.blocked ? 1 : 0),
-    });
-  } else {
-    edges.set(dnsKey, {
-      source: appId,
-      target: domainId,
-      kind: 'dns',
-      query_count: 1,
-      blocked_count: query.blocked ? 1 : 0,
-    });
-  }
-
+function emptyMap(minutes: number): NetworkMapResponse {
   return {
-    ...graph,
-    nodes: Array.from(nodes.values()),
-    edges: Array.from(edges.values()),
+    generated_at: new Date().toISOString(),
+    minutes,
+    nodes: [],
+    edges: [],
   };
 }
 
-export function useNetworkAttributionMap(minutes = 15, pollSec = 30) {
+export function useNetworkAttributionMap(
+  minutes = DEFAULT_NETWORK_MAP_MINUTES,
+  pollSec = DEFAULT_NETWORK_MAP_POLL_SEC,
+  includeFlows = false,
+) {
   const [data, setData] = useState<NetworkMapResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [liveConnected, setLiveConnected] = useState(false);
   const ipToDeviceRef = useRef(new Map<string, { deviceId: number; label: string }>());
+  const liveQueriesRef = useRef<LiveDnsAttributed[]>([]);
+  const apiSnapshotRef = useRef<NetworkMapResponse | null>(null);
+  const minutesRef = useRef(minutes);
+  minutesRef.current = minutes;
+
+  const mergeApiAndLive = useCallback((api: NetworkMapResponse) => {
+    const windowMinutes = minutesRef.current;
+    liveQueriesRef.current = filterQueriesWithinMinutes(liveQueriesRef.current, windowMinutes);
+    const liveGraph = buildLiveMapFromQueries(
+      liveQueriesRef.current,
+      windowMinutes,
+      ipToDeviceRef.current,
+    );
+    return mergeMapSnapshots(api, liveGraph.nodes.length > 0 || liveGraph.edges.length > 0 ? liveGraph : null);
+  }, []);
+
+  const loadDeviceIndex = useCallback(async () => {
+    try {
+      const devices = await devicesApi.list();
+      const map = new Map<string, { deviceId: number; label: string }>();
+      for (const d of devices) {
+        if (d.client_ip) {
+          map.set(d.client_ip, {
+            deviceId: d.id,
+            label: d.hostname || d.client_ip,
+          });
+        }
+      }
+      ipToDeviceRef.current = map;
+    } catch {
+      // keep prior index if refresh fails
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const response = await fetchNetworkAttributionMap(minutes);
-      const map = new Map<string, { deviceId: number; label: string }>();
+      await loadDeviceIndex();
+      const response = await fetchNetworkAttributionMap(minutes, includeFlows);
       for (const node of response.nodes) {
         if (node.type === 'device' && node.client_ip && node.device_id != null) {
-          map.set(node.client_ip, { deviceId: node.device_id, label: node.label });
+          ipToDeviceRef.current.set(node.client_ip, {
+            deviceId: node.device_id,
+            label: node.label,
+          });
         }
       }
-      ipToDeviceRef.current = map;
-      setData(response);
+      apiSnapshotRef.current = response;
+      setData(mergeApiAndLive(response));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load network map');
     } finally {
       setLoading(false);
     }
-  }, [minutes]);
+  }, [minutes, loadDeviceIndex, mergeApiAndLive, includeFlows]);
 
   useEffect(() => {
+    liveQueriesRef.current = [];
+    apiSnapshotRef.current = null;
     load();
     const timer = window.setInterval(load, pollSec * 1000);
     return () => window.clearInterval(timer);
@@ -142,22 +115,24 @@ export function useNetworkAttributionMap(minutes = 15, pollSec = 30) {
         if (payload.type !== 'dns_queries' || !payload.queries?.length) {
           return;
         }
-        setData((prev) => {
-          if (!prev) {
-            return prev;
-          }
-          return payload.queries!.reduce(
-            (graph, query) => mergeLiveQuery(graph, query, ipToDeviceRef.current),
-            prev,
-          );
-        });
+        const windowMinutes = minutesRef.current;
+        liveQueriesRef.current = filterQueriesWithinMinutes(
+          [...payload.queries, ...liveQueriesRef.current],
+          windowMinutes,
+        );
+        const api = apiSnapshotRef.current ?? emptyMap(windowMinutes);
+        setData(mergeApiAndLive(api));
       } catch {
         // ignore malformed messages
       }
     };
 
     return () => ws.close();
-  }, []);
+  }, [minutes, mergeApiAndLive]);
+
+  useEffect(() => {
+    loadDeviceIndex();
+  }, [loadDeviceIndex]);
 
   return { data, loading, error, liveConnected, reload: load };
 }

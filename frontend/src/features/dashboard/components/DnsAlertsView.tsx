@@ -298,7 +298,7 @@ export default function DnsAlertsView() {
             </Box>
           ) : items.length === 0 ? (
             <Typography color="text.secondary" sx={{ p: 2 }}>
-              No alerts yet. Blocked attempts, new domains, and bandwidth spikes appear here.
+              No alerts yet. New domains, suspicious DNS, and behavior anomalies appear here.
             </Typography>
           ) : (
             <List dense disablePadding>

@@ -7,7 +7,9 @@ __pycache__/
 .env.*
 !.env.example
 !.env.production.example
+!.env.dev.example
 !aws/.env.example
+!frontend/.env.development.example
 
 # Production secrets (keep server-local; do not track in git)
 backend/.env.production
@@ -22,5 +24,6 @@ node_modules/
 *.pem
 .DS_Store
 
-# Fetched policy pack snapshots (regenerated on server)
-backend/app/features/policy/data/snapshots/*.txt
+# TrustTwin (separate repo — clone as sibling for local API builds)
+# trusttwin/data/
+

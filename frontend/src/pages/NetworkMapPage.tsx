@@ -7,7 +7,7 @@ import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
 import { Link as RouterLink } from 'react-router-dom';
-import HubIcon from '@mui/icons-material/Hub';
+import TableChartIcon from '@mui/icons-material/TableChart';
 
 const NetworkAttributionMapGraph = lazy(
   () => import('../features/network-map/components/NetworkAttributionMapGraph'),
@@ -28,41 +28,21 @@ export default function NetworkMapPage() {
             Network map
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            See which foreground process on each device triggered recent DNS and network activity.
+            Who talked to what: destinations table first, path diagram for one client.
           </Typography>
         </Box>
         <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ flexShrink: 0 }}>
-          <Chip size="small" variant="outlined" icon={<HubIcon />} label="Attribution view" />
+          <Chip size="small" variant="outlined" icon={<TableChartIcon />} label="Destinations + path" />
         </Stack>
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.75 }}>
-          How to read this map
+        <Typography variant="body2" color="text.secondary">
+          Scan the destinations table for who talked to what. The path diagram stays minimal (egress summary)
+          until you click a row to inspect one destination. Blocked DNS is red. Filter by client or VPN vs
+          agents as needed.
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          TrustEdge correlates live DNS queries with the macOS foreground app reported by the VPN client.
-          Each arc is logical attribution—not a packet capture—but it answers:{' '}
-          <em>which app was active when this DNS lookup happened?</em>
-        </Typography>
-        <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 1.5 }}>
-          <Chip size="small" variant="outlined" label="Teal device = endpoint" />
-          <Chip size="small" variant="outlined" label="Center = process icon" />
-          <Chip size="small" variant="outlined" label="Right = DNS destination" />
-          <Chip
-            size="small"
-            variant="outlined"
-            label="Green ring = fresh foreground context"
-            sx={{ borderColor: 'success.main', color: 'success.main' }}
-          />
-          <Chip
-            size="small"
-            variant="outlined"
-            label="Red destination = blocked query"
-            sx={{ borderColor: 'error.main', color: 'error.main' }}
-          />
-        </Stack>
-        <Stack direction="row" flexWrap="wrap" gap={1}>
+        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
           <Button component={RouterLink} to="/client-map" size="small" variant="outlined">
             Geographic client map
           </Button>

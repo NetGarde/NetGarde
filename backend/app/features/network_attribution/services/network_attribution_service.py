@@ -26,9 +26,15 @@ from app.features.network_attribution.schemas.network_attribution import (
     NetworkMapResponse,
 )
 from app.features.network_attribution.services.app_catalog import normalize_app
-from app.features.vpn.models.ip_lease import IpLease
 from app.features.vpn.models.vpn_peer import VpnPeer
 from app.shared.config import settings
+from app.shared.domain_utils import extract_root_domain
+
+
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -98,11 +104,24 @@ class NetworkAttributionService:
             query_timestamp = query_timestamp.replace(tzinfo=timezone.utc)
 
         max_age = max(1, int(settings.NETWORK_ATTRIBUTION_MAX_AGE_SEC))
-        age = abs((query_timestamp - ctx.observed_at).total_seconds())
+        observed_at = _as_utc(ctx.observed_at)
+        age = abs((query_timestamp - observed_at).total_seconds())
         if age > max_age:
             return None
 
         return ResolvedAttribution(app_slug=ctx.app_slug, app_display_name=ctx.app_display_name)
+
+    def resolve_attribution_for_client_ip(
+        self,
+        client_ip: str,
+        observed_at,
+    ) -> Optional[ResolvedAttribution]:
+        from app.features.devices.repositories.device_repository import DeviceRepository
+
+        device = DeviceRepository(self.db).get_by_client_ip(client_ip)
+        if device is None:
+            return None
+        return self.resolve_attribution(device.id, observed_at)
 
     def list_hourly(self, device_id: int, *, hours: int = 168, app_slug: Optional[str] = None) -> AppUsageHourlyListResponse:
         hours = max(1, min(hours, 24 * 30))
@@ -140,7 +159,7 @@ class NetworkAttributionService:
         ]
         return AppUsageSummaryResponse(device_id=device_id, hours=hours, items=items)
 
-    def build_map(self, *, minutes: int = 15) -> NetworkMapResponse:
+    def build_map(self, *, minutes: int = 1) -> NetworkMapResponse:
         minutes = max(1, min(minutes, 60))
         now = datetime.now(timezone.utc)
         since = now - timedelta(minutes=minutes)
@@ -151,7 +170,7 @@ class NetworkAttributionService:
 
         contexts = (
             self.db.query(DeviceNetworkContext)
-            .filter(DeviceNetworkContext.observed_at >= since - timedelta(seconds=max_age))
+            .filter(DeviceNetworkContext.observed_at >= since)
             .all()
         )
         dns_rows = (
@@ -239,7 +258,7 @@ class NetworkAttributionService:
             device_id = f"device:{ctx.device_id}"
             ensure_device(ctx.device_id)
             app_id = ensure_app(ctx.app_slug, ctx.app_display_name)
-            fresh = abs((now - ctx.observed_at).total_seconds()) <= max_age
+            fresh = abs((now - _as_utc(ctx.observed_at)).total_seconds()) <= max_age
             ctx_node = nodes[device_id]
             nodes[device_id] = ctx_node.model_copy(update={"fresh": fresh})
             add_edge(device_id, app_id, "foreground")
@@ -253,7 +272,8 @@ class NetworkAttributionService:
             slug = (row.attributed_app_slug or "").strip()
             if not slug:
                 continue
-            key = (device_id, slug, row.domain)
+            root_domain = extract_root_domain(row.domain)
+            key = (device_id, slug, root_domain)
             blocked = bool(row.blocked)
             prev = dns_group.get(key)
             if prev is None:
@@ -285,6 +305,47 @@ class NetworkAttributionService:
                     query_count=count,
                     blocked_count=blocked_count,
                 )
+
+        attributed_roots: set[tuple[int, str]] = {
+            (device_id, root_domain) for device_id, _slug, root_domain in dns_group.keys()
+        }
+        all_dns_rows = (
+            self.db.query(DnsQuery)
+            .filter(DnsQuery.timestamp >= since)
+            .order_by(DnsQuery.timestamp.desc())
+            .limit(400)
+            .all()
+        )
+        direct_group: dict[tuple[int, str], tuple[int, int]] = {}
+        for row in all_dns_rows:
+            if (row.attributed_app_slug or "").strip():
+                continue
+            match = ip_to_device.get(row.client_ip)
+            if match is None:
+                continue
+            device_id, _, _ = match
+            root_domain = extract_root_domain(row.domain)
+            key = (device_id, root_domain)
+            if key in attributed_roots:
+                continue
+            blocked = bool(row.blocked)
+            prev = direct_group.get(key)
+            if prev is None:
+                direct_group[key] = (1, 1 if blocked else 0)
+            else:
+                direct_group[key] = (prev[0] + 1, prev[1] + (1 if blocked else 0))
+
+        for (device_id, root_domain), (count, blocked_count) in direct_group.items():
+            device_node = ensure_device(device_id)
+            domain_node = ensure_domain(root_domain, blocked_count > 0)
+            key = (device_node, domain_node, "dns_direct")
+            edge_map[key] = NetworkMapEdge(
+                source=device_node,
+                target=domain_node,
+                kind="dns_direct",
+                query_count=count,
+                blocked_count=blocked_count,
+            )
 
         return NetworkMapResponse(
             generated_at=now,

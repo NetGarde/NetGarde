@@ -1,4 +1,4 @@
-# TrustEdge Design Guide
+# <img src="assets/icons/flow.svg" width="28" height="28" align="absmiddle" alt="" /> TrustEdge Design Guide
 
 This document describes how TrustEdge is designed: product goals, system topology, domain concepts, UI conventions, and backend patterns. Use it when adding features, reviewing PRs, or onboarding.
 
@@ -6,16 +6,33 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ---
 
-## Product goals
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
-TrustEdge is a **self-hosted network security platform** (VPN + DNS policy + behavior intelligence + optional AI summaries) for teams, branch sites, and operators who want SASE-style control without enterprise complexity. The core promise:
+TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibility + EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional enforcement) for teams, branch sites, and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Secure access** — Clients enroll on WireGuard; DNS and policy enforcement run on a central server you control.
-2. **Policy, not lists** — Domains are blocked via policy packs, device profiles, schedules, geo rules, and behavior scoring — not ad-hoc block lists in the UI.
-3. **Behavior-aware** — Per-device baselines and abnormal scores drive alerts and optional auto-blocks; rules-based scoring, not LLM judgment.
-4. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
-5. **Live visibility** — DNS queries stream to the dashboard over WebSocket; blocked events and anomalies are surfaced in real time.
-6. **Actionable enforcement** — Admin actions (quarantine, per-device blocks, policy apply) propagate to host networking (iptables, dnsmasq) through a deliberate split between container and host.
+1. **Live observability** — VPN clients and TrustEdge Agent endpoint agents stream DNS, apps, connectivity, and process posture to the dashboard in real time (network map, client map, telemetry feed, detection alerts).
+2. **What-if before apply** — Policy pack changes can be simulated against recent DNS activity before syncing to dnsmasq.
+3. **Policy as desired state** — Domains are controlled via policy packs, device profiles, schedules, geo rules, and behavior scoring — not ad-hoc block lists in the UI.
+4. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
+5. **EDR-lite endpoint detection** — TrustEdge Agent process and network events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
+6. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
+7. **Enforcement as actuator** — Admin actions (quarantine, per-device blocks, policy apply) propagate to host networking (iptables, dnsmasq) when operators opt in (`DNS_BLOCKING_ENABLED`).
+
+---
+
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Observability model
+
+| Layer | Source | Dashboard |
+|-------|--------|-----------|
+| Connectivity | WireGuard peers, usage samples | Client map, live throughput |
+| Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
+| DNS telemetry | dnsmasq log ingest + `domain_first_seen` recency | Live feed, simulation lookback |
+| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
+| Desired state | Policy profiles and packs in RDS | Policy page (+ preview) |
+| Drift | Behavior baselines vs live scoring | Client profiles |
+| Detection | TrustEdge Agent events → detection-engine rules | Twin alerts, network map |
+
+Simulation (`POST /twin/simulate/pack-toggle`) compares **proposed policy** against **observed DNS roots** (last 24h) without writing to RDS or reloading dnsmasq.
 
 ---
 
@@ -70,6 +87,10 @@ See [host-agent/README.md](../host-agent/README.md) for the block → DNS sync f
 ---
 
 ## Domain concepts
+
+### Observability graph
+
+- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, RCA, and policy simulation. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
 
 ### Policy
 

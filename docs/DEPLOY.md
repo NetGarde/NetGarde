@@ -1,4 +1,4 @@
-# Production deployment
+# <img src="assets/icons/platforms.svg" width="28" height="28" align="absmiddle" alt="" /> Production deployment
 
 TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure layout and host services.
 
@@ -6,7 +6,7 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 ---
 
-## Infrastructure
+## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Infrastructure
 
 | AWS service | Role |
 |-------------|------|

@@ -1,6 +1,6 @@
-# API reference
+# <img src="assets/icons/api.svg" width="28" height="28" align="absmiddle" alt="" /> API reference
 
-TrustEdge exposes a FastAPI backend. Interactive docs: `http://<ec2-ip>:8000/docs` on the production host.
+TrustEdge exposes a FastAPI backend. Interactive docs: `http://127.0.0.1:8000/docs` locally, or your production API host `/docs`.
 
 Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token is configured. DNS ingest uses `DNS_INGEST_TOKEN`. See [ENV_SETUP.md](ENV_SETUP.md).
 
@@ -16,6 +16,12 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `GET` | `/policy/profiles` | List policy profiles |
 | `GET` | `/policy/dns-sync` | Effective DNS block rules for dnsmasq |
 | `POST` | `/policy/apply` | Queue policy sync to dnsmasq |
+| **Security observability** | | |
+| `GET` | `/twin/graph/snapshot` | Canonical entity/dependency graph (`minutes`, `include_flows`, `include_policy`) |
+| `POST` | `/twin/graph/traverse` | Walk dependencies from seed nodes (impact, blast radius, RCA) |
+| `GET` | `/twin/graph/neighbors` | One-hop neighbors of a node (`node_id`, `direction`, optional `relations`, `layers`) |
+| `POST` | `/twin/simulate/pack-toggle` | Preview global pack toggle impact (read-only) |
+| `POST` | `/twin/simulate/command` | Parse natural-language what-if commands (rules + Ollama fallback) |
 | **Devices** | | |
 | `GET` | `/devices` | List devices |
 | `GET` | `/devices/blocked-clients` | Devices with active quarantine or per-device DNS blocks |
@@ -27,7 +33,11 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `DELETE` | `/devices/{id}/quarantine` | Release client from quarantine early |
 | `GET` | `/devices/{id}/network-attribution` | Hourly per-app usage rollups (`hours`, optional `app_slug`) |
 | `GET` | `/devices/{id}/network-attribution/summary` | Top apps with avg minutes/hour and total hours |
-| `GET` | `/network-attribution/map` | Device → app → DNS destination graph (`minutes`, default 15) |
+| `GET` | `/network-attribution/map` | Device → app → DNS destination graph (`minutes`, default 1; `include_flows=true` adds L4 session nodes from conntrack) |
+| **Network flows** | | |
+| `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`DNS_INGEST_TOKEN`) |
+| `POST` | `/network-flows/dns-resolutions/bulk` | Ingest DNS reply → IP mappings for flow correlation |
+| `GET` | `/network-flows/live` | Recent L4 flows (admin token) |
 | **VPN** | | |
 | `GET` | `/v1/client-config` | Public client bootstrap (enroll token, API paths, defaults) |
 | `POST` | `/v1/enroll` | WireGuard device enrollment |

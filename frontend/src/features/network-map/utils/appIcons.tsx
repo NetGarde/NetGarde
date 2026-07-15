@@ -12,6 +12,14 @@ import AppsIcon from '@mui/icons-material/Apps';
 import DnsIcon from '@mui/icons-material/Dns';
 import ComputerIcon from '@mui/icons-material/Computer';
 import BlockIcon from '@mui/icons-material/Block';
+import VpnLockIcon from '@mui/icons-material/VpnLock';
+import RouterIcon from '@mui/icons-material/Router';
+import GavelIcon from '@mui/icons-material/Gavel';
+import SettingsEthernetIcon from '@mui/icons-material/SettingsEthernet';
+import HubIcon from '@mui/icons-material/Hub';
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import TagIcon from '@mui/icons-material/Tag';
+import WifiIcon from '@mui/icons-material/Wifi';
 
 export interface AppIconStyle {
   icon: ReactElement;
@@ -19,17 +27,27 @@ export interface AppIconStyle {
   bg: string;
 }
 
+/** Muted ops-console palette (slate / steel — not neon). */
+const SLATE = '#64748B';
+const SLATE_BG = 'rgba(100, 116, 139, 0.1)';
+const STEEL = '#475569';
+const STEEL_BG = 'rgba(71, 85, 105, 0.12)';
+const INK = '#334155';
+const INK_BG = 'rgba(51, 65, 85, 0.1)';
+const DANGER = '#B91C1C';
+const DANGER_BG = 'rgba(185, 28, 28, 0.08)';
+
 const APP_ICON_MAP: Record<string, AppIconStyle> = {
-  microsoft_teams: { icon: <GroupsIcon fontSize="small" />, color: '#6264A7', bg: 'rgba(98, 100, 167, 0.14)' },
-  zoom: { icon: <VideocamIcon fontSize="small" />, color: '#2D8CFF', bg: 'rgba(45, 140, 255, 0.14)' },
-  slack: { icon: <ForumIcon fontSize="small" />, color: '#4A154B', bg: 'rgba(74, 21, 75, 0.12)' },
-  safari: { icon: <PublicIcon fontSize="small" />, color: '#006CFF', bg: 'rgba(0, 108, 255, 0.12)' },
-  google_chrome: { icon: <LanguageIcon fontSize="small" />, color: '#4285F4', bg: 'rgba(66, 133, 244, 0.12)' },
-  microsoft_edge: { icon: <LanguageIcon fontSize="small" />, color: '#0078D4', bg: 'rgba(0, 120, 212, 0.12)' },
-  vscode: { icon: <CodeIcon fontSize="small" />, color: '#007ACC', bg: 'rgba(0, 122, 204, 0.12)' },
-  cursor: { icon: <TerminalIcon fontSize="small" />, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)' },
-  apple_mail: { icon: <MailOutlineIcon fontSize="small" />, color: '#007AFF', bg: 'rgba(0, 122, 255, 0.12)' },
-  finder: { icon: <FolderOpenIcon fontSize="small" />, color: '#5AC8FA', bg: 'rgba(90, 200, 250, 0.14)' },
+  microsoft_teams: { icon: <GroupsIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  zoom: { icon: <VideocamIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  slack: { icon: <ForumIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  safari: { icon: <PublicIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  google_chrome: { icon: <LanguageIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  microsoft_edge: { icon: <LanguageIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  vscode: { icon: <CodeIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  cursor: { icon: <TerminalIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  apple_mail: { icon: <MailOutlineIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
+  finder: { icon: <FolderOpenIcon fontSize="small" />, color: STEEL, bg: STEEL_BG },
 };
 
 export function getAppIconStyle(slug?: string | null): AppIconStyle {
@@ -38,16 +56,16 @@ export function getAppIconStyle(slug?: string | null): AppIconStyle {
   }
   return {
     icon: <AppsIcon fontSize="small" />,
-    color: '#64748B',
-    bg: 'rgba(100, 116, 139, 0.12)',
+    color: SLATE,
+    bg: SLATE_BG,
   };
 }
 
 export function getDeviceIconStyle(): AppIconStyle {
   return {
     icon: <ComputerIcon fontSize="small" />,
-    color: '#0F766E',
-    bg: 'rgba(15, 118, 110, 0.12)',
+    color: INK,
+    bg: INK_BG,
   };
 }
 
@@ -55,13 +73,106 @@ export function getDomainIconStyle(blocked?: boolean | null): AppIconStyle {
   if (blocked) {
     return {
       icon: <BlockIcon fontSize="small" />,
-      color: '#D32F2F',
-      bg: 'rgba(211, 47, 47, 0.1)',
+      color: DANGER,
+      bg: DANGER_BG,
     };
   }
   return {
     icon: <DnsIcon fontSize="small" />,
-    color: '#1565C0',
-    bg: 'rgba(21, 101, 192, 0.1)',
+    color: STEEL,
+    bg: STEEL_BG,
   };
+}
+
+export function getInfraIconStyle(
+  type: 'tunnel' | 'gateway' | 'policy',
+  label?: string,
+): AppIconStyle {
+  if (type === 'tunnel') {
+    const isLan =
+      label != null &&
+      /wi-?fi|ethernet|cellular|network/i.test(label);
+    return {
+      icon: isLan ? <WifiIcon fontSize="small" /> : <VpnLockIcon fontSize="small" />,
+      color: STEEL,
+      bg: STEEL_BG,
+    };
+  }
+  if (type === 'gateway') {
+    return {
+      icon: <RouterIcon fontSize="small" />,
+      color: STEEL,
+      bg: STEEL_BG,
+    };
+  }
+  return {
+    icon: <GavelIcon fontSize="small" />,
+    color: SLATE,
+    bg: SLATE_BG,
+  };
+}
+
+export function getPortIconStyle(): AppIconStyle {
+  return {
+    icon: <TagIcon fontSize="small" />,
+    color: STEEL,
+    bg: STEEL_BG,
+  };
+}
+
+export function getFlowSummaryIconStyle(): AppIconStyle {
+  return {
+    icon: <HubIcon fontSize="small" />,
+    color: STEEL,
+    bg: STEEL_BG,
+  };
+}
+
+export function getFlowMoreIconStyle(): AppIconStyle {
+  return {
+    icon: <MoreHorizIcon fontSize="small" />,
+    color: SLATE,
+    bg: SLATE_BG,
+  };
+}
+
+export function getFlowIconStyle(): AppIconStyle {
+  return {
+    icon: <SettingsEthernetIcon fontSize="small" />,
+    color: STEEL,
+    bg: STEEL_BG,
+  };
+}
+
+export function getNodeIconStyle(node: {
+  type: string;
+  app_slug?: string | null;
+  blocked?: boolean | null;
+  label?: string | null;
+}): AppIconStyle {
+  if (node.type === 'device') {
+    return getDeviceIconStyle();
+  }
+  if (node.type === 'app') {
+    return getAppIconStyle(node.app_slug);
+  }
+  if (node.type === 'domain') {
+    return getDomainIconStyle(node.blocked);
+  }
+  if (node.type === 'flow' || node.type === 'flow_summary' || node.type === 'flow_more') {
+    if (node.type === 'flow_summary') {
+      return getFlowSummaryIconStyle();
+    }
+    if (node.type === 'flow_more') {
+      return getFlowMoreIconStyle();
+    }
+    return getFlowIconStyle();
+  }
+  if (node.type === 'port') {
+    return getPortIconStyle();
+  }
+  if (node.type === 'tunnel' || node.type === 'gateway' || node.type === 'policy') {
+    return getInfraIconStyle(node.type, node.label ?? undefined);
+  }
+  return getAppIconStyle(null);
 }

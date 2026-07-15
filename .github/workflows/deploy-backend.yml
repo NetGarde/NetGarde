@@ -10,6 +10,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: trustedge-backend
+  TRUSTEDGE_AGENT_ECR_REPOSITORY: trustedge-agent-api
   ECR_REGISTRY: 804012660077.dkr.ecr.us-east-1.amazonaws.com
   RDS_INSTANCE_ID: ${{ secrets.RDS_INSTANCE_ID || 'trustedge' }}
 
@@ -370,6 +371,15 @@ jobs:
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
+            chmod +x scripts/ec2-resolve-agent-api.sh scripts/ec2-sync-agent-api.sh
+            export TRUSTEDGE_AGENT_IMAGE_BRANCH="${{ github.ref_name }}"
+            # shellcheck disable=SC1091
+            source scripts/ec2-resolve-agent-api.sh
+            if [ -n "${TRUSTEDGE_AGENT_API_IMAGE:-}" ]; then
+              bash scripts/ec2-sync-agent-api.sh
+            fi
+            export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(sudo cat /etc/trustedge/agent-enroll.token 2>/dev/null || sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
+
             export WG_AGENT_URL="$WG_AGENT_URL"
             export WG_AGENT_TOKEN="$WG_AGENT_TOKEN"
             if [ -n "$VPN_SERVER_PUBLIC_KEY" ]; then
@@ -382,18 +392,6 @@ jobs:
             # Export DB_URL for docker compose
             export DB_URL="$DB_URL"
             
-            # Block page on WireGuard gateway (not VPC 172.31.x.x)
-            export BLOCK_PAGE_IP="${BLOCK_PAGE_IP:-10.0.0.1}"
-            export BLOCK_IP="${BLOCK_IP:-$BLOCK_PAGE_IP}"
-            export BLOCK_IPV6_IP="${BLOCK_IPV6_IP:-::}"
-            echo "Using BLOCK_IP=$BLOCK_IP BLOCK_IPV6_IP=$BLOCK_IPV6_IP for blocked domains"
-            for kv in "BLOCK_PAGE_IP=$BLOCK_PAGE_IP" "BLOCK_IP=$BLOCK_IP" "BLOCK_IPV6_IP=$BLOCK_IPV6_IP"; do
-              key="${kv%%=*}"
-              grep -q "^${key}=" "$HOME/trustedge/.env" 2>/dev/null && \
-                sed -i.bak "s|^${key}=.*|${kv}|" "$HOME/trustedge/.env" && rm -f "$HOME/trustedge/.env.bak" || \
-                echo "$kv" >> "$HOME/trustedge/.env"
-            done
-
             # Install WireGuard host agent (applies wg set for /v1/enroll)
             if command -v wg >/dev/null 2>&1; then
               echo "Installing trustedge-wg-agent systemd service..."
@@ -410,48 +408,35 @@ jobs:
             fi
             
             # Handle image source based on branch
+            echo "Logging into ECR..."
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
             if [ "${{ github.ref_name }}" == "main" ]; then
-              # Production: Pull from ECR (image was just pushed)
-              echo "Production deployment: Pulling image from ECR..."
-              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
-              docker compose -f docker-compose.yml pull backend || echo "Warning: Failed to pull from ECR, will build locally"
+              docker compose -f docker-compose.yml pull backend || echo "Warning: Failed to pull backend from ECR"
             else
-              # Development: Build locally (no ECR push for develop branch)
-              echo "Development deployment: Building image locally..."
               docker compose -f docker-compose.yml build backend || echo "Warning: Backend build failed"
             fi
             
-            # Build dns-sync (since it's not in ECR, it needs to be built locally)
-            echo "Building dns-sync container..."
-            docker compose -f docker-compose.yml build dns-sync || echo "Warning: dns-sync build failed, but continuing..."
+            # Build detection-engine (Kafka consumer for TrustEdge Agent events)
+            echo "Building detection-engine container..."
+            docker compose -f docker-compose.yml build detection-engine || echo "Warning: detection-engine build failed, but continuing..."
             
-            # Build block-page container
-            echo "Building block-page container..."
-            docker compose -f docker-compose.yml build block-page || echo "Warning: block-page build failed, but continuing..."
-            
-            # Free disk after a failed Ollama pull (optional ai profile is not used in CI deploy)
+            # Free disk before deploy (EC2 root is often tight)
             echo "Docker disk usage before deploy:"
             df -h / /var/lib/docker 2>/dev/null || df -h /
-            docker image prune -f || true
+            docker image prune -af || true
+            docker builder prune -af || true
 
             # Run migrations without pulling optional services (Ollama uses compose profile "ai")
             # Note: alembic/env.py will handle escaping % characters for ConfigParser
             echo "Running database migrations..."
             docker compose -f docker-compose.yml run --rm --no-deps -e DB_URL="$DB_URL" backend alembic upgrade head
             
-            # Start core services only (Ollama: sudo bash scripts/ec2-setup-ollama.sh when disk allows)
+            # Start core services (trustedge-agent-api only when ECR image was pulled)
             echo "Starting services..."
-            docker compose -f docker-compose.yml up -d --remove-orphans
-
-            echo "Ensuring block-page on WireGuard gateway..."
-            sudo chmod +x /home/ubuntu/trustedge/scripts/setup-block-page-wg.sh
-            sudo bash /home/ubuntu/trustedge/scripts/setup-block-page-wg.sh || true
-
-            echo "Applying policy DNS (block page IP)..."
-            export BLOCK_PAGE_IP="${BLOCK_PAGE_IP:-10.0.0.1}"
-            export BLOCK_IP="${BLOCK_IP:-$BLOCK_PAGE_IP}"
-            export BLOCK_IPV6_IP="${BLOCK_IPV6_IP:-::}"
-            bash /home/ubuntu/trustedge/dns-sync/run-sync.sh || true
+            COMPOSE_PROFILES="${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" docker compose -f docker-compose.yml up -d --remove-orphans
+            if [ -z "${TRUSTEDGE_AGENT_COMPOSE_PROFILE:-}" ]; then
+              echo "NOTE: trustedge-agent-api not started (no ECR image). Push TrustEdgeOrg/TrustEdge-Agent after AWS_ROLE_ARN is set."
+            fi
 
             # Show status
             echo "Service status:"

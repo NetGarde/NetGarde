@@ -101,7 +101,9 @@ def test_create_client_block_manual(api_client, vpn_device):
     assert len(listed.json()) == 1
 
 
-def test_start_and_end_quarantine(api_client, vpn_device, db_session, mock_host_dns_sync, mock_host_client_block):
+def test_start_and_end_quarantine(
+    api_client, vpn_device, db_session, mock_host_dns_sync, mock_host_client_block, dns_blocking_env
+):
     start = api_client.post(
         f"/devices/{vpn_device.id}/quarantine",
         json={"hours": 2},
@@ -128,7 +130,7 @@ def test_start_and_end_quarantine(api_client, vpn_device, db_session, mock_host_
     assert assignment2.json()["in_quarantine"] is False
 
 
-def test_quarantine_requires_vpn_ip(api_client, db_session):
+def test_quarantine_requires_vpn_ip(api_client, db_session, dns_blocking_env):
     from app.features.devices.models.device import Device
 
     device = Device(ip_lease_id=999999, hostname="no-lease", mac_address="aa:bb:cc:dd:ee:99", source="manual")

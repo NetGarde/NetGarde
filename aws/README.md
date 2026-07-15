@@ -29,6 +29,16 @@ Deploy workflows automatically create the S3 bucket and ECR repository if missin
 
 CloudFront origin update still requires one local run of `setup-trustedge-ci.sh` (or `cloudfront-frontend-update-origin.sh` only).
 
+### TrustEdge Agent API (separate repo)
+
+`TrustEdgeOrg/TrustEdge-Agent` uses the same OIDC role to push `trustedge-agent-api` to ECR.
+
+1. Run **`update-github-actions-trust-policy.sh`** once (adds `TrustEdgeOrg/TrustEdge-Agent` to the role trust policy).
+2. In the TrustEdge-Agent repo, set GitHub secret **`AWS_ROLE_ARN`** to the same ARN as TrustEdge (e.g. `arn:aws:iam::804012660077:role/GitHubActionsDeployRole`).
+3. Push to `develop` or run the **Build and Deploy trustedge-agent-api** workflow.
+
+See `TrustEdge-Agent/aws/README.md` for details.
+
 ## Individual scripts
 
 ### `s3-setup.sh`
@@ -50,3 +60,7 @@ Builds a CloudFront distribution config with an HTTP custom origin to the EC2 pu
 ### `update-github-actions-role.sh`
 
 Replaces or creates an inline IAM policy on the configured GitHub Actions role: ECR image push/pull actions, list/read/write/delete objects for the frontend S3 bucket, and CloudFront invalidation APIs. Intended for an OIDC-based deploy role used by CI.
+
+### `update-github-actions-trust-policy.sh`
+
+Updates the role **trust policy** so additional GitHub repos (e.g. `TrustEdgeOrg/TrustEdge-Agent`) can assume the deploy role via OIDC. Run after adding a new repo that needs ECR/S3 deploy access.
