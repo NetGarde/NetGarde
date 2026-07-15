@@ -6,7 +6,13 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 ## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Architecture diagram
 
-<img width="3840" height="2618" alt="TrustEdge system architecture diagram" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
+<p align="center">
+  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="assets/architecture.svg" />
+</p>
+
+**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine → `/twin/alerts/ingest` → FastAPI → React dashboard.
+
+**Optional path:** TrustEdgeClient enroll → WireGuard peer apply via `trustedge-wg-agent` → usage / quarantine on the EC2 host.
 
 ---
 

@@ -12,6 +12,35 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ---
 
+## Architecture
+
+TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React). Optional WireGuard enrollment and quarantine stay on the EC2 host when you need secure access or response.
+
+<p align="center">
+  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="docs/assets/architecture.svg" />
+</p>
+
+| Layer | Components | Responsibility |
+|-------|------------|----------------|
+| **Edge** | TrustEdge Agent (macOS / Linux / Windows) | Collect · batch · compress · HTTPS upload |
+| **Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth, validate, persist, publish |
+| **Stream** | Kafka / Redpanda (`trustedge.agent.events`) | Durable event bus for detection |
+| **Detection** | `detection-engine` | Rules on agent events → attack alerts |
+| **Control plane** | FastAPI · Twin · dashboard APIs | Alerts, graph, network map, devices |
+| **Dashboard** | React on S3 + CloudFront | Attack alerts, maps, behavior profiles |
+| **Data** | PostgreSQL (RDS), Redis | Source of truth + live usage |
+| **Host** *(optional)* | WireGuard, iptables, `trustedge-wg-agent` | Enroll peers, quarantine |
+
+**Design notes**
+
+- **Primary path is endpoint detection** — VPN is optional, not required for telemetry  
+- **Rules for security, LLM for explanation** — scoring stays deterministic  
+- **Observability-first enforcement** — quarantine is opt-in  
+
+More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
+
+---
+
 ## Why it exists
 
 Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane for endpoint signal and detection:
@@ -22,7 +51,7 @@ Most security tools are either heavy enterprise stacks or narrow point products.
 | **Dashboard** | Network map, client map, behavior drift, attack alerts |
 | **Ops** | CloudWatch logs, Alembic, ECR deploy |
 
-Detection and scoring stay **rules-based**; optional LLMs only explain state for operators. WireGuard enrollment and quarantine remain available when you need secure access / response.
+Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
 
 ---
 
@@ -33,8 +62,6 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 3. **Secure upload** — HTTPS to Agent API  
 4. **Agent API → Stream** — validate, persist, publish  
 5. **Detection Attack → Alert** — rules engine + dashboard alerts  
-
-Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
 
 ---
 
@@ -68,29 +95,6 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 ### Operations
 
 ![Geographic client map](docs/images/client-map.png)
-
----
-
-## Architecture
-
-Application logic runs in Docker on EC2; optional WireGuard / iptables quarantine runs on the **host**.
-
-<p align="center">
-  <img width="90%" alt="TrustEdge system architecture" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
-</p>
-
-| Layer | Components | Responsibility |
-|-------|------------|----------------|
-| **Endpoint agents** | TrustEdge Agent | Process, app, network posture |
-| **Ingest** | TrustEdge-Agent-API | Auth, persist, Kafka publish |
-| **Application** | FastAPI, detection-engine, React | Rules, alerts, UI |
-| **Host** *(optional)* | WireGuard, iptables, `trustedge-wg-agent` | Enroll peers, quarantine |
-| **Data** | PostgreSQL (RDS), Redis, Kafka/Redpanda, ECR | State, live usage, event bus, images |
-
-**Design notes**
-
-- **Rules for security, LLM for explanation** — scoring stays deterministic  
-- **Observability-first enforcement** — quarantine is opt-in  
 
 ---
 
