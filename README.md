@@ -14,8 +14,10 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ## Architecture
 
-TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React). <p align="center">
-  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="docs/assets/architecture.svg" />
+TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React).
+
+<p align="center">
+  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="docs/assets/architecture.png" />
 </p>
 
 | Layer | Components | Responsibility |
@@ -31,7 +33,7 @@ TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Ag
 **Design notes**
 
 - **Rules for security, LLM for explanation** — scoring stays deterministic  
-- **Observability-first enforcement** — quarantine is opt-in  
+- **Primary path is endpoint detection** — Agent → Agent API → stream → alerts  
 
 More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
 
@@ -84,7 +86,7 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 
 ### Clients
 
-![Behavior baseline, score, and quarantine](docs/images/client-profiles.png)
+![Behavior baseline and score](docs/images/client-profiles.png)
 
 ### Operations
 
@@ -132,7 +134,6 @@ cd TrustEdge
 | <img src="docs/assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
 | <img src="docs/assets/icons/api.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/API.md](docs/API.md) | REST and WebSocket reference |
 | <img src="docs/assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
-| <img src="docs/assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [host-agent/README.md](host-agent/README.md) | EC2 host agent |
 
 ---
 
