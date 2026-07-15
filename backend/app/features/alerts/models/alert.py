@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from app.shared.database import Base
 
 
-class DnsAlert(Base):
+class Alert(Base):
     __tablename__ = "dns_alerts"
 
     id = Column(Integer, primary_key=True, index=True)

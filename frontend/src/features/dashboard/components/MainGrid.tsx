@@ -4,10 +4,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Copyright from '../internals/components/Copyright';
-import DnsLiveFeed from './DnsLiveFeed';
 import LiveClientsView from './LiveClientsView';
 import LiveNetworkGraph from './LiveNetworkGraph';
-import DnsAlertsView from './DnsAlertsView';
 import AttackAlertsView from './AttackAlertsView';
 import NetworkOverviewCard from './NetworkOverviewCard';
 import { Link as RouterLink } from 'react-router-dom';
@@ -45,7 +43,7 @@ export default function MainGrid() {
       </Grid>
 
       <Grid container spacing={2} columns={12}>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <Typography component="h2" variant="h6" sx={{ mb: 0.5 }}>
             Live Clients
           </Typography>
@@ -83,23 +81,14 @@ export default function MainGrid() {
           </Stack>
           <LiveClientsView live={live} />
         </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Typography component="h2" variant="h6" sx={{ mb: 2 }}>
-            Live telemetry feed
-          </Typography>
-          <DnsLiveFeed />
-        </Grid>
       </Grid>
 
       <Typography component="h2" variant="h6" sx={{ mt: 4, mb: 2 }}>
         Security signals
       </Typography>
       <Grid container spacing={2} columns={12}>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <AttackAlertsView />
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <DnsAlertsView />
         </Grid>
       </Grid>
 

@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 from app.features.dashboard.services.network_overview_service import NetworkOverviewService
-from app.features.dns_queries.models.dns_query import DnsQuery
 from datetime import datetime, timezone
 from tests.helpers.factories import seed_policy_catalog
 
@@ -26,19 +25,8 @@ def test_build_overview_template_mode(mock_live, mock_history, db_session, dashb
         minutes=60,
     )
 
-    since = datetime.now(timezone.utc)
-    db_session.add(
-        DnsQuery(
-            timestamp=since,
-            client_ip="10.0.0.1",
-            domain="blocked.example",
-            blocked=True,
-        )
-    )
-    db_session.commit()
-
     overview = NetworkOverviewService(db_session).build_overview(period_minutes=60)
     assert overview.source == "template"
     assert overview.review_mode == "template"
-    assert overview.stats.blocked_queries >= 1
+    assert overview.stats.blocked_queries == 0
     assert len(overview.bullets) > 0

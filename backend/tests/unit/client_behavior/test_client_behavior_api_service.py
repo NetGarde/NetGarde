@@ -5,7 +5,7 @@ from app.features.client_behavior.schemas.behavior import (
     DeviceSecurityPolicyUpdate,
 )
 from app.features.client_behavior.services.client_behavior_api_service import ClientBehaviorApiService
-from app.features.dns_queries.models.dns_alert import DnsAlert
+from app.features.alerts.models.alert import Alert
 from tests.helpers.factories import create_behavior_block, create_vpn_device
 
 
@@ -58,7 +58,7 @@ def test_revoke_client_block(db_session):
 def test_get_behavior_events(db_session):
     device, _ = create_vpn_device(db_session, ip="10.0.0.54")
     db_session.add(
-        DnsAlert(
+        Alert(
             timestamp=datetime.now(timezone.utc),
             client_ip="10.0.0.54",
             device_id=device.id,

@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-import threading
 
 from fastapi import FastAPI, Depends, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,8 +11,6 @@ import os
 from app.shared.request_logging_middleware import RequestLoggingMiddleware
 from app.shared.utils.logging import setup_logging
 from app.shared.dependencies import get_db
-from app.features.dns_queries.routes.dns_query_route import router as dns_query_router
-from app.features.policy.routes.policy_route import router as policy_router
 from app.features.devices.routes.device_route import router as device_router
 from app.features.vpn.routes.client_config_route import router as client_config_router
 from app.features.vpn.routes.enroll_route import router as vpn_router
@@ -25,7 +22,6 @@ from app.features.network_attribution.routes.network_attribution_route import (
 )
 from app.features.network_flows.routes.network_flow_route import router as network_flow_router
 from app.features.twin.routes.twin_route import router as twin_router
-from app.features.policy.startup import warmup_policy_packs
 from app.shared.redis_client import close_redis
 from app.shared.config import settings
 
@@ -50,8 +46,6 @@ ALLOWED_ORIGINS = _build_allowed_origins()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.POLICY_PACK_FETCH_ENABLED and settings.POLICY_PACK_REFRESH_ON_STARTUP:
-        threading.Thread(target=warmup_policy_packs, name="policy-pack-warmup", daemon=True).start()
     yield
     close_redis()
 
@@ -135,8 +129,6 @@ def health(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 # Include routers
-app.include_router(policy_router)
-app.include_router(dns_query_router)
 app.include_router(device_router)
 app.include_router(client_config_router)
 app.include_router(vpn_router)

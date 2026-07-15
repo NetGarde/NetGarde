@@ -24,7 +24,7 @@ import {
   DeviceCountrySummary,
   DeviceLoginGeoSummary,
 } from '../types/device';
-import { DnsAlert } from '../../dns-queries/types/dnsQuery';
+import { BehaviorAlert } from '../types/behaviorAlert';
 import BaselineSummary from './BaselineSummary';
 import DeviceCountriesSection from './DeviceCountriesSection';
 import NetworkAttributionSection from './NetworkAttributionSection';
@@ -45,7 +45,7 @@ export default function ClientProfileDetail({
   loginGeoSummary,
 }: ClientProfileDetailProps) {
   const [profile, setProfile] = useState<BehaviorProfile | null>(null);
-  const [events, setEvents] = useState<DnsAlert[]>([]);
+  const [events, setEvents] = useState<BehaviorAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [review, setReview] = useState<BehaviorReview | null>(null);

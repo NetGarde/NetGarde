@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { devicesApi } from '../../devices/config/api';
 import { Device } from '../../devices/types/device';
-import {
-  isClientActiveNow,
-  subscribeDnsClientActivity,
-} from '../../dns-queries/dnsClientActivity';
 import { ClientBandwidth, DeviceUsageLiveItem } from '../types/usageLive';
 import { ServerNetworkThroughput } from '../types/networkThroughput';
 import { useUsageRealtime } from './useUsageRealtime';
@@ -24,7 +20,7 @@ export interface LiveClientRow {
   /** Country from public IP at last VPN enroll (GeoIP). */
   vpn_login_country_code: string | null;
   vpn_login_country_name: string | null;
-  /** DNS activity in the last few minutes (WebSocket feed). */
+  /** Active VPN tunnel throughput from /devices/usage/live. */
   is_active_now: boolean;
   /** Latest VPN tunnel throughput from /devices/usage/live. */
   bandwidth: ClientBandwidth | null;
@@ -109,11 +105,12 @@ function attachBandwidth(
     const bw =
       (row.device_id != null ? byDeviceId.get(row.device_id) : undefined) ??
       byClientIp.get(row.client_ip);
-    return bw ? { ...row, bandwidth: bw } : row;
+    const isActive = bw != null && bw.total_mib_per_sec > 0;
+    return bw ? { ...row, bandwidth: bw, is_active_now: isActive } : row;
   });
 }
 
-/** Registered devices with recent DNS activity or an active VPN usage sample. */
+/** Registered devices with an active VPN usage sample. */
 function filterLiveRegisteredClients(rows: LiveClientRow[]): LiveClientRow[] {
   return rows.filter(
     (row) =>
@@ -127,13 +124,6 @@ function sortClients(rows: LiveClientRow[]): LiveClientRow[] {
     const nameB = (b.hostname || b.client_ip).toLowerCase();
     return nameA.localeCompare(nameB);
   });
-}
-
-function withLiveActivity(rows: LiveClientRow[]): LiveClientRow[] {
-  return rows.map((row) => ({
-    ...row,
-    is_active_now: isClientActiveNow(row.client_ip),
-  }));
 }
 
 function buildLiveCountries(clients: LiveClientRow[]): LiveCountryItem[] {
@@ -196,7 +186,6 @@ export function useLiveClients(): UseLiveClientsResult {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dnsActivityTick, setDnsActivityTick] = useState(0);
   const [loginGeoByDevice, setLoginGeoByDevice] = useState<
     Map<number, { country_code: string | null; country_name: string | null }>
   >(new Map());
@@ -214,12 +203,10 @@ export function useLiveClients(): UseLiveClientsResult {
     [liveItems],
   );
 
-  const enrichedRows = useMemo(() => {
-    const withActivity = withLiveActivity(buildRows(devices, loginGeoByDevice));
-    return attachBandwidth(withActivity, byDeviceId, byClientIp);
-  // dnsActivityTick forces refresh when DNS live feed marks clients active.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devices, loginGeoByDevice, byDeviceId, byClientIp, dnsActivityTick]);
+  const enrichedRows = useMemo(
+    () => attachBandwidth(buildRows(devices, loginGeoByDevice), byDeviceId, byClientIp),
+    [devices, loginGeoByDevice, byDeviceId, byClientIp],
+  );
 
   const clients = useMemo(
     () => sortClients(filterLiveRegisteredClients(enrichedRows)),
@@ -238,11 +225,6 @@ export function useLiveClients(): UseLiveClientsResult {
         ),
       ),
     [enrichedRows],
-  );
-
-  useEffect(
-    () => subscribeDnsClientActivity(() => setDnsActivityTick((t) => t + 1)),
-    [],
   );
 
   const fetchAll = useCallback(async () => {

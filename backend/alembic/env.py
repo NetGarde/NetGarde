@@ -9,9 +9,7 @@ from app.shared.config import settings
 from app.shared.database import Base
 
 # Import all models so Alembic can detect them
-from app.features.dns_queries.models.dns_query import DnsQuery
-from app.features.dns_queries.models.dns_alert import DnsAlert
-from app.features.dns_queries.models.domain_first_seen import DomainFirstSeen
+from app.features.alerts.models.alert import Alert
 from app.features.devices.models.device import Device
 from app.features.vpn.models.ip_pool import IpPool
 from app.features.vpn.models.vpn_peer import VpnPeer
