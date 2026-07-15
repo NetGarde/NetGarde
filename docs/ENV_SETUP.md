@@ -1,13 +1,8 @@
 # <img src="assets/icons/config.svg" width="28" height="28" align="absmiddle" alt="" /> Environment variables
 
-How to configure TrustEdge for the **endpoint observability** control plane.
+How to configure TrustEdge for production.
 
 **Canonical references:** [backend/.env.production.example](../backend/.env.production.example), [backend/.env.example](../backend/.env.example), and [frontend/.env.example](../frontend/.env.example).
-
-Agent-side knobs live in [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent/blob/main/docs/configuration.md).  
-Ingest API knobs live in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/configuration.md).
-
----
 
 ## Overview
 
@@ -18,11 +13,9 @@ Ingest API knobs live in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/T
 
 `.env` files are gitignored. Copy from `.env.example` / `.env.production.example` templates.
 
----
-
 ## Backend (production)
 
-On EC2 the live file is `/etc/trustedge/backend.env` (see [DEPLOY.md](DEPLOY.md)). Minimum groups:
+On EC2 the live file is `/etc/trustedge/backend.env` (see [DEPLOY.md](DEPLOY.md)). Minimum required groups:
 
 ```env
 DB_URL=postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
@@ -32,41 +25,44 @@ LOG_LEVEL=INFO
 ENVIRONMENT=production
 
 ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
+DNS_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
+DEVICE_TOKEN_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
+WG_AGENT_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 
-REDIS_URL=redis://redis:6379/0
+VPN_ENDPOINT=your-ec2-ip:51820
+VPN_SERVER_PUBLIC_KEY=REPLACE_WITH_wg0_PUBLIC_KEY
+WG_AGENT_URL=http://172.17.0.1:9109
 ```
 
-Add stream / detection settings as required by your compose stack (Kafka brokers, alert ingest shared secrets). Prefer placeholders in docs — never commit real tokens.
-
 Full catalog: [backend/.env.production.example](../backend/.env.production.example).
-
----
 
 ## Frontend (production)
 
 Set at build time in CI or `frontend/.env.production`:
 
 ```env
-REACT_APP_API_BASE_URL=https://your-api.example
+REACT_APP_API_BASE_URL=http://your-ec2-ip:8000
 REACT_APP_ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 REACT_APP_ENVIRONMENT=production
 GENERATE_SOURCEMAP=false
 ```
 
-`REACT_APP_API_BASE_URL` must be the **FastAPI origin**, not the CloudFront dashboard URL.
+`REACT_APP_API_BASE_URL` must be the **FastAPI origin** (EC2 `:8000`), not the CloudFront dashboard URL.
 
----
+## Docker Compose
+
+`docker-compose.yml` loads `/etc/trustedge/backend.env` on EC2. See [DEPLOY.md](DEPLOY.md).
 
 ## Important notes
 
-1. **Never commit `.env` files** — they are in `.gitignore`  
-2. **Set `ADMIN_API_TOKEN` in production** — empty disables admin auth  
-3. **Match tokens** across backend and frontend (`REACT_APP_ADMIN_API_TOKEN`)  
-4. **Use strong random secrets** — store in `/etc/trustedge/backend.env` with `chmod 640`  
+1. **Never commit `.env` files** — they are in `.gitignore`
+2. **Set all security tokens** in production — empty `ADMIN_API_TOKEN` disables admin auth
+3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), flow/alert ingest services, and host agent
+4. **Use strong random secrets** — store in `/etc/trustedge/backend.env` with `chmod 640`
 
----
+## Environment variable reference
 
-## Core backend variables
+### Core (backend)
 
 | Variable | Description | Production |
 |----------|-------------|------------|
@@ -74,36 +70,113 @@ GENERATE_SOURCEMAP=false
 | `ENVIRONMENT` | Environment name | `production` |
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
 | `LOG_JSON` | Structured JSON logs | `1` (see [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)) |
-| `ADMIN_API_TOKEN` | Admin REST / dashboard | **Required** |
-| `REDIS_URL` | Redis connection | Compose or managed Redis |
+
+### Security tokens (backend)
+
+| Variable | Used by | Notes |
+|----------|---------|-------|
+| `ADMIN_API_TOKEN` | Dashboard, device admin APIs | **Required** in production |
+| `DNS_INGEST_TOKEN` | Flow ingest, twin alert ingest | Shared service token (name is historical) |
+| `WG_AGENT_TOKEN` | Backend → `trustedge-wg-agent` | Must match host agent token |
+| `DEVICE_TOKEN_SECRET` | VPN client device tokens | Signs tokens issued at enroll |
+| `ENROLL_BOOTSTRAP_TOKEN` | `POST /v1/enroll` (optional) | TrustEdgeClient `--api-token` |
 
 Frontend: set `REACT_APP_ADMIN_API_TOKEN` to the same value as `ADMIN_API_TOKEN`.
 
----
+Host agent: set `TRUSTEDGE_WG_AGENT_TOKEN` in the systemd unit — see [host-agent/README.md](../host-agent/README.md).
 
-## AI (optional)
+### VPN & host agent (backend)
 
 | Variable | Description |
 |----------|-------------|
-| AI provider keys / Ollama URL | Optional network / device summaries — see backend `.env` examples |
+| `VPN_ENDPOINT` | Public `host:51820` returned in enroll config |
+| `VPN_SERVER_PUBLIC_KEY` | WireGuard server public key |
+| `WG_AGENT_URL` | Host agent URL from Docker (`http://172.17.0.1:9109`) |
 
-Detection does **not** require an LLM.
+### Real-time usage (backend)
 
----
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_URL` | Redis for live throughput | `redis://redis:6379/0` |
+| `USAGE_REDIS_ENABLED` | Enable Redis usage window | `true` |
+| `USAGE_HISTORY_MINUTES` | Chart history window | `60` |
+| `BANDWIDTH_ALERT_MIB_PER_SEC` | Throughput alert threshold | `50` |
+
+### Behavior (backend)
+
+Key tuning variables — full list in [backend/.env.example](../backend/.env.example):
+
+| Variable | Description |
+|----------|-------------|
+| `BEHAVIOR_ALERT_THRESHOLD` | Score above which alerts fire |
+| `BEHAVIOR_AUTO_BLOCK_THRESHOLD` | Score above which auto-actions trigger |
+| `NETWORK_REVIEW_MODE` | Dashboard AI review: `template` \| `openai` \| `ollama` |
+
+### Network attribution (backend + client)
+
+Endpoint / VPN foreground app time for network map device→app edges.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NETWORK_ATTRIBUTION_ENABLED` | Enable ingest and map attribution | `true` |
+| `NETWORK_ATTRIBUTION_MAX_AGE_SEC` | Max age of app context | `120` |
+| `NETWORK_ATTRIBUTION_RETENTION_DAYS` | Rollup retention (cleanup TBD) | `30` |
+| `CLIENT_ATTRIBUTION_PATH` | Client POST path | `/v1/network-attribution` |
+| `CLIENT_ATTRIBUTION_POLL_SEC` | Foreground app poll interval | `30` |
+| `CLIENT_ATTRIBUTION_REPORT_SEC` | Batch report interval | `60` |
+
+### Network flows (backend)
+
+Optional L4 session visibility from conntrack on the WireGuard host.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NETWORK_FLOWS_ENABLED` | Enable flow ingest and map merge | `true` |
+| `NETWORK_FLOWS_MAX_AGE_SEC` | Drop flow samples older than this | `300` |
+| `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP cache TTL | `600` |
+| `NETWORK_FLOWS_MAP_LIMIT` | Max flow nodes merged into map | `80` |
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VPN_POOL_CIDR` | WireGuard client subnet to filter conntrack | `10.0.0.0/24` |
+| `FLOW_POLL_INTERVAL` | Seconds between conntrack samples | `5` |
+| `FLOW_BATCH_SIZE` | Max flows per POST | `100` |
+| `DNS_INGEST_TOKEN` | Same as backend service token | — |
+| `API_BASE_URL` | Backend URL | `http://localhost:8000` |
+
+Requires `conntrack` on the host (`apt install conntrack`) when flow watching is enabled.
+
+### Frontend
+
+| Variable | Description | Production |
+|----------|-------------|------------|
+| `REACT_APP_API_BASE_URL` | FastAPI origin (not CloudFront UI URL) | `http://<ec2-ip>:8000` |
+| `REACT_APP_ADMIN_API_TOKEN` | Admin bearer token | **required** |
+| `REACT_APP_ENVIRONMENT` | Environment label | `production` |
+| `GENERATE_SOURCEMAP` | Source maps | `false` |
 
 ## Troubleshooting
 
-| Symptom | Check |
-|---------|--------|
-| Dashboard 401s | `REACT_APP_ADMIN_API_TOKEN` matches `ADMIN_API_TOKEN` |
-| No alerts | detection-engine running? Kafka topic receiving agent events? |
-| Empty twin graph | Agent uploading? Backend receiving alert / device state? |
+### Environment variables not loading
 
----
+1. On EC2, verify `/etc/trustedge/backend.env` exists and is readable by Docker
+2. Restart containers after changing env files:
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
 
-## Related
+### Frontend variables not working
 
-- [DEPLOY.md](DEPLOY.md)  
-- [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)  
-- [TrustEdge-Agent configuration](https://github.com/TrustEdgeOrg/TrustEdge-Agent/blob/main/docs/configuration.md)  
-- [TrustEdge-Agent-API configuration](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/configuration.md)  
+- React requires variables to start with `REACT_APP_`
+- Rebuild and redeploy the frontend after changing production env
+
+### Admin API returns 401
+
+- Set `ADMIN_API_TOKEN` in backend and `REACT_APP_ADMIN_API_TOKEN` in frontend to the same value
+- Redeploy frontend after changing build-time env
+
+### Quarantine not applying on EC2
+
+- Verify `WG_AGENT_TOKEN` matches `trustedge-wg-agent` — see [host-agent/README.md](../host-agent/README.md)
+- Check `curl http://172.17.0.1:9109/health` from the host

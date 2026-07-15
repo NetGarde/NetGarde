@@ -441,7 +441,7 @@ jobs:
             # Show status
             echo "Service status:"
             docker compose -f docker-compose.yml ps 
-            # NOTE: The old LISTEN/NOTIFY host listener was removed; dns-sync is run via cron/compose.
+            # Host WireGuard / iptables actions run via trustedge-wg-agent (not Docker).
 
             echo "AI review: template mode by default. For local Ollama after freeing disk:"
             echo "  sudo bash ~/trustedge/scripts/ec2-setup-ollama.sh"

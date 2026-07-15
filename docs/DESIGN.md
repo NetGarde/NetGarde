@@ -1,23 +1,22 @@
 # <img src="assets/icons/flow.svg" width="28" height="28" align="absmiddle" alt="" /> TrustEdge Design Guide
 
-How TrustEdge is designed as an **endpoint security observability** platform: product goals, topology, UI conventions, and backend patterns.
+This document describes how TrustEdge is designed: product goals, system topology, domain concepts, UI conventions, and backend patterns. Use it when adding features, reviewing PRs, or onboarding.
 
-Setup: [main README](../README.md) · Env: [ENV_SETUP.md](ENV_SETUP.md) · Architecture: [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)
+For setup and deployment, see the [main README](../README.md). For environment variables, see [ENV_SETUP.md](ENV_SETUP.md).
 
 ---
 
 ## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
-TrustEdge is a self-hosted control plane for **EDR-lite endpoint telemetry** and **rules-based attack detection**. The core promise:
+TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional VPN quarantine) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Endpoint signal** — TrustEdge Agent streams device, network, activity, and process posture (no VPN required for telemetry).  
-2. **Reliable ingest** — Agent API authenticates devices, accepts compressed batches, and publishes to a stream.  
-3. **Detection Attack** — A Kafka-backed rules engine evaluates process and network patterns.  
-4. **Operator alerts** — Findings surface in the dashboard (attack / twin alerts).  
-5. **Observability graph** — Entity and dependency views for posture and investigation.  
-6. **AI explanations** *(optional)* — OpenAI or Ollama can summarize state; detection remains rules-based.
+1. **Live observability** — TrustEdge Agent streams process, app, and network posture; VPN usage feeds live charts (network map, client map, detection alerts).
+2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
+3. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
+4. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
+5. **Enforcement as actuator** — Quarantine propagates to host iptables when operators opt in.
 
-> TrustEdge is **not** a DNS filtering or dnsmasq policy product. Older VPN/DNS modules may still exist in the monorepo; they are outside the current product scope.
+DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (removed from the product).
 
 ---
 
@@ -25,64 +24,96 @@ TrustEdge is a self-hosted control plane for **EDR-lite endpoint telemetry** and
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
-| Endpoint posture | TrustEdge Agent events | Overview, twin graph, device views |
-| Detection | `detection-engine` rules on agent stream | Attack / twin alerts |
-| Live mirrors | Redis (optional) | Operator status |
-| Desired ops state | RDS records for alerts / devices | Admin UI |
+| Connectivity | WireGuard peers, usage samples | Client map, live throughput |
+| Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
+| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
+| Drift | Behavior baselines vs live scoring | Client profiles |
+| Detection | TrustEdge Agent events → detection-engine rules | Twin alerts, network map |
 
 ---
 
 ## Design principles
 
-| Principle | Practice |
-|-----------|----------|
-| **Endpoint-first** | Product flows start at the agent, not at DNS or VPN |
-| **Rules for security** | Detection and scoring are deterministic; LLMs explain only |
-| **Feature modules** | Frontend/backend organized by domain (`twin`, `devices`, `dashboard`, …) |
-| **Dark-first UI** | Dashboard defaults to dark mode |
-| **Pragmatic layering** | Route → (controller) → service → repository when it helps |
+| Principle | What it means in practice |
+|-----------|---------------------------|
+| **Host vs container boundary** | The FastAPI backend runs in Docker and owns device/VPN state in PostgreSQL. WireGuard peer updates and iptables drops run on the EC2 host via `trustedge-wg-agent`. |
+| **Single source of truth** | Device and alert state live in RDS. Host networking is applied from that state. |
+| **Feature modules** | Both frontend and backend are organized by domain feature (`devices`, `twin`, `vpn`, etc.), not by technical layer alone. |
+| **Dark-first UI** | The dashboard defaults to dark mode. Light mode is supported; navigation chrome adapts per mode. |
+| **Pragmatic layering** | Backend layering (route → controller → service → repository) is encouraged but not uniform. Mature paths (`devices`) use controllers and Protocols; newer paths may call services directly from routes. |
 
 ---
 
 ## System topology
 
-```text
-┌─────────────────┐     HTTPS + zstd      ┌──────────────────────────┐
-│ TrustEdge Agent │ ───────────────────► │ TrustEdge-Agent-API      │
-│ (endpoint)      │                       │ register · events        │
-└─────────────────┘                       └────────────┬─────────────┘
-                                                       │ Kafka
-                                                       ▼
-                                              ┌────────────────────┐
-                                              │ detection-engine   │
-                                              └─────────┬──────────┘
-                                                        │ alerts ingest
-                                                        ▼
-┌──────────────┐   REST / WS   ┌─────────────────────────────────────┐
-│ React UI     │◄─────────────►│ FastAPI backend · RDS · Redis       │
-│ (CloudFront) │               │ twin graph · attack alerts · admin  │
-└──────────────┘               └─────────────────────────────────────┘
 ```
+┌──────────────────┐                    ┌─────────────────────────────────────────┐
+│ TrustEdge Agent  │── HTTPS events ───►│ Agent API → Kafka → detection-engine   │
+└──────────────────┘                    └──────────────────┬──────────────────────┘
+                                                           │ alerts ingest
+┌──────────────────┐     WireGuard      ┌──────────────────▼──────────────────────┐
+│ VPN clients      │◄──────────────────►│ EC2 host                                 │
+└──────────────────┘                    │  WireGuard · iptables                     │
+                                        │  trustedge-wg-agent (systemd)            │
+                                        │  ┌─────────────────────────────────┐    │
+                                        │  │ Docker: FastAPI backend :8000   │    │
+                                        │  └──────────────┬──────────────────┘    │
+                                        └─────────────────┼───────────────────────┘
+                                                          │
+                    ┌─────────────────────────────────────┼─────────────────────┐
+                    ▼                                     ▼                     ▼
+             CloudFront + S3                       AWS RDS PostgreSQL      Redis (usage)
+             React dashboard                       devices + alerts
+```
+
+### Runtime responsibilities
 
 | Component | Runs where | Responsibility |
 |-----------|------------|----------------|
-| **TrustEdge Agent** | Endpoint OS | Collect + upload telemetry |
-| **Agent API** | Separate service / compose | Ingest + stream publish |
-| **detection-engine** | Docker | Consume events, fire rules |
-| **FastAPI backend** | Docker on EC2 | Alerts, twin graph, admin API |
-| **React dashboard** | S3 + CloudFront | Operator UI |
+| **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, devices, network map |
+| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, twin/alerts, VPN enroll |
+| **detection-engine** | Docker / service | Rules on agent Kafka topic → twin alert ingest |
+| **trustedge-wg-agent** | systemd on host | Apply WG peers, iptables block/unblock |
+| **WireGuard** | host | VPN tunnel for enrolled clients |
+
+See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
 
 ---
 
 ## Domain concepts
 
-| Concept | Meaning |
-|---------|---------|
-| **Device** | An endpoint enrolled with the Agent API / known to TrustEdge |
-| **Event** | Agent telemetry envelope (`client_details`, `network_summary`, `action_summary`, `process_*`) |
-| **Detection Attack** | Rules match on the event stream |
-| **Alert** | Persisted finding shown to operators |
-| **Observability graph** | Canonical entities + edges for investigation ([GRAPH_ENGINE.md](GRAPH_ENGINE.md)) |
+### Observability graph
+
+- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, and RCA. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
+
+### Devices & clients
+
+- **Device** — A network client identified by MAC, IP lease, VPN pubkey, and optional user label.
+- **Behavior profile** — Rolling baseline of activity; abnormal scores surface drift.
+- **Quarantine** — Full-network block: iptables drop on VPN traffic for the device IP.
+
+### Alerts
+
+- Detection-engine posts to `POST /twin/alerts/ingest`.
+- Dashboard shows attack alerts; the `dns_alerts` table remains as the store for alert rows via `app.features.alerts`.
+
+### VPN
+
+- Clients enroll via `POST /v1/enroll` and receive a WireGuard config.
+- Usage samples (`POST /v1/usage`) feed live throughput charts (Redis-backed).
+- Peer `allowed-ips` are applied by the host agent after enroll.
+
+---
+
+## Quarantine pipeline
+
+```
+Dashboard action (quarantine)
+    → Backend writes DB state
+    → Host agent: iptables block/unblock
+```
+
+**Why the split?** Docker containers cannot safely mutate host `wg0` or `iptables`. The backend orchestrates; the host agent executes.
 
 ---
 
@@ -90,10 +121,13 @@ TrustEdge is a self-hosted control plane for **EDR-lite endpoint telemetry** and
 
 | Token | Used by | Protects |
 |-------|---------|----------|
-| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Admin REST surfaces |
-| Agent enroll / device tokens | Agent ↔ Agent API | Registration and event ingest |
+| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management, quarantine |
+| `DNS_INGEST_TOKEN` | Flow watcher, detection-engine ingest | Service-to-service ingest (shared token name) |
+| `WG_AGENT_TOKEN` | Backend → host agent | Peer apply, block/unblock |
+| Device enroll token | TrustEdge client | `POST /v1/enroll` bootstrap |
 
-- Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.  
+- Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.
+- The host agent binds to the Docker bridge IP (`172.17.0.1`) — not the public interface.
 - CloudFront terminates HTTPS for the dashboard and proxies API requests to the backend.
 
 ---
@@ -105,35 +139,89 @@ TrustEdge is a self-hosted control plane for **EDR-lite endpoint telemetry** and
 | Aspect | Choice |
 |--------|--------|
 | **Framework** | React 19 + TypeScript |
-| **Component library** | Material UI 7 |
-| **Charts** | MUI X Charts |
-| **Default mode** | Dark |
-| **Primary accent** | Blue `hsl(210, 98%, 48%)` |
+| **Component library** | Material UI 7 (CSS variables, color schemes) |
+| **Charts** | MUI X Charts (dashboard feature overrides) |
+| **Font** | Inter |
+| **Default mode** | Dark (`InitColorSchemeScript defaultMode="dark"`) |
+| **Border radius** | 8px (theme `shape.borderRadius`) |
+| **Primary accent** | Blue `hsl(210, 98%, 48%)` (brand palette) |
 
-Palette tokens: `frontend/src/shared/theme/themePrimitives.ts`.  
-Navigation chrome: `shared/theme/navigationChrome.ts`.
+### Color & chrome
+
+Palette tokens live in `frontend/src/shared/theme/themePrimitives.ts`:
+
+- **brand** — primary actions, selected nav accent
+- **gray** — backgrounds, text, dividers
+- **green / orange / red** — success, warning, error
+
+Navigation chrome (`shared/theme/navigationChrome.ts`):
+
+- **Dark mode** — neutral sidebar and navbar; primary blue for selected nav indicator
+- **Light mode** — Azure-style navbar (`#0078d4`); white icon buttons on top bar
+- Selected nav items show a **3px left accent bar** and tinted background
+
+Reusable sx helpers:
+
+- `sidebarNavItemSx` / `sidebarSectionButtonSx` — nav list items
+- `navbarIconButtonSx` — top bar icon buttons
+- `chromelessIconButtonSx` — inline help icons without bordered chrome
 
 ### Layout shell
 
-```text
-AppTheme
-  ├─ SideMenu
-  ├─ AppNavbar
-  └─ main → Header + page content
+Every route is wrapped in `shared/components/Layout.tsx`:
+
+```
+AppTheme (+ chart customizations)
+  ├─ SideMenu          (collapsible: 220px ↔ 64px)
+  ├─ AppNavbar         (48px top bar; mobile drawer trigger)
+  └─ main
+       └─ Header (breadcrumbs) + page content
 ```
 
-Routes: `frontend/src/routes/index.tsx`. Feature UI lives under `features/`.
+Shell components live under `features/dashboard/components/` (SideMenu, AppNavbar, Header, MenuContent) even though Layout is in `shared/`.
+
+### Navigation structure
+
+Defined in `features/dashboard/components/MenuContent.tsx`:
+
+| Section | Items |
+|---------|-------|
+| **Home** | Dashboard (`/`) |
+| **My network** | Client map, Network map |
+| **Analytics** | Client profiles |
+
+Routes are declared in `frontend/src/routes/index.tsx`. Pages in `pages/` are thin entry points; feature UI lives in `features/`.
 
 ### Feature folder convention
 
-```text
-features/<name>/
-├── components/
-├── hooks/
-├── config/       # api.ts
-├── types/
-└── utils/        # optional
 ```
+features/<name>/
+├── components/     # UI scoped to this domain
+├── hooks/          # useXxx data hooks
+├── config/         # api.ts — fetch wrappers (xxxApi objects)
+├── types/          # TypeScript models
+├── utils/          # Pure helpers (optional)
+└── theme/          # Feature-specific MUI overrides (optional)
+```
+
+**API pattern** — each feature's `config/api.ts` uses `shared/config/apiBaseUrl.ts` and `shared/utils/authHeaders.ts`:
+
+```typescript
+// Typical shape
+export const devicesApi = {
+  list: () => apiFetch<Device[]>('/devices'),
+  quarantine: (id: number, hours: number) => apiFetch(...),
+};
+```
+
+**Cross-feature imports are allowed** — e.g. dashboard hooks compose devices + twin alerts.
+
+### Page patterns
+
+| Style | Example | Pattern |
+|-------|---------|---------|
+| Thin page | `ClientProfilesPage` | `return <ClientProfiles />` |
+| Composed page | Dashboard home | Page owns layout; imports feature components + hooks |
 
 ---
 
@@ -141,37 +229,123 @@ features/<name>/
 
 ### Layout
 
-```text
-backend/app/
-├── main.py
-├── shared/          # DB, config, auth, logging, Redis
-└── features/        # twin, devices, dashboard, …
-detection-engine/    # Kafka consumer + rules (repo root)
 ```
+backend/app/
+├── main.py                 # App factory, middleware, router registration
+├── shared/                 # DB, config, auth, errors, logging, Redis, WebSocket
+└── features/               # Vertical domain modules
+    ├── alerts/             # Alert model (dns_alerts table) + repository
+    ├── devices/
+    ├── twin/
+    ├── vpn/
+    ├── dashboard/
+    ├── network_attribution/
+    ├── network_flows/
+    └── client_behavior/    # Used by devices routes
+```
+
+Legacy `policy/` code may still exist in the tree but is **not mounted** in `main.py`.
 
 ### Layered architecture (pragmatic)
 
-```text
-Route → Controller (optional) → Service → Repository → Model
+```
+Route (FastAPI endpoint, Depends auth + DB)
+  └── Controller (optional — HTTP mapping, WebSocket side effects)
+       └── Service (business logic, cross-feature orchestration)
+            └── Repository (SQLAlchemy CRUD)
+                 └── Model (ORM)
 ```
 
-Prefer domain exceptions + controller mapping for new code. Shared errors: `shared/errors/`.
+| Pattern | Features | Notes |
+|---------|----------|-------|
+| Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
+| Thin routes | `vpn`, `dashboard`, `twin` | Route calls service directly |
+| Mixed | `devices` (extended routes) | Behavior/quarantine endpoints inline |
+
+**Reference implementation:** `devices` — route → controller/service → repository.
+
+### Dependency injection
+
+- **Shared:** `get_db()` generator in `shared/dependencies.py`
+- **Feature factories:** `features/<name>/dependencies.py` for stateless services
+- **Inline factories:** DB-scoped services created in route modules
+- **Auth:** composable `Depends(verify_admin_api_token)`, `verify_dns_ingest_service`, `verify_enroll_bootstrap`
 
 ### Schemas & models
 
-- ORM models under `features/<name>/models/`  
-- Pydantic schemas under `features/<name>/schemas/`  
+- **ORM models** in `features/<name>/models/` — inherit `Base` from `shared/database.py`
+- **API schemas** in `features/<name>/schemas/` — Pydantic v2 with `model_validate` / `from_attributes`
+- Services map ORM → response DTOs at the boundary
+
+### Error handling
+
+Three styles coexist (prefer domain exceptions + controller mapping for new code):
+
+1. **Domain exceptions** — `DeviceNotFoundError` raised in service, mapped to 404 in controller
+2. **HTTPException in service** — used in some VPN/device paths
+3. **Route try/except** — VPN enroll catches `ValueError` at the route layer
+
+Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, `ValidationError`).
+
+### Cross-feature orchestration
+
+No global event bus. Services import peer services explicitly:
+
+- Twin alert ingest feeds dashboard attack views
+- `device_route.py` aggregates devices, behavior, and VPN usage endpoints
+- Network attribution builds maps from endpoint context (+ optional flows)
+
+---
+
+## Data persistence
+
+| Data | Store | Notes |
+|------|-------|-------|
+| Devices, leases, peers | PostgreSQL (RDS) | Source of truth |
+| Alerts | PostgreSQL (`dns_alerts` table via `alerts` module) | Detection + behavior alerts |
+| Live VPN usage | Redis | Real-time throughput charts |
+| Agent events | Kafka / Redis (Agent API) | Upstream of detection-engine |
+
+---
+
+## Infrastructure & deployment
+
+| Environment | Trigger | Target |
+|-------------|---------|--------|
+| `develop` / `main` push | GitHub Actions | EC2 backend (ECR), S3/CloudFront frontend |
+
+Host systemd services on EC2:
+
+- `trustedge-wg-agent` — peer apply, block/unblock
+- `wg-quick@wg0` — WireGuard
+
+---
+
+## Adding a new feature
+
+### Frontend
+
+1. Create `frontend/src/features/<name>/` with `components/`, `hooks/`, `config/api.ts`, `types/`.
+2. Add a page in `pages/<Name>Page.tsx` (thin wrapper).
+3. Register the route in `routes/index.tsx` wrapped in `<Layout>`.
+4. Add a nav item in `MenuContent.tsx` under the appropriate section.
+5. Reuse theme tokens and `navigationChrome` sx helpers — avoid one-off colors.
+
+### Backend
+
+1. Create `backend/app/features/<name>/` with `routes/`, `services/`, `repositories/`, `models/`, `schemas/`.
+2. Register the router in `main.py`.
+3. Add Alembic migration for new tables.
+4. Prefer: service raises domain errors, controller maps to HTTP status.
+5. Add tests under `backend/tests/unit/<name>/` and `backend/tests/integration/<name>/`.
 
 ---
 
 ## Related docs
 
-| Doc | Purpose |
-|-----|---------|
-| [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Flows and trust boundaries |
-| [GRAPH_ENGINE.md](GRAPH_ENGINE.md) | Observability graph model |
-| [API.md](API.md) | REST reference |
-| [DEPLOY.md](DEPLOY.md) | AWS deploy |
-| [ENV_SETUP.md](ENV_SETUP.md) | Environment variables |
-| [TrustEdge-Agent docs](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Collector details |
-| [TrustEdge-Agent-API docs](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Ingest schemas |
+- [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — component topology
+- [API.md](API.md) — REST reference
+- [ENV_SETUP.md](ENV_SETUP.md) — configuration
+- [DEPLOY.md](DEPLOY.md) — production AWS
+- [GRAPH_ENGINE.md](GRAPH_ENGINE.md) — observability graph
+- [host-agent/README.md](../host-agent/README.md) — EC2 host agent

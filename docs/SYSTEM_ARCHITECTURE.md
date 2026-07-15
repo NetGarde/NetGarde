@@ -1,26 +1,12 @@
 # <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> System architecture
 
-Component topology and data flows for TrustEdge as an **endpoint security observability** platform: TrustEdge Agent telemetry, ingest API, stream, rules-based detection, and operator alerts.
-
-For design principles and implementation patterns, see [DESIGN.md](DESIGN.md).
+Component topology and data flows for the TrustEdge **security observability platform** (TrustEdge Agent endpoint telemetry, rules-based detection, WireGuard enrollment, optional quarantine). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
-## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> High-level pipeline
+## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Architecture diagram
 
-<p align="center">
-  <img src="assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection Attack → Alert" width="920" />
-</p>
-
-| Stage | Where | Role |
-|-------|-------|------|
-| **Endpoint** | Device | Laptop / workstation running the agent |
-| **Collector → Batch → Compress** | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) | Gather signals, durable queue, optional zstd |
-| **Secure upload** | Agent → HTTPS | Device bearer token |
-| **Agent API** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Register, validate, persist |
-| **Stream** | Kafka / Redpanda | `trustedge.agent.events` |
-| **Detection Attack** | `detection-engine/` | Rules on process / network patterns |
-| **Alert** | TrustEdge backend + UI | Store findings, show operators |
+<img width="3840" height="2618" alt="TrustEdge system architecture diagram" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
 
 ---
 
@@ -28,13 +14,14 @@ For design principles and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 | Layer | Components | Role |
 |-------|------------|------|
-| **Endpoints** | TrustEdge Agent (`trustedge-agent`) | Process, app, network, device posture |
-| **Ingest** | `trustedge-agent-api` | Auth, batch ingest, optional Kafka publish |
-| **Stream** | Kafka / Redpanda | Durable event bus for detection |
-| **Detection** | `detection-engine` | Rules consumer → alert ingest |
-| **Control plane** | FastAPI backend | Twin graph, alerts API, admin |
-| **UI** | React dashboard (S3 / CloudFront) | Operators view posture and attack alerts |
-| **Data** | PostgreSQL (RDS), Redis, ECR | Persistent state, live mirrors, images |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
+| **VPN clients** | TrustEdgeClient / enrolled peers | WireGuard tunnel; usage and app-focus reports |
+| **EC2 host** | WireGuard, iptables | VPN termination, quarantine drops |
+| **Host services** | `trustedge-wg-agent` | Peer apply, quarantine iptables |
+| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, twin/alerts, endpoint ingest, rules engine |
+| **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
+| **Redis** | Usage samples + TrustEdge Agent live state (EC2) | Real-time VPN throughput; endpoint agent mirror for observability graph |
+| **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
 
 ---
 
@@ -42,19 +29,34 @@ For design principles and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ### Endpoint telemetry path
 
-```text
-TrustEdge Agent
-  → POST /v1/events (Agent API)
-  → Redis mirror (optional) + Kafka topic trustedge.agent.events
-  → detection-engine (rules)
-  → POST /twin/alerts/ingest (TrustEdge backend)
-  → Dashboard attack alerts + observability graph
+```
+TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
+                 → detection-engine → POST /twin/alerts/ingest → Backend
+                 → observability graph + dashboard alerts
 ```
 
-### Operator path
+### VPN enroll path
 
-```text
-Dashboard → Backend REST API → RDS (alerts, devices, twin state)
+```
+TrustEdgeClient → POST /v1/enroll → Backend → device + IP allocation
+              → wg-agent POST /v1/apply-peer → WireGuard peer on host
+              → WireGuard config returned to client
+```
+
+### Quarantine path
+
+```
+Dashboard → Backend (device quarantine)
+         → RDS (source of truth)
+         → wg-agent → iptables drop for client IP
+```
+
+### Network map path
+
+```
+Foreground app reports (POST /v1/network-attribution)
+  + optional L4 flow samples (POST /network-flows/bulk)
+  → Backend → GET /network-attribution/map → Dashboard
 ```
 
 ---
@@ -63,18 +65,18 @@ Dashboard → Backend REST API → RDS (alerts, devices, twin state)
 
 | Boundary | Why it exists |
 |----------|---------------|
-| **Endpoint ↔ Agent API** | Device registration + bearer tokens on ingest |
-| **CloudFront ↔ Backend** | HTTPS termination; API proxied to the app host |
-| **Detection ↔ Backend** | Alert ingest is a controlled write path into RDS |
+| **Docker ↔ EC2 host** | Containers cannot mutate `wg0` or `iptables` |
+| **CloudFront ↔ Backend** | HTTPS termination; API proxied to EC2 :8000 |
+| **Token scopes** | Admin, ingest, wg-agent, and device tokens protect different surfaces |
 
-Details: [DESIGN.md](DESIGN.md).
+Details: [DESIGN.md § Security model](DESIGN.md#security-model).
 
 ---
 
 ## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Related docs
 
-- [DESIGN.md](DESIGN.md) — design guide  
-- [ENV_SETUP.md](ENV_SETUP.md) — configuration  
-- [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md) — operational logging  
-- [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) — endpoint collector  
-- [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) — ingest API  
+- [DESIGN.md](DESIGN.md) — full design guide
+- [host-agent/README.md](../host-agent/README.md) — host agent setup
+- [ENV_SETUP.md](ENV_SETUP.md) — configuration
+- [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md) — operational logging
+- [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) — VPN enroll client (separate repo)

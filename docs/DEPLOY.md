@@ -1,8 +1,8 @@
 # <img src="assets/icons/platforms.svg" width="28" height="28" align="absmiddle" alt="" /> Production deployment
 
-TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure for the **endpoint observability** control plane.
+TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure layout and host services.
 
-**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
+**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [host-agent/README.md](../host-agent/README.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
 
 ---
 
@@ -10,18 +10,11 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 | AWS service | Role |
 |-------------|------|
-| **EC2** | Docker — FastAPI backend, detection-engine, Redis, Kafka/Redpanda (or managed stream) |
-| **RDS** | PostgreSQL — alerts, devices, twin state |
+| **EC2** | WireGuard, iptables, Docker (backend, detection), host agent |
+| **RDS** | PostgreSQL — devices, alerts, behavior state |
 | **S3 + CloudFront** | React dashboard static hosting + HTTPS |
-| **ECR** | Backend / detection images |
-| **Redis** (on EC2 or managed) | Live mirrors / short-lived caches |
-
-Sibling services (often co-deployed):
-
-| Service | Repo |
-|---------|------|
-| Agent API | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
-| Endpoint agents | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) |
+| **ECR** | Backend Docker image registry |
+| **Redis** (on EC2) | Rolling window for live VPN throughput |
 
 ---
 
@@ -35,16 +28,25 @@ Sibling services (often co-deployed):
 
 ---
 
-## Runtime on EC2
+## EC2 host services
 
-Typical containers (see `docker-compose.yml`):
+Run alongside Docker on the instance:
 
-- `trustedge-api` — FastAPI backend  
-- `detection-engine` — Kafka consumer / rules  
-- `redis` — caches  
-- `redpanda` (or external Kafka) — agent event stream  
+```bash
+sudo systemctl status trustedge-wg-agent      # peers + quarantine
+sudo systemctl status wg-quick@wg0
+```
 
 Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.md](ENV_SETUP.md).
+
+---
+
+## Key paths
+
+| Path | Purpose |
+|------|---------|
+| `/etc/wireguard/wg0.conf` | WireGuard server |
+| `/etc/trustedge/backend.env` | Backend secrets and config |
 
 ---
 
@@ -54,5 +56,6 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 |-------|-------|
 | Frontend | React 19, TypeScript, MUI 7 |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
-| Data | PostgreSQL 16, Redis 7, Kafka/Redpanda |
+| Data | PostgreSQL 16, Redis 7 |
+| Network | WireGuard, iptables |
 | Ops | Docker Compose, CloudWatch structured logs |
