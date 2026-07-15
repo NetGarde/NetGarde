@@ -20,7 +20,7 @@ Agent ingest HTTP APIs live in [TrustEdge-Agent-API](https://github.com/TrustEdg
 | `POST` | `/twin/graph/traverse` | Walk dependencies (impact, blast radius, RCA) |
 | `GET` | `/twin/graph/neighbors` | One-hop neighbors |
 | **Alerts** | | |
-| `GET` | `/twin/alerts` *(and related)* | List / query attack or twin alerts |
+| `GET` | `/twin/alerts` | List TrustEdge Agent detection alerts |
 | `POST` | `/twin/alerts/ingest` | Detection-engine → backend alert write path |
 | **Devices** | | |
 | `GET` | `/devices` | List devices |
