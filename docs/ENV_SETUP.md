@@ -1,4 +1,4 @@
-# Environment Variables Setup Guide
+# <img src="assets/icons/config.svg" width="28" height="28" align="absmiddle" alt="" /> Environment variables
 
 How to configure TrustEdge for production.
 

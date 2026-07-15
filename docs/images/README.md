@@ -1,4 +1,4 @@
-# Screenshot assets
+# <img src="assets/icons/layout.svg" width="28" height="28" align="absmiddle" alt="" /> Screenshot assets
 
 Images referenced by the root [README](../README.md). Use these filenames so links resolve on GitHub.
 

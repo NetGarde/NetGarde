@@ -1,4 +1,4 @@
-# TrustEdge Design Guide
+# <img src="assets/icons/flow.svg" width="28" height="28" align="absmiddle" alt="" /> TrustEdge Design Guide
 
 This document describes how TrustEdge is designed: product goals, system topology, domain concepts, UI conventions, and backend patterns. Use it when adding features, reviewing PRs, or onboarding.
 
@@ -6,7 +6,7 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ---
 
-## Product goals
+## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
 TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibility + EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional enforcement) for teams, branch sites, and operators who want unified security visibility without enterprise complexity. The core promise:
 
@@ -20,12 +20,12 @@ TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibili
 
 ---
 
-## Observability model
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Observability model
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
 | Connectivity | WireGuard peers, usage samples | Client map, live throughput |
-| Application | Foreground app reports (TrustEdgeClient, TrustTwin) | Network map |
+| Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
 | DNS telemetry | dnsmasq log ingest + `domain_first_seen` recency | Live feed, simulation lookback |
 | Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
 | Desired state | Policy profiles and packs in RDS | Policy page (+ preview) |
