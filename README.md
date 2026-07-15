@@ -1,8 +1,8 @@
 # <img src="docs/assets/trustedge-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge
 
-**Self-hosted security observability** — endpoint telemetry, rules-based detection, VPN enrollment, and optional quarantine.
+**Self-hosted security observability** — endpoint telemetry, rules-based detection, and attack alerts.
 
-React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · WireGuard enrollment · AWS deploy with CI/CD.
+React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) · AWS deploy with CI/CD.
 
 [![Deploy Develop](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml)
 
@@ -14,15 +14,15 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ## Why it exists
 
-Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane:
+Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane for endpoint signal and detection:
 
 | Path | What it does |
 |------|----------------|
 | **Endpoint** | [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) → [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) → stream → detection → alerts |
-| **Access** | WireGuard enroll, IP pool, live usage, optional quarantine |
+| **Dashboard** | Network map, client map, behavior drift, attack alerts |
 | **Ops** | CloudWatch logs, Alembic, ECR deploy |
 
-Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
+Detection and scoring stay **rules-based**; optional LLMs only explain state for operators. WireGuard enrollment and quarantine remain available when you need secure access / response.
 
 ---
 
@@ -33,8 +33,6 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 3. **Secure upload** — HTTPS to Agent API  
 4. **Agent API → Stream** — validate, persist, publish  
 5. **Detection Attack → Alert** — rules engine + dashboard alerts  
-
-VPN clients can also enroll for WireGuard access and report usage / foreground app context used on the network map.
 
 Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
 
@@ -47,9 +45,9 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 | Security observability | Network map, client map, endpoint posture, attack alerts |
 | Endpoint telemetry | TrustEdge Agent: process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
-| Secure access | WireGuard VPN, enrollment API, IP pool |
 | Behavior intelligence | Per-device baselines, drift scoring |
-| Enforcement | Host agent quarantine (iptables, opt-in) |
+| Secure access *(optional)* | WireGuard enrollment, IP pool |
+| Enforcement *(optional)* | Host agent quarantine (iptables) |
 | AI operations | Optional network / behavior summaries |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
 
@@ -75,7 +73,7 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 
 ## Architecture
 
-Application logic runs in Docker on EC2; WireGuard and iptables stay on the **host**.
+Application logic runs in Docker on EC2; optional WireGuard / iptables quarantine runs on the **host**.
 
 <p align="center">
   <img width="90%" alt="TrustEdge system architecture" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
@@ -84,9 +82,9 @@ Application logic runs in Docker on EC2; WireGuard and iptables stay on the **ho
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
 | **Endpoint agents** | TrustEdge Agent | Process, app, network posture |
-| **EC2 host** | WireGuard, iptables | VPN, quarantine |
-| **Host agents** | `trustedge-wg-agent` | Peer apply, block/unblock |
-| **Application** | FastAPI, detection-engine, React | Ingest, detection, UI |
+| **Ingest** | TrustEdge-Agent-API | Auth, persist, Kafka publish |
+| **Application** | FastAPI, detection-engine, React | Rules, alerts, UI |
+| **Host** *(optional)* | WireGuard, iptables, `trustedge-wg-agent` | Enroll peers, quarantine |
 | **Data** | PostgreSQL (RDS), Redis, Kafka/Redpanda, ECR | State, live usage, event bus, images |
 
 **Design notes**
@@ -105,7 +103,6 @@ Application logic runs in Docker on EC2; WireGuard and iptables stay on the **ho
 | Endpoint agent | Go 1.22 ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
 | Real-time | WebSocket, Redis, Kafka/Redpanda |
 | Data | PostgreSQL 16 (RDS) |
-| Network | WireGuard, iptables |
 | Infrastructure | AWS EC2, RDS, S3, CloudFront, ECR |
 | Observability | Structured JSON logging, CloudWatch Logs Insights |
 | CI/CD | GitHub Actions |
@@ -122,9 +119,9 @@ cd TrustEdge
 
 - Production AWS: [docs/DEPLOY.md](docs/DEPLOY.md)  
 - Environment variables: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
-- Enroll VPN client: [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)  
 - Endpoint agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
 - Agent ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
+- Optional VPN client: [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)  
 
 ---
 
@@ -149,7 +146,7 @@ cd TrustEdge
 | **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | This control plane |
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | Endpoint collector |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | VPN enroll client |
+| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
 
 ---
 
