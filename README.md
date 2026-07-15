@@ -1,10 +1,20 @@
 # <img src="docs/assets/trustedge-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge
 
-**Self-hosted security observability** — endpoint telemetry, rules-based detection, VPN enrollment, and optional quarantine.
+**Self-hosted security observability** — endpoint telemetry, rules-based detection, and attack alerts.
 
-React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · WireGuard enrollment · AWS deploy with CI/CD.
+React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) · AWS deploy with CI/CD.
 
 [![Deploy Develop](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml)
+
+---
+
+## About the project
+
+TrustEdge is a **self-hosted security observability platform** for teams that want real endpoint signal and actionable detection without a heavy enterprise EDR stack.
+
+A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, app-focus, and network-posture telemetry, batches and compresses it, then uploads over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). Events flow onto Kafka, a rules engine looks for attack chains and drift, and this control plane surfaces **attack alerts**, maps, and behavior views in a React dashboard.
+
+Detection stays **rules-based** (deterministic). Optional LLMs only help explain state to operators — they do not decide what is malicious.
 
 <p align="center">
   <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection Attack → Alert" width="1000" />
@@ -12,17 +22,24 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ---
 
-## Why it exists
+## Architecture
 
-Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane:
+TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React).
 
-| Path | What it does |
-|------|----------------|
-| **Endpoint** | [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) → [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) → stream → detection → alerts |
-| **Access** | WireGuard enroll, IP pool, live usage, optional quarantine |
-| **Ops** | CloudWatch logs, Alembic, ECR deploy |
+<p align="center">
+  <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.png" />
+</p>
 
-Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
+| Stage | Components | Responsibility |
+|-------|------------|----------------|
+| **1 · Edge** | TrustEdge Agent | Collect · batch · compress · HTTPS upload |
+| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth · validate · persist · publish |
+| **3 · Stream** | Kafka / Redpanda | Durable `agent.events` bus |
+| **4 · Detect** | `detection-engine` | Attack / drift rules → alerts |
+| **5 · Operate** | FastAPI · Twin · React dashboard | Alerts, graph, maps, behavior |
+| **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
+
+More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 ---
 
@@ -32,11 +49,7 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 2. **Collector → Batch → Compress** — on-device telemetry pipeline  
 3. **Secure upload** — HTTPS to Agent API  
 4. **Agent API → Stream** — validate, persist, publish  
-5. **Detection Attack → Alert** — rules engine + dashboard alerts  
-
-VPN clients can also enroll for WireGuard access and report usage / foreground app context used on the network map.
-
-Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
+5. **Detection → Alert** — rules engine + dashboard  
 
 ---
 
@@ -44,55 +57,11 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 
 | Capability | Implementation |
 |------------|----------------|
-| Security observability | Network map, client map, endpoint posture, attack alerts |
-| Endpoint telemetry | TrustEdge Agent: process, app focus, network posture |
+| Endpoint telemetry | Process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
-| Secure access | WireGuard VPN, enrollment API, IP pool |
-| Behavior intelligence | Per-device baselines, drift scoring |
-| Enforcement | Host agent quarantine (iptables, opt-in) |
-| AI operations | Optional network / behavior summaries |
+| Observability | Attack alerts, network map, behavior drift |
+| AI operations | Optional summaries (OpenAI / Ollama / template) |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
-
----
-
-## Screenshots
-
-> More captures: [docs/images/README.md](docs/images/README.md)
-
-### Dashboard & monitoring
-
-![Network overview — AI summary, live stats, and alerts](docs/images/dashboard-home.png)
-
-### Clients
-
-![Behavior baseline, score, and quarantine](docs/images/client-profiles.png)
-
-### Operations
-
-![Geographic client map](docs/images/client-map.png)
-
----
-
-## Architecture
-
-Application logic runs in Docker on EC2; WireGuard and iptables stay on the **host**.
-
-<p align="center">
-  <img width="90%" alt="TrustEdge system architecture" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
-</p>
-
-| Layer | Components | Responsibility |
-|-------|------------|----------------|
-| **Endpoint agents** | TrustEdge Agent | Process, app, network posture |
-| **EC2 host** | WireGuard, iptables | VPN, quarantine |
-| **Host agents** | `trustedge-wg-agent` | Peer apply, block/unblock |
-| **Application** | FastAPI, detection-engine, React | Ingest, detection, UI |
-| **Data** | PostgreSQL (RDS), Redis, Kafka/Redpanda, ECR | State, live usage, event bus, images |
-
-**Design notes**
-
-- **Rules for security, LLM for explanation** — scoring stays deterministic  
-- **Observability-first enforcement** — quarantine is opt-in  
 
 ---
 
@@ -100,16 +69,13 @@ Application logic runs in Docker on EC2; WireGuard and iptables stay on the **ho
 
 | Area | Technologies |
 |------|----------------|
-| Frontend | React 19, TypeScript, Material UI 7, MUI X Charts |
-| Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
-| Endpoint agent | Go 1.22 ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
-| Real-time | WebSocket, Redis, Kafka/Redpanda |
+| Frontend | React 19, TypeScript, Material UI 7 |
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
+| Endpoint agent | Go ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
+| Streaming | Kafka / Redpanda, Redis |
 | Data | PostgreSQL 16 (RDS) |
-| Network | WireGuard, iptables |
-| Infrastructure | AWS EC2, RDS, S3, CloudFront, ECR |
-| Observability | Structured JSON logging, CloudWatch Logs Insights |
-| CI/CD | GitHub Actions |
-| Containers | Docker, Docker Compose |
+| Infrastructure | AWS EC2, S3, CloudFront, ECR |
+| CI/CD | GitHub Actions, Docker Compose |
 
 ---
 
@@ -120,25 +86,22 @@ git clone https://github.com/TrustEdgeOrg/TrustEdge.git
 cd TrustEdge
 ```
 
-- Production AWS: [docs/DEPLOY.md](docs/DEPLOY.md)  
-- Environment variables: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
-- Enroll VPN client: [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)  
-- Endpoint agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
-- Agent ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
+- Deploy: [docs/DEPLOY.md](docs/DEPLOY.md)  
+- Environment: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
+- Agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
+- Ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
 
 ---
 
 ## Documentation
 
-| | Document | Description |
-|---|----------|-------------|
-| <img src="docs/assets/icons/layout.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/README.md](docs/README.md) | Documentation index |
-| <img src="docs/assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
-| <img src="docs/assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/DESIGN.md](docs/DESIGN.md) | Domain model and conventions |
-| <img src="docs/assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
-| <img src="docs/assets/icons/api.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/API.md](docs/API.md) | REST and WebSocket reference |
-| <img src="docs/assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
-| <img src="docs/assets/icons/agent.svg" width="18" height="18" align="absmiddle" alt="" /> | [host-agent/README.md](host-agent/README.md) | EC2 host agent |
+| Document | Description |
+|----------|-------------|
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
+| [docs/API.md](docs/API.md) | REST reference |
+| [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
 
 ---
 
@@ -149,7 +112,6 @@ cd TrustEdge
 | **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | This control plane |
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | Endpoint collector |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | VPN enroll client |
 
 ---
 
