@@ -1,6 +1,6 @@
-# API reference
+# <img src="assets/icons/api.svg" width="28" height="28" align="absmiddle" alt="" /> API reference
 
-TrustEdge exposes a FastAPI backend. Interactive docs: `http://<ec2-ip>:8000/docs` on the production host.
+TrustEdge exposes a FastAPI backend. Interactive docs: `http://127.0.0.1:8000/docs` locally, or your production API host `/docs`.
 
 Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token is configured. DNS ingest uses `DNS_INGEST_TOKEN`. See [ENV_SETUP.md](ENV_SETUP.md).
 

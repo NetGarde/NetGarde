@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TrustEdge">
+  <defs>
+    <linearGradient id="g" x1="12%" y1="8%" x2="88%" y2="92%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 6 L54 18 V38 C54 48 44 55 32 58 C20 55 10 48 10 38 V18 Z"
+        fill="none" stroke="url(#g)" stroke-width="3.2" stroke-linejoin="round"/>
+  <path d="M22 30 H42 M32 22 V42" stroke="url(#g)" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

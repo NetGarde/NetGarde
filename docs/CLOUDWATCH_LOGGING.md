@@ -1,4 +1,4 @@
-# CloudWatch logging (TrustEdge EC2)
+# <img src="assets/icons/privacy.svg" width="28" height="28" align="absmiddle" alt="" /> CloudWatch logging (TrustEdge EC2)
 
 TrustEdge ships **structured JSON** operational logs to stdout. On EC2, the **CloudWatch Agent** forwards Docker and systemd logs to CloudWatch Logs.
 

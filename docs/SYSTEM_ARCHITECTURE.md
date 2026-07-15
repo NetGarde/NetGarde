@@ -1,16 +1,16 @@
-# System architecture
+# <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> System architecture
 
 Component topology and data flows for the TrustEdge **security observability platform** (VPN/DNS visibility, TrustEdge Agent endpoint telemetry, rules-based detection, optional enforcement). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
-## Architecture diagram
+## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Architecture diagram
 
 <img width="3840" height="2618" alt="TrustEdge system architecture diagram" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
 
 ---
 
-## Component overview
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Component overview
 
 | Layer | Components | Role |
 |-------|------------|------|
@@ -24,7 +24,7 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 ---
 
-## Data flows
+## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Data flows
 
 ### DNS query path
 
@@ -62,7 +62,7 @@ TrustEdgeClient → POST /v1/enroll → Backend → device + IP allocation
 
 ---
 
-## Trust boundaries
+## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Trust boundaries
 
 | Boundary | Why it exists |
 |----------|---------------|
@@ -74,7 +74,7 @@ Details: [DESIGN.md § Security model](DESIGN.md#security-model).
 
 ---
 
-## Related docs
+## <img src="assets/icons/layout.svg" width="22" height="22" align="absmiddle" alt="" /> Related docs
 
 - [DESIGN.md](DESIGN.md) — full design guide
 - [host-agent/README.md](../host-agent/README.md) — host agent setup

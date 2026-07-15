@@ -1,4 +1,4 @@
-# Security Observability Graph Engine
+# <img src="assets/icons/collection.svg" width="28" height="28" align="absmiddle" alt="" /> Security Observability Graph Engine
 
 This document defines the **canonical graph data model** for TrustEdge’s security observability platform. The graph is the source of truth for dependency reasoning. UI layout modes (attribution, path, flow) are **projections** of this graph, not its structure.
 
