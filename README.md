@@ -17,7 +17,7 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React).
 
 <p align="center">
-  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="docs/assets/architecture.png" />
+  <img width="100%" alt="TrustEdge architecture — 5 clear stages from endpoint agent to dashboard" src="docs/assets/architecture.png" />
 </p>
 
 | Layer | Components | Responsibility |
