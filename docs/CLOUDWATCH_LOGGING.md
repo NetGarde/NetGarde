@@ -4,16 +4,16 @@ TrustEdge ships **structured JSON** operational logs to stdout. On EC2, the **Cl
 
 See also: [ENV_SETUP.md](ENV_SETUP.md) (`LOG_JSON`, `LOG_LEVEL`) · [docs index](README.md)
 
-DNS query history is **not** application logging — it lives in PostgreSQL (blocked queries by default) and the live WebSocket feed.
+Detection alerts and device state live in PostgreSQL / the dashboard — they are not CloudWatch application logs.
 
 ## Log sources
 
 | Log group | Source | Retention |
 |-----------|--------|-----------|
 | `/trustedge/prod/backend` | Docker `trustedge-api` | **30 days** |
-| `/trustedge/prod/dns-sync` | Docker `trustedge-dns-sync` | **14 days** |
-| `/trustedge/prod/log-watcher` | systemd `trustedge-log-watcher` | **14 days** |
 | `/trustedge/prod/wg-agent` | systemd `trustedge-wg-agent` | **14 days** |
+
+Legacy log groups for `dns-sync` / `log-watcher` may still exist in AWS but are unused after DNS removal.
 
 ## Backend environment
 
@@ -75,16 +75,7 @@ fields @timestamp, http_method, http_path, status_code, duration_ms
 | sort duration_ms desc
 ```
 
-**DNS ingest failures (log-watcher):**
-
-```
-fields @timestamp, message, event, status_code
-| filter event = "dns_ingest_failed"
-| sort @timestamp desc
-```
-
-
 ## What not to log
 
 - Tokens, secrets, device tokens, full enroll payloads
-- Every DNS query (use RDS / dashboard for that)
+- Full alert / event payloads that may contain sensitive endpoint detail

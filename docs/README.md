@@ -23,10 +23,9 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Path | Role |
 |------|------|
 | `frontend/` | React 19 dashboard (feature modules) |
-| `backend/` | FastAPI API, WebSocket, policy and ingest |
+| `backend/` | FastAPI API, WebSocket, devices, twin, VPN |
 | `detection-engine/` | Rules engine on agent event stream |
-| `dns-sync/` | Policy → dnsmasq sync, DNS log watcher |
-| `host-agent/` | EC2 host service — WireGuard, quarantine, sync |
+| `host-agent/` | EC2 host service — WireGuard peers, quarantine |
 | `scripts/` | EC2 setup helpers |
 | `.github/workflows/` | CI test, ECR build, S3/EC2 deploy |
 

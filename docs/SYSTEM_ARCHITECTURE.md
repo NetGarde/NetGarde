@@ -1,6 +1,6 @@
 # <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> System architecture
 
-Component topology and data flows for the TrustEdge **security observability platform** (VPN/DNS visibility, TrustEdge Agent endpoint telemetry, rules-based detection, optional enforcement). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
+Component topology and data flows for the TrustEdge **security observability platform** (TrustEdge Agent endpoint telemetry, rules-based detection, WireGuard enrollment, optional quarantine). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
@@ -14,26 +14,18 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 | Layer | Components | Role |
 |-------|------------|------|
-| **Clients** | Site router, laptops, phones | DNS traffic tunneled via WireGuard to EC2 |
-| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry (no VPN) |
-| **EC2 host** | WireGuard, dnsmasq, iptables | VPN termination, DNS resolution, traffic blocking |
-| **Host services** | `trustedge-wg-agent`, `trustedge-log-watcher` | Peer apply, quarantine iptables, DNS log ingest, trigger policy sync |
-| **Docker** | FastAPI backend, dns-sync, detection-engine, trustedge-agent-api | API, policy computation, dnsmasq config generation, endpoint ingest, rules engine |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
+| **VPN clients** | TrustEdgeClient / enrolled peers | WireGuard tunnel; usage and app-focus reports |
+| **EC2 host** | WireGuard, iptables | VPN termination, quarantine drops |
+| **Host services** | `trustedge-wg-agent` | Peer apply, quarantine iptables |
+| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, twin/alerts, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
 | **Redis** | Usage samples + TrustEdge Agent live state (EC2) | Real-time VPN throughput; endpoint agent mirror for observability graph |
+| **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
 
 ---
 
 ## <img src="assets/icons/flow.svg" width="22" height="22" align="absmiddle" alt="" /> Data flows
-
-### DNS query path
-
-```
-Client → WireGuard → dnsmasq → dnsmasq.log
-                              → log_watcher → POST /dns-queries/bulk → Backend
-                              → WebSocket → Dashboard (live feed)
-                              → RDS (blocked queries only, by default)
-```
 
 ### Endpoint telemetry path
 
@@ -41,15 +33,6 @@ Client → WireGuard → dnsmasq → dnsmasq.log
 TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
                  → detection-engine → POST /twin/alerts/ingest → Backend
                  → observability graph + dashboard alerts
-```
-
-### Policy enforcement path
-
-```
-Dashboard → Backend (policy / quarantine / client block)
-         → RDS (source of truth)
-         → wg-agent → iptables (quarantine) + run-sync.sh
-         → dns-sync → GET /policy/dns-sync → dnsmasq conf → reload dnsmasq
 ```
 
 ### VPN enroll path
@@ -60,15 +43,31 @@ TrustEdgeClient → POST /v1/enroll → Backend → device + IP allocation
               → WireGuard config returned to client
 ```
 
+### Quarantine path
+
+```
+Dashboard → Backend (device quarantine)
+         → RDS (source of truth)
+         → wg-agent → iptables drop for client IP
+```
+
+### Network map path
+
+```
+Foreground app reports (POST /v1/network-attribution)
+  + optional L4 flow samples (POST /network-flows/bulk)
+  → Backend → GET /network-attribution/map → Dashboard
+```
+
 ---
 
 ## <img src="assets/icons/lock.svg" width="22" height="22" align="absmiddle" alt="" /> Trust boundaries
 
 | Boundary | Why it exists |
 |----------|---------------|
-| **Docker ↔ EC2 host** | Containers cannot mutate `wg0`, `iptables`, or reload host `dnsmasq` |
+| **Docker ↔ EC2 host** | Containers cannot mutate `wg0` or `iptables` |
 | **CloudFront ↔ Backend** | HTTPS termination; API proxied to EC2 :8000 |
-| **Token scopes** | Admin, DNS ingest, wg-agent, and device tokens protect different surfaces |
+| **Token scopes** | Admin, ingest, wg-agent, and device tokens protect different surfaces |
 
 Details: [DESIGN.md § Security model](DESIGN.md#security-model).
 

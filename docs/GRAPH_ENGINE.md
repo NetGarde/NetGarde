@@ -10,19 +10,17 @@ For product context see [DESIGN.md](DESIGN.md). For current map API see [API.md]
 
 Today the network map is built as a flat `nodes[]` + `edges[]` payload, then **rewritten in the frontend** for column layouts:
 
-- `expandToPathView()` injects `tunnel`, `gateway`, `policy` nodes and rewrites DNS edges.
-- `expandFlowToPortView()` collapses domains into a gateway and synthesizes `port` hubs.
+- Path / flow expanders inject topology helpers and synthesize `port` hubs.
 - `layoutNetworkMap.ts` assigns fixed **X columns** per mode.
 
 That works for visualization but **cannot support**:
 
 | Future capability | Why columns fail |
 |-------------------|------------------|
-| Impact analysis | Need “what depends on policy pack X?” across all entity types |
+| Impact analysis | Need multi-entity reachability across device, app, flow, alert |
 | Blast radius | Need multi-hop reachability from any seed node |
 | Dependency discovery | Need bidirectional walk without knowing column order |
-| Root cause analysis | Need reverse traversal from symptom → enforcing rule |
-| Policy simulation | Need overlay graph (desired/simulated layer) on observed graph |
+| Root cause analysis | Need reverse traversal from symptom → related entities |
 
 The graph engine separates **topology** (entities + dependencies) from **presentation** (layout + filters).
 
@@ -30,9 +28,9 @@ The graph engine separates **topology** (entities + dependencies) from **present
 
 ## Design principles
 
-1. **Every entity is a node** — devices, apps, domains, IPs, ports, flows, policy objects, infra components, geo, quarantine state.
+1. **Every entity is a node** — devices, apps, IPs, ports, flows, infra components, quarantine state, alerts.
 2. **Every dependency is an edge** — with explicit relation type and direction; traversable forward and backward via indexes.
-3. **Layers, not views** — `observed` (telemetry), `desired` (policy state), `simulated` (what-if overlay) coexist on the same ID space.
+3. **Layers, not views** — `observed` (telemetry) is primary; optional overlays may coexist on the same ID space.
 4. **Stable IDs** — node IDs are deterministic from entity identity, not layout position or UI mode.
 5. **Projections are read-only** — path/flow/attribution views are filters + layout presets over the canonical graph.
 6. **Time is first-class** — nodes and edges carry observation windows for recency, staleness, and RCA time bounds.
@@ -44,7 +42,7 @@ The graph engine separates **topology** (entities + dependencies) from **present
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Graph builders (ingest)                      │
-│  DNS ingest · Flow ingest · Policy sync · Device enroll · Geo   │
+│  App attribution · Flow ingest · Device enroll · Twin alerts    │
 └────────────────────────────┬────────────────────────────────────┘
                              │ upsert nodes/edges
                              ▼
@@ -55,8 +53,8 @@ The graph engine separates **topology** (entities + dependencies) from **present
                              │ query API
          ┌───────────────────┼───────────────────┐
          ▼                   ▼                   ▼
-  Impact analysis    Blast radius / RCA    Policy simulation
-  (forward BFS)      (reverse BFS)           (simulated layer overlay)
+  Impact analysis    Blast radius / RCA    Neighborhood walk
+  (forward BFS)      (reverse BFS)           (one-hop / directed)
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
@@ -69,11 +67,13 @@ The graph engine separates **topology** (entities + dependencies) from **present
 
 | Phase | Store | Scope |
 |-------|-------|-------|
-| 1 (now) | In-memory snapshot per request | Built from RDS + Redis flows + policy tables |
+| 1 (now) | In-memory snapshot per request | Built from RDS + Redis flows + attribution context |
 | 2 | Redis graph snapshot with TTL | Shared across API + WebSocket incremental merge |
 | 3 | Optional graph DB (Neo4j / PostgreSQL ltree) | If multi-tenant scale or persistent graph history required |
 
-Phase 1 is sufficient for impact analysis and simulation on a single-tenant EC2 deployment.
+Phase 1 is sufficient for impact analysis on a single-tenant EC2 deployment.
+
+> **Note:** DNS query ingest and policy-pack graph layers were removed from the product. Domain / DNS edge types below are historical model notes; current builders prioritize device → app attribution and optional L4 flows.
 
 ---
 
@@ -250,7 +250,7 @@ infra:ec2_gateway
 
 This unifies:
 
-- Pack toggle simulation (today: `POST /twin/simulate/pack-toggle`)
+- What-if command parse (today: `POST /twin/simulate/command`)
 - Port what-if (today: frontend-only)
 - Future quarantine / geo / schedule simulation
 
@@ -324,7 +324,7 @@ POST /twin/graph/subgraph
 
 Migration path:
 
-1. Implement `TwinGraphBuilder` from existing `build_map()` + policy DNS sync + static infra nodes.
+1. Implement `TwinGraphBuilder` from existing `build_map()` + static infra nodes.
 2. Add projection functions that replace `expandToPathView` / `expandFlowToPortView` as **filters**, not graph rewrites.
 3. Deprecate frontend-only synthetic node injection once API returns full graph.
 

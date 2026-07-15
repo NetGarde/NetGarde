@@ -10,8 +10,8 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 | AWS service | Role |
 |-------------|------|
-| **EC2** | WireGuard, dnsmasq, iptables, Docker (backend + dns-sync), host agents |
-| **RDS** | PostgreSQL — policy, devices, DNS events, behavior state |
+| **EC2** | WireGuard, iptables, Docker (backend, detection), host agent |
+| **RDS** | PostgreSQL — devices, alerts, behavior state |
 | **S3 + CloudFront** | React dashboard static hosting + HTTPS |
 | **ECR** | Backend Docker image registry |
 | **Redis** (on EC2) | Rolling window for live VPN throughput |
@@ -33,9 +33,7 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 Run alongside Docker on the instance:
 
 ```bash
-sudo systemctl status trustedge-wg-agent      # peers, quarantine, DNS sync trigger
-sudo systemctl status trustedge-log-watcher   # dnsmasq log → API ingest
-sudo systemctl status dnsmasq
+sudo systemctl status trustedge-wg-agent      # peers + quarantine
 sudo systemctl status wg-quick@wg0
 ```
 
@@ -47,10 +45,8 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 
 | Path | Purpose |
 |------|---------|
-| `/etc/dnsmasq.d/blocked-domains.conf` | Global block list (dns-sync generated) |
-| `/etc/dnsmasq.d/trustedge-devices/` | Per-device block configs |
 | `/etc/wireguard/wg0.conf` | WireGuard server |
-| `/var/lib/trustedge/log_parser_state` | Log watcher offset |
+| `/etc/trustedge/backend.env` | Backend secrets and config |
 
 ---
 
@@ -61,5 +57,5 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 | Frontend | React 19, TypeScript, MUI 7 |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
 | Data | PostgreSQL 16, Redis 7 |
-| Network | WireGuard, dnsmasq |
+| Network | WireGuard, iptables |
 | Ops | Docker Compose, CloudWatch structured logs |

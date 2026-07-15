@@ -8,15 +8,15 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
-TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibility + EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional enforcement) for teams, branch sites, and operators who want unified security visibility without enterprise complexity. The core promise:
+TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional VPN quarantine) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Live observability** — VPN clients and TrustEdge Agent endpoint agents stream DNS, apps, connectivity, and process posture to the dashboard in real time (network map, client map, telemetry feed, detection alerts).
-2. **What-if before apply** — Policy pack changes can be simulated against recent DNS activity before syncing to dnsmasq.
-3. **Policy as desired state** — Domains are controlled via policy packs, device profiles, schedules, geo rules, and behavior scoring — not ad-hoc block lists in the UI.
-4. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
-5. **EDR-lite endpoint detection** — TrustEdge Agent process and network events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
-6. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
-7. **Enforcement as actuator** — Admin actions (quarantine, per-device blocks, policy apply) propagate to host networking (iptables, dnsmasq) when operators opt in (`DNS_BLOCKING_ENABLED`).
+1. **Live observability** — TrustEdge Agent streams process, app, and network posture; VPN usage feeds live charts (network map, client map, detection alerts).
+2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
+3. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
+4. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
+5. **Enforcement as actuator** — Quarantine propagates to host iptables when operators opt in.
+
+DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (removed from the product).
 
 ---
 
@@ -26,13 +26,9 @@ TrustEdge is a **self-hosted security observability platform** (VPN/DNS visibili
 |-------|--------|-----------|
 | Connectivity | WireGuard peers, usage samples | Client map, live throughput |
 | Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
-| DNS telemetry | dnsmasq log ingest + `domain_first_seen` recency | Live feed, simulation lookback |
 | Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
-| Desired state | Policy profiles and packs in RDS | Policy page (+ preview) |
 | Drift | Behavior baselines vs live scoring | Client profiles |
 | Detection | TrustEdge Agent events → detection-engine rules | Twin alerts, network map |
-
-Simulation (`POST /twin/simulate/pack-toggle`) compares **proposed policy** against **observed DNS roots** (last 24h) without writing to RDS or reloading dnsmasq.
 
 ---
 
@@ -40,49 +36,47 @@ Simulation (`POST /twin/simulate/pack-toggle`) compares **proposed policy** agai
 
 | Principle | What it means in practice |
 |-----------|---------------------------|
-| **Host vs container boundary** | The FastAPI backend runs in Docker and owns policy state in PostgreSQL. WireGuard peer updates, iptables drops, and dnsmasq reloads run on the EC2 host via `trustedge-wg-agent` and `dns-sync`. |
-| **Single source of truth** | Policy and device state live in RDS. dnsmasq config files are **generated artifacts**, never edited manually in production. |
-| **Selective persistence** | By default only **blocked** DNS queries are stored in PostgreSQL. Full query logging is opt-in (`PERSIST_ALL_DNS=true`). |
-| **Feature modules** | Both frontend and backend are organized by domain feature (`policy`, `devices`, `dns_queries`, etc.), not by technical layer alone. |
+| **Host vs container boundary** | The FastAPI backend runs in Docker and owns device/VPN state in PostgreSQL. WireGuard peer updates and iptables drops run on the EC2 host via `trustedge-wg-agent`. |
+| **Single source of truth** | Device and alert state live in RDS. Host networking is applied from that state. |
+| **Feature modules** | Both frontend and backend are organized by domain feature (`devices`, `twin`, `vpn`, etc.), not by technical layer alone. |
 | **Dark-first UI** | The dashboard defaults to dark mode. Light mode is supported; navigation chrome adapts per mode. |
-| **Pragmatic layering** | Backend layering (route → controller → service → repository) is encouraged but not uniform. Mature paths (`dns_queries`, `devices`) use controllers and Protocols; newer paths may call services directly from routes. |
+| **Pragmatic layering** | Backend layering (route → controller → service → repository) is encouraged but not uniform. Mature paths (`devices`) use controllers and Protocols; newer paths may call services directly from routes. |
 
 ---
 
 ## System topology
 
 ```
-┌──────────────┐     WireGuard      ┌─────────────────────────────────────────┐
-│ Site clients │◄──────────────────►│ EC2 host                                 │
-│ + router     │     DNS → VPN      │  dnsmasq · WireGuard · iptables         │
-└──────────────┘                    │  trustedge-wg-agent (systemd)            │
-                                    │  trustedge-log-watcher (systemd)         │
-                                    │  ┌─────────────────────────────────┐    │
-                                    │  │ Docker: FastAPI backend :8000   │    │
-                                    │  │ Docker: dns-sync (on demand)    │    │
-                                    │  └──────────────┬──────────────────┘    │
-                                    └─────────────────┼───────────────────────┘
-                                                      │
-                    ┌─────────────────────────────────┼─────────────────────┐
-                    ▼                                 ▼                     ▼
-             CloudFront + S3                   AWS RDS PostgreSQL      Redis (usage)
-             React dashboard                   policy + devices + DNS
-             WebSocket live feed
+┌──────────────────┐                    ┌─────────────────────────────────────────┐
+│ TrustEdge Agent  │── HTTPS events ───►│ Agent API → Kafka → detection-engine   │
+└──────────────────┘                    └──────────────────┬──────────────────────┘
+                                                           │ alerts ingest
+┌──────────────────┐     WireGuard      ┌──────────────────▼──────────────────────┐
+│ VPN clients      │◄──────────────────►│ EC2 host                                 │
+└──────────────────┘                    │  WireGuard · iptables                     │
+                                        │  trustedge-wg-agent (systemd)            │
+                                        │  ┌─────────────────────────────────┐    │
+                                        │  │ Docker: FastAPI backend :8000   │    │
+                                        │  └──────────────┬──────────────────┘    │
+                                        └─────────────────┼───────────────────────┘
+                                                          │
+                    ┌─────────────────────────────────────┼─────────────────────┐
+                    ▼                                     ▼                     ▼
+             CloudFront + S3                       AWS RDS PostgreSQL      Redis (usage)
+             React dashboard                       devices + alerts
 ```
 
 ### Runtime responsibilities
 
 | Component | Runs where | Responsibility |
 |-----------|------------|----------------|
-| **React dashboard** | S3 + CloudFront | Admin UI, live DNS feed, policy/device management |
-| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, policy computation, ingest pipeline |
-| **dns-sync** | Docker (triggered) | Pull `/policy/dns-sync` → write dnsmasq conf → reload |
-| **dns_log_watcher** | systemd on host | Tail dnsmasq log → batch POST to API |
-| **trustedge-wg-agent** | systemd on host | Apply WG peers, iptables block/unblock, trigger `run-sync.sh` |
-| **dnsmasq** | host | Authoritative DNS for VPN clients; serves block rules |
-| **WireGuard** | host | VPN tunnel; all client traffic routed through EC2 |
+| **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, devices, network map |
+| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, twin/alerts, VPN enroll |
+| **detection-engine** | Docker / service | Rules on agent Kafka topic → twin alert ingest |
+| **trustedge-wg-agent** | systemd on host | Apply WG peers, iptables block/unblock |
+| **WireGuard** | host | VPN tunnel for enrolled clients |
 
-See [host-agent/README.md](../host-agent/README.md) for the block → DNS sync flow.
+See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
 
 ---
 
@@ -90,29 +84,18 @@ See [host-agent/README.md](../host-agent/README.md) for the block → DNS sync f
 
 ### Observability graph
 
-- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, RCA, and policy simulation. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
-
-### Policy
-
-- **Policy pack** — A reusable bundle of DNS block rules (e.g. adult content, gambling).
-- **Policy profile** — Assigns packs and settings to a device or device group.
-- **Schedule** — Time windows when packs are active.
-- **Geo policy** — Country-based access rules evaluated at DNS ingest time.
-- **Effective DNS sync** — `GET /policy/dns-sync` returns the merged block list per device (packs + schedules + per-device blocks + quarantine deny rules).
+- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, and RCA. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
 
 ### Devices & clients
 
 - **Device** — A network client identified by MAC, IP lease, VPN pubkey, and optional user label.
-- **Behavior profile** — Rolling baseline of DNS activity; abnormal scores can trigger auto-blocks.
-- **Per-device domain block** — Temporary DNS deny for specific domains on one device.
-- **Quarantine** — Full-network block: iptables drop on VPN traffic + DNS deny-all for the device IP.
+- **Behavior profile** — Rolling baseline of activity; abnormal scores surface drift.
+- **Quarantine** — Full-network block: iptables drop on VPN traffic for the device IP.
 
-### DNS ingest
+### Alerts
 
-1. dnsmasq logs a query.
-2. `dns_log_watcher` parses and batches it to `POST /dns-queries/bulk`.
-3. Backend runs the ingest pipeline: noise filter → geo check → behavior scoring → optional RDS persist.
-4. Blocked queries are broadcast on WebSocket (`/dns-queries/ws`) and stored (by default).
+- Detection-engine posts to `POST /twin/alerts/ingest`.
+- Dashboard shows attack alerts; the `dns_alerts` table remains as the store for alert rows via `app.features.alerts`.
 
 ### VPN
 
@@ -122,23 +105,15 @@ See [host-agent/README.md](../host-agent/README.md) for the block → DNS sync f
 
 ---
 
-## Policy enforcement pipeline
-
-Admin or automated changes follow the same pattern:
+## Quarantine pipeline
 
 ```
-Dashboard action (quarantine, policy apply, client block)
+Dashboard action (quarantine)
     → Backend writes DB state
-    → notify_policy_changed (sync queue)
-    → Host agent: iptables block/unblock (quarantine only)
-    → Host agent: POST /v1/sync-dns-policy → run-sync.sh
-         → docker compose run dns-sync
-         → GET /policy/dns-sync
-         → write /etc/dnsmasq.d/*.conf
-         → systemctl reload dnsmasq
+    → Host agent: iptables block/unblock
 ```
 
-**Why the split?** Docker containers cannot safely mutate host `wg0`, `iptables`, or reload host `dnsmasq`. The backend orchestrates; the host agent executes.
+**Why the split?** Docker containers cannot safely mutate host `wg0` or `iptables`. The backend orchestrates; the host agent executes.
 
 ---
 
@@ -146,9 +121,9 @@ Dashboard action (quarantine, policy apply, client block)
 
 | Token | Used by | Protects |
 |-------|---------|----------|
-| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Policy CRUD, device management, quarantine |
-| `DNS_INGEST_TOKEN` | dns_log_watcher, dns-sync | Bulk DNS ingest, policy DNS sync read |
-| `WG_AGENT_TOKEN` | Backend → host agent | Peer apply, block/unblock, DNS sync trigger |
+| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management, quarantine |
+| `DNS_INGEST_TOKEN` | Flow watcher, detection-engine ingest | Service-to-service ingest (shared token name) |
+| `WG_AGENT_TOKEN` | Backend → host agent | Peer apply, block/unblock |
 | Device enroll token | TrustEdge client | `POST /v1/enroll` bootstrap |
 
 - Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.
@@ -212,8 +187,8 @@ Defined in `features/dashboard/components/MenuContent.tsx`:
 | Section | Items |
 |---------|-------|
 | **Home** | Dashboard (`/`) |
-| **My network** | Policy, Country access, Client map |
-| **Analytics** | Client profiles, Blocked clients |
+| **My network** | Client map, Network map |
+| **Analytics** | Client profiles |
 
 Routes are declared in `frontend/src/routes/index.tsx`. Pages in `pages/` are thin entry points; feature UI lives in `features/`.
 
@@ -239,16 +214,14 @@ export const devicesApi = {
 };
 ```
 
-**Cross-feature imports are allowed** — e.g. dashboard `useLiveClients` composes devices + dns-queries hooks.
+**Cross-feature imports are allowed** — e.g. dashboard hooks compose devices + twin alerts.
 
 ### Page patterns
 
 | Style | Example | Pattern |
 |-------|---------|---------|
 | Thin page | `ClientProfilesPage` | `return <ClientProfiles />` |
-| Composed page | `PolicyPage` | Page owns layout; imports feature components + hooks |
-
-Supporting features without their own route (e.g. `dns-queries`) expose hooks and types consumed by dashboard components.
+| Composed page | Dashboard home | Page owns layout; imports feature components + hooks |
 
 ---
 
@@ -261,13 +234,17 @@ backend/app/
 ├── main.py                 # App factory, middleware, router registration
 ├── shared/                 # DB, config, auth, errors, logging, Redis, WebSocket
 └── features/               # Vertical domain modules
-    ├── policy/
+    ├── alerts/             # Alert model (dns_alerts table) + repository
     ├── devices/
-    ├── dns_queries/
+    ├── twin/
     ├── vpn/
     ├── dashboard/
-    └── client_behavior/    # No routes; used by devices + dns_queries
+    ├── network_attribution/
+    ├── network_flows/
+    └── client_behavior/    # Used by devices routes
 ```
+
+Legacy `policy/` code may still exist in the tree but is **not mounted** in `main.py`.
 
 ### Layered architecture (pragmatic)
 
@@ -281,17 +258,17 @@ Route (FastAPI endpoint, Depends auth + DB)
 
 | Pattern | Features | Notes |
 |---------|----------|-------|
-| Full stack | `dns_queries`, `devices` (CRUD) | Controller + `Protocol` interface |
-| Thin routes | `policy`, `vpn`, `dashboard` | Route calls service directly |
+| Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
+| Thin routes | `vpn`, `dashboard`, `twin` | Route calls service directly |
 | Mixed | `devices` (extended routes) | Behavior/quarantine endpoints inline |
 
-**Reference implementation:** `dns_queries` — route → `DnsQueryController` → `DnsQueryService` (implements `IDnsQueryService`) → `DnsQueryRepository`.
+**Reference implementation:** `devices` — route → controller/service → repository.
 
 ### Dependency injection
 
 - **Shared:** `get_db()` generator in `shared/dependencies.py`
 - **Feature factories:** `features/<name>/dependencies.py` for stateless services
-- **Inline factories:** DB-scoped services created in route modules (`get_policy_service(db)`)
+- **Inline factories:** DB-scoped services created in route modules
 - **Auth:** composable `Depends(verify_admin_api_token)`, `verify_dns_ingest_service`, `verify_enroll_bootstrap`
 
 ### Schemas & models
@@ -305,7 +282,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 Three styles coexist (prefer domain exceptions + controller mapping for new code):
 
 1. **Domain exceptions** — `DeviceNotFoundError` raised in service, mapped to 404 in controller
-2. **HTTPException in service** — used in `PolicyService` for not-found cases
+2. **HTTPException in service** — used in some VPN/device paths
 3. **Route try/except** — VPN enroll catches `ValueError` at the route layer
 
 Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, `ValidationError`).
@@ -314,9 +291,9 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 
 No global event bus. Services import peer services explicitly:
 
-- `DnsQueryService` calls `ForbiddenCountryService`, `ClientBehaviorAggregator`, `BehaviorScoringService`
-- `PolicyDnsService` merges client_behavior blocked domains into effective DNS rules
-- `device_route.py` aggregates devices, behavior, policy, and VPN usage endpoints
+- Twin alert ingest feeds dashboard attack views
+- `device_route.py` aggregates devices, behavior, and VPN usage endpoints
+- Network attribution builds maps from endpoint context (+ optional flows)
 
 ---
 
@@ -324,11 +301,10 @@ No global event bus. Services import peer services explicitly:
 
 | Data | Store | Notes |
 |------|-------|-------|
-| Policy, devices, blocks | PostgreSQL (RDS) | Source of truth |
-| DNS queries (blocked) | PostgreSQL | Default; full logging opt-in |
+| Devices, leases, peers | PostgreSQL (RDS) | Source of truth |
+| Alerts | PostgreSQL (`dns_alerts` table via `alerts` module) | Detection + behavior alerts |
 | Live VPN usage | Redis | Real-time throughput charts |
-| dnsmasq config | Host filesystem | Generated by dns-sync |
-| Log watcher offset | `/var/lib/trustedge/log_parser_state` | Host state file |
+| Agent events | Kafka / Redis (Agent API) | Upstream of detection-engine |
 
 ---
 
@@ -340,9 +316,7 @@ No global event bus. Services import peer services explicitly:
 
 Host systemd services on EC2:
 
-- `trustedge-wg-agent` — peer apply, block/unblock, DNS sync trigger
-- `trustedge-log-watcher` — DNS log tail → API
-- `dnsmasq` — DNS resolver
+- `trustedge-wg-agent` — peer apply, block/unblock
 - `wg-quick@wg0` — WireGuard
 
 ---
@@ -365,25 +339,13 @@ Host systemd services on EC2:
 4. Prefer: service raises domain errors, controller maps to HTTP status.
 5. Add tests under `backend/tests/unit/<name>/` and `backend/tests/integration/<name>/`.
 
-### DNS-blocking features
-
-If the feature affects what dnsmasq serves:
-
-1. Extend `PolicyDnsService.build_dns_sync()` (or the relevant merge path).
-2. Call `notify_policy_changed` and trigger host DNS sync via `_run_host_dns_sync`.
-3. Verify `dns-sync/sync.py` writes the expected conf format.
-
 ---
 
 ## Related docs
 
-| Document | Contents |
-|----------|----------|
-| [docs/README.md](README.md) | Documentation index |
-| [README.md](../README.md) | Overview, quick start, API table |
-| [API.md](API.md) | REST and WebSocket endpoints |
-| [DEPLOY.md](DEPLOY.md) | Production deployment |
-| [ENV_SETUP.md](ENV_SETUP.md) | Environment variables |
-| [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Architecture diagram and data flows |
-| [host-agent/README.md](../host-agent/README.md) | Host agent install and block flow |
-| [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md) | Production logging |
+- [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) — component topology
+- [API.md](API.md) — REST reference
+- [ENV_SETUP.md](ENV_SETUP.md) — configuration
+- [DEPLOY.md](DEPLOY.md) — production AWS
+- [GRAPH_ENGINE.md](GRAPH_ENGINE.md) — observability graph
+- [host-agent/README.md](../host-agent/README.md) — EC2 host agent
