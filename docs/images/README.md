@@ -1,17 +1,14 @@
 # <img src="assets/icons/layout.svg" width="28" height="28" align="absmiddle" alt="" /> Screenshot assets
 
-Images referenced by the root [README](../README.md). Use these filenames so links resolve on GitHub.
+Images referenced by the root [README](../README.md). Prefer captures of **endpoint / detection / alerts** views as the UI evolves.
 
 ## Captures
 
 | File | Page / route | What to show | Status |
 |------|--------------|--------------|--------|
-| `dashboard-home.png` | `/` | Network overview card, AI summary, stats, alerts | ✓ |
-| `dashboard-live.png` | `/` | Live throughput chart, DNS live feed, or live clients panel | pending |
-| `policy.png` | `/policy` | Policy packs list and device profile assignments | pending |
-| `client-profiles.png` | `/client-profiles` | Device detail — behavior score, baseline, quarantine | ✓ |
-| `client-map.png` | `/client-map` | World map with enrolled clients | ✓ |
-| `blocked-clients.png` | `/blocked-clients` | Quarantined and DNS-blocked devices table | pending |
+| `dashboard-home.png` | `/` | Overview, live stats, attack alerts | ✓ (may lag current UI) |
+| `client-profiles.png` | device / twin views | Endpoint or alert detail | ✓ |
+| `client-map.png` | map views | Observability map | ✓ |
 
 ## Capture tips
 

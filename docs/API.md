@@ -1,8 +1,12 @@
 # <img src="assets/icons/api.svg" width="28" height="28" align="absmiddle" alt="" /> API reference
 
-TrustEdge exposes a FastAPI backend. Interactive docs: `http://127.0.0.1:8000/docs` locally, or your production API host `/docs`.
+TrustEdge exposes a FastAPI backend for **endpoint observability**, twin graph, and attack alerts.
 
-Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token is configured. DNS ingest uses `DNS_INGEST_TOKEN`. See [ENV_SETUP.md](ENV_SETUP.md).
+Interactive docs: `http://127.0.0.1:8000/docs` locally, or your production API host `/docs`.
+
+Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when configured. See [ENV_SETUP.md](ENV_SETUP.md).
+
+Agent ingest HTTP APIs live in [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md) (`/v1/register`, `/v1/events`).
 
 ---
 
@@ -11,62 +15,35 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
-| **Policy** | | |
-| `GET` | `/policy/packs` | List policy packs |
-| `GET` | `/policy/profiles` | List policy profiles |
-| `GET` | `/policy/dns-sync` | Effective DNS block rules for dnsmasq |
-| `POST` | `/policy/apply` | Queue policy sync to dnsmasq |
 | **Security observability** | | |
-| `GET` | `/twin/graph/snapshot` | Canonical entity/dependency graph (`minutes`, `include_flows`, `include_policy`) |
-| `POST` | `/twin/graph/traverse` | Walk dependencies from seed nodes (impact, blast radius, RCA) |
-| `GET` | `/twin/graph/neighbors` | One-hop neighbors of a node (`node_id`, `direction`, optional `relations`, `layers`) |
-| `POST` | `/twin/simulate/pack-toggle` | Preview global pack toggle impact (read-only) |
-| `POST` | `/twin/simulate/command` | Parse natural-language what-if commands (rules + Ollama fallback) |
+| `GET` | `/twin/graph/snapshot` | Entity / dependency graph |
+| `POST` | `/twin/graph/traverse` | Walk dependencies (impact, blast radius, RCA) |
+| `GET` | `/twin/graph/neighbors` | One-hop neighbors |
+| **Alerts** | | |
+| `GET` | `/twin/alerts` | List TrustEdge Agent detection alerts |
+| `POST` | `/twin/alerts/ingest` | Detection-engine → backend alert write path |
 | **Devices** | | |
 | `GET` | `/devices` | List devices |
-| `GET` | `/devices/blocked-clients` | Devices with active quarantine or per-device DNS blocks |
-| `GET` | `/devices/{id}/behavior-profile` | Client behavior profile |
-| `GET` | `/devices/{id}/client-blocks` | Active per-device domain blocks |
-| `POST` | `/devices/{id}/client-blocks` | Add a per-device domain block |
-| `DELETE` | `/devices/{id}/client-blocks/{block_id}` | Revoke a per-device domain block |
-| `POST` | `/devices/{id}/quarantine` | Full-network block (VPN iptables + DNS deny) |
-| `DELETE` | `/devices/{id}/quarantine` | Release client from quarantine early |
-| `GET` | `/devices/{id}/network-attribution` | Hourly per-app usage rollups (`hours`, optional `app_slug`) |
-| `GET` | `/devices/{id}/network-attribution/summary` | Top apps with avg minutes/hour and total hours |
-| `GET` | `/network-attribution/map` | Device → app → DNS destination graph (`minutes`, default 1; `include_flows=true` adds L4 session nodes from conntrack) |
-| **Network flows** | | |
-| `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`DNS_INGEST_TOKEN`) |
-| `POST` | `/network-flows/dns-resolutions/bulk` | Ingest DNS reply → IP mappings for flow correlation |
-| `GET` | `/network-flows/live` | Recent L4 flows (admin token) |
-| **VPN** | | |
-| `GET` | `/v1/client-config` | Public client bootstrap (enroll token, API paths, defaults) |
-| `POST` | `/v1/enroll` | WireGuard device enrollment |
-| `POST` | `/v1/usage` | Report VPN usage samples |
-| `POST` | `/v1/network-attribution` | Report foreground app intervals (device token) |
-| `GET` | `/vpn/topology` | VPN server and peer topology |
-| **DNS Queries** | | |
-| `GET` | `/dns-queries` | List DNS queries (paginated, filterable) |
-| `POST` | `/dns-queries` | Log a single DNS query |
-| `POST` | `/dns-queries/bulk` | Log multiple DNS queries |
-| `GET` | `/dns-queries/stats` | Query statistics (total, blocked, top domains) |
-| `GET` | `/dns-queries/alerts` | Anomaly alerts |
-| `GET` | `/dns-queries/whois?domain=` | WHOIS/RDAP lookup for a domain |
-| `GET` | `/dns-queries/sites` | Queries grouped by root domain |
-| `WS` | `/dns-queries/ws` | Real-time WebSocket live feed |
+| `GET` | `/devices/{id}/behavior-profile` | Optional behavior profile |
 | **Dashboard** | | |
-| `GET` | `/dashboard/network-overview` | Network overview and review summary |
+| `GET` | `/dashboard/network-overview` | Overview / review summary |
+
+Exact alert paths may grow with the UI — prefer OpenAPI `/docs` as source of truth.
 
 ---
 
-## Host agent (EC2)
+## Auth
 
-The WireGuard host agent runs on the EC2 host, not inside Docker. See [host-agent/README.md](../host-agent/README.md).
+| Token | Header | Used for |
+|-------|--------|----------|
+| `ADMIN_API_TOKEN` | `Authorization: Bearer …` | Operator / admin REST |
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/health` | Liveness |
-| `GET` | `/v1/peers` | List WireGuard peers |
-| `POST` | `/v1/apply-peer` | Set peer `allowed-ips` after enroll |
-| `POST` | `/v1/block-client` | Drop forwarded VPN traffic for a client IP |
-| `POST` | `/v1/unblock-client` | Remove iptables drops |
-| `POST` | `/v1/sync-dns-policy` | Run `run-sync.sh` (policy → dnsmasq) |
+Device registration and event upload use the **Agent API**, not these TrustEdge admin routes.
+
+---
+
+## Related
+
+- [DESIGN.md](DESIGN.md)  
+- [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)  
+- [Agent API reference](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API/blob/main/docs/api.md)  

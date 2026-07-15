@@ -1,8 +1,8 @@
 # <img src="assets/icons/platforms.svg" width="28" height="28" align="absmiddle" alt="" /> Production deployment
 
-TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure layout and host services.
+TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure for the **endpoint observability** control plane.
 
-**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [host-agent/README.md](../host-agent/README.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
+**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
 
 ---
 
@@ -10,11 +10,18 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 | AWS service | Role |
 |-------------|------|
-| **EC2** | WireGuard, dnsmasq, iptables, Docker (backend + dns-sync), host agents |
-| **RDS** | PostgreSQL — policy, devices, DNS events, behavior state |
+| **EC2** | Docker — FastAPI backend, detection-engine, Redis, Kafka/Redpanda (or managed stream) |
+| **RDS** | PostgreSQL — alerts, devices, twin state |
 | **S3 + CloudFront** | React dashboard static hosting + HTTPS |
-| **ECR** | Backend Docker image registry |
-| **Redis** (on EC2) | Rolling window for live VPN throughput |
+| **ECR** | Backend / detection images |
+| **Redis** (on EC2 or managed) | Live mirrors / short-lived caches |
+
+Sibling services (often co-deployed):
+
+| Service | Repo |
+|---------|------|
+| Agent API | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
+| Endpoint agents | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) |
 
 ---
 
@@ -28,29 +35,16 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 ---
 
-## EC2 host services
+## Runtime on EC2
 
-Run alongside Docker on the instance:
+Typical containers (see `docker-compose.yml`):
 
-```bash
-sudo systemctl status trustedge-wg-agent      # peers, quarantine, DNS sync trigger
-sudo systemctl status trustedge-log-watcher   # dnsmasq log → API ingest
-sudo systemctl status dnsmasq
-sudo systemctl status wg-quick@wg0
-```
+- `trustedge-api` — FastAPI backend  
+- `detection-engine` — Kafka consumer / rules  
+- `redis` — caches  
+- `redpanda` (or external Kafka) — agent event stream  
 
 Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.md](ENV_SETUP.md).
-
----
-
-## Key paths
-
-| Path | Purpose |
-|------|---------|
-| `/etc/dnsmasq.d/blocked-domains.conf` | Global block list (dns-sync generated) |
-| `/etc/dnsmasq.d/trustedge-devices/` | Per-device block configs |
-| `/etc/wireguard/wg0.conf` | WireGuard server |
-| `/var/lib/trustedge/log_parser_state` | Log watcher offset |
 
 ---
 
@@ -60,6 +54,5 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 |-------|-------|
 | Frontend | React 19, TypeScript, MUI 7 |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
-| Data | PostgreSQL 16, Redis 7 |
-| Network | WireGuard, dnsmasq |
+| Data | PostgreSQL 16, Redis 7, Kafka/Redpanda |
 | Ops | Docker Compose, CloudWatch structured logs |
