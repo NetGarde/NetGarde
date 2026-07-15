@@ -6,6 +6,8 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 [![Deploy Develop](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml/badge.svg)](https://github.com/TrustEdgeOrg/TrustEdge/actions/workflows/deploy-develop.yml)
 
+---
+
 ## About the project
 
 TrustEdge is a **self-hosted security observability platform** for teams that want real endpoint signal and actionable detection without a heavy enterprise EDR stack.
@@ -25,39 +27,19 @@ Detection stays **rules-based** (deterministic). Optional LLMs only help explain
 TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React).
 
 <p align="center">
-  <img width="100%" alt="TrustEdge architecture — 5 clear stages from endpoint agent to dashboard" src="docs/assets/architecture.png" />
+  <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.png" />
 </p>
 
-| Layer | Components | Responsibility |
+| Stage | Components | Responsibility |
 |-------|------------|----------------|
-| **Edge** | TrustEdge Agent (macOS / Linux / Windows) | Collect · batch · compress · HTTPS upload |
-| **Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth, validate, persist, publish |
-| **Stream** | Kafka / Redpanda (`trustedge.agent.events`) | Durable event bus for detection |
-| **Detection** | `detection-engine` | Rules on agent events → attack alerts |
-| **Control plane** | FastAPI · Twin · dashboard APIs | Alerts, graph, network map, devices |
-| **Dashboard** | React on S3 + CloudFront | Attack alerts, maps, behavior profiles |
-| **Data** | PostgreSQL (RDS), Redis | Source of truth + live usage |
+| **1 · Edge** | TrustEdge Agent | Collect · batch · compress · HTTPS upload |
+| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth · validate · persist · publish |
+| **3 · Stream** | Kafka / Redpanda | Durable `agent.events` bus |
+| **4 · Detect** | `detection-engine` | Attack / drift rules → alerts |
+| **5 · Operate** | FastAPI · Twin · React dashboard | Alerts, graph, maps, behavior |
+| **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
 
-**Design notes**
-
-- **Rules for security, LLM for explanation** — scoring stays deterministic  
-- **Primary path is endpoint detection** — Agent → Agent API → stream → alerts  
-
-More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
-
----
-
-## Why it exists
-
-Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane for endpoint signal and detection:
-
-| Path | What it does |
-|------|----------------|
-| **Endpoint** | [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) → [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) → stream → detection → alerts |
-| **Dashboard** | Network map, client map, behavior drift, attack alerts |
-| **Ops** | CloudWatch logs, Alembic, ECR deploy |
-
-Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
+More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 ---
 
@@ -67,7 +49,7 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 2. **Collector → Batch → Compress** — on-device telemetry pipeline  
 3. **Secure upload** — HTTPS to Agent API  
 4. **Agent API → Stream** — validate, persist, publish  
-5. **Detection Attack → Alert** — rules engine + dashboard alerts  
+5. **Detection → Alert** — rules engine + dashboard  
 
 ---
 
@@ -75,30 +57,11 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 
 | Capability | Implementation |
 |------------|----------------|
-| Security observability | Network map, client map, endpoint posture, attack alerts |
-| Endpoint telemetry | TrustEdge Agent: process, app focus, network posture |
+| Endpoint telemetry | Process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
-| Behavior intelligence | Per-device baselines, drift scoring |
-| AI operations | Optional network / behavior summaries |
+| Observability | Attack alerts, network map, behavior drift |
+| AI operations | Optional summaries (OpenAI / Ollama / template) |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
-
----
-
-## Screenshots
-
-> More captures: [docs/images/README.md](docs/images/README.md)
-
-### Dashboard & monitoring
-
-![Network overview — AI summary, live stats, and alerts](docs/images/dashboard-home.png)
-
-### Clients
-
-![Behavior baseline and score](docs/images/client-profiles.png)
-
-### Operations
-
-![Geographic client map](docs/images/client-map.png)
 
 ---
 
@@ -106,15 +69,13 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 
 | Area | Technologies |
 |------|----------------|
-| Frontend | React 19, TypeScript, Material UI 7, MUI X Charts |
-| Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
-| Endpoint agent | Go 1.22 ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
-| Real-time | WebSocket, Redis, Kafka/Redpanda |
+| Frontend | React 19, TypeScript, Material UI 7 |
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
+| Endpoint agent | Go ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
+| Streaming | Kafka / Redpanda, Redis |
 | Data | PostgreSQL 16 (RDS) |
-| Infrastructure | AWS EC2, RDS, S3, CloudFront, ECR |
-| Observability | Structured JSON logging, CloudWatch Logs Insights |
-| CI/CD | GitHub Actions |
-| Containers | Docker, Docker Compose |
+| Infrastructure | AWS EC2, S3, CloudFront, ECR |
+| CI/CD | GitHub Actions, Docker Compose |
 
 ---
 
@@ -125,23 +86,22 @@ git clone https://github.com/TrustEdgeOrg/TrustEdge.git
 cd TrustEdge
 ```
 
-- Production AWS: [docs/DEPLOY.md](docs/DEPLOY.md)  
-- Environment variables: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
-- Endpoint agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
-- Agent ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
+- Deploy: [docs/DEPLOY.md](docs/DEPLOY.md)  
+- Environment: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
+- Agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
+- Ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
 
 ---
 
 ## Documentation
 
-| | Document | Description |
-|---|----------|-------------|
-| <img src="docs/assets/icons/layout.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/README.md](docs/README.md) | Documentation index |
-| <img src="docs/assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
-| <img src="docs/assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/DESIGN.md](docs/DESIGN.md) | Domain model and conventions |
-| <img src="docs/assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
-| <img src="docs/assets/icons/api.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/API.md](docs/API.md) | REST and WebSocket reference |
-| <img src="docs/assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
+| Document | Description |
+|----------|-------------|
+| [docs/README.md](docs/README.md) | Documentation index |
+| [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
+| [docs/API.md](docs/API.md) | REST reference |
+| [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
+| [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
 
 ---
 
