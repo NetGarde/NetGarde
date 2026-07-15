@@ -14,9 +14,7 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ## Architecture
 
-TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React). Optional WireGuard enrollment and quarantine stay on the EC2 host when you need secure access or response.
-
-<p align="center">
+TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React). <p align="center">
   <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="docs/assets/architecture.svg" />
 </p>
 
@@ -29,11 +27,9 @@ TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Ag
 | **Control plane** | FastAPI · Twin · dashboard APIs | Alerts, graph, network map, devices |
 | **Dashboard** | React on S3 + CloudFront | Attack alerts, maps, behavior profiles |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth + live usage |
-| **Host** *(optional)* | WireGuard, iptables, `trustedge-wg-agent` | Enroll peers, quarantine |
 
 **Design notes**
 
-- **Primary path is endpoint detection** — VPN is optional, not required for telemetry  
 - **Rules for security, LLM for explanation** — scoring stays deterministic  
 - **Observability-first enforcement** — quarantine is opt-in  
 
@@ -73,8 +69,6 @@ Detection and scoring stay **rules-based**; optional LLMs only explain state for
 | Endpoint telemetry | TrustEdge Agent: process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
 | Behavior intelligence | Per-device baselines, drift scoring |
-| Secure access *(optional)* | WireGuard enrollment, IP pool |
-| Enforcement *(optional)* | Host agent quarantine (iptables) |
 | AI operations | Optional network / behavior summaries |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
 
@@ -125,7 +119,6 @@ cd TrustEdge
 - Environment variables: [docs/ENV_SETUP.md](docs/ENV_SETUP.md)  
 - Endpoint agent: [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)  
 - Agent ingest API: [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)  
-- Optional VPN client: [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)  
 
 ---
 
@@ -150,7 +143,6 @@ cd TrustEdge
 | **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | This control plane |
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | Endpoint collector |
 | **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
-| **[TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient)** | Optional VPN enroll client |
 
 ---
 
