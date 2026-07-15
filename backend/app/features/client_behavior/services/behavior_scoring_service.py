@@ -13,12 +13,11 @@ from app.features.client_behavior.services.behavior_baseline_service import Beha
 from app.features.devices.repositories.device_repository import DeviceRepository
 from app.features.policy.repositories.policy_repository import PolicyRepository
 from app.features.policy.sensitivity import alert_threshold_for_sensitivity
-from app.features.dns_queries.dns_anomaly import get_suspicious_domain_reasons
-from app.features.dns_queries.models.dns_alert import DnsAlert
-from app.features.dns_queries.repositories.dns_alert_repository import DnsAlertRepository
-from app.features.dns_queries.schemas.dns_query import DnsQueryCreate
+from app.features.client_behavior.domain_anomaly import get_suspicious_domain_reasons
+from app.features.alerts.models.alert import Alert
+from app.features.alerts.repositories.alert_repository import AlertRepository
 from app.shared.config import settings
-from app.shared.domain_utils import extract_root_domain, is_noise_domain
+from app.shared.domain_utils import extract_root_domain
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
 
@@ -40,29 +39,13 @@ class BehaviorScoringService:
         self.profile_repo = BehaviorProfileRepository(db)
         self.security_policy_repo = DeviceSecurityPolicyRepository(db)
         self.block_repo = ClientBlockedDomainRepository(db)
-        self.alert_repo = DnsAlertRepository(db)
+        self.alert_repo = AlertRepository(db)
         self.device_repo = DeviceRepository(db)
         self.baseline_service = BehaviorBaselineService(db)
         self.policy_repo = PolicyRepository(db)
 
-    def process_queries(self, queries: List[DnsQueryCreate]) -> int:
-        if not queries:
-            return 0
-
-        device_domains: dict[int, List[Tuple[str, str, str]]] = {}
-        for q in queries:
-            if is_noise_domain(q.domain):
-                continue
-            device = self.device_repo.get_by_client_ip(q.client_ip)
-            if not device:
-                continue
-            root = extract_root_domain(q.domain)
-            device_domains.setdefault(device.id, []).append((q.client_ip, q.domain, root))
-
-        alerts = 0
-        for device_id, entries in device_domains.items():
-            alerts += self._score_device(device_id, entries)
-        return alerts
+    def process_queries(self, queries: list) -> int:
+        return 0
 
     def _score_device(self, device_id: int, entries: List[Tuple[str, str, str]]) -> int:
         profile = self.profile_repo.get_by_device_id(device_id)
@@ -94,11 +77,11 @@ class BehaviorScoringService:
             minutes=settings.BEHAVIOR_SCORE_WINDOW_MINUTES
         )
         recent_alert = (
-            self.db.query(DnsAlert)
+            self.db.query(Alert)
             .filter(
-                DnsAlert.device_id == device_id,
-                DnsAlert.alert_type == "behavior_anomaly",
-                DnsAlert.timestamp >= cooldown_since,
+                Alert.device_id == device_id,
+                Alert.alert_type == "behavior_anomaly",
+                Alert.timestamp >= cooldown_since,
             )
             .first()
         )

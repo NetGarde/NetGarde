@@ -57,7 +57,7 @@ GENERATE_SOURCEMAP=false
 
 1. **Never commit `.env` files** — they are in `.gitignore`
 2. **Set all security tokens** in production — empty `ADMIN_API_TOKEN` disables admin auth
-3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), dns-sync, log-watcher, and host agent
+3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), flow/alert ingest services, and host agent
 4. **Use strong random secrets** — store in `/etc/trustedge/backend.env` with `chmod 640`
 
 ## Environment variable reference
@@ -70,14 +70,13 @@ GENERATE_SOURCEMAP=false
 | `ENVIRONMENT` | Environment name | `production` |
 | `LOG_LEVEL` | Logging verbosity | `INFO` |
 | `LOG_JSON` | Structured JSON logs | `1` (see [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)) |
-| `PERSIST_ALL_DNS` | Store all DNS queries in RDS | `false` |
 
 ### Security tokens (backend)
 
 | Variable | Used by | Notes |
 |----------|---------|-------|
-| `ADMIN_API_TOKEN` | Dashboard, policy/device admin APIs | **Required** in production |
-| `DNS_INGEST_TOKEN` | `dns_log_watcher`, `dns-sync` | Required for ingest and policy pull |
+| `ADMIN_API_TOKEN` | Dashboard, device admin APIs | **Required** in production |
+| `DNS_INGEST_TOKEN` | Flow ingest, twin alert ingest | Shared service token (name is historical) |
 | `WG_AGENT_TOKEN` | Backend → `trustedge-wg-agent` | Must match host agent token |
 | `DEVICE_TOKEN_SECRET` | VPN client device tokens | Signs tokens issued at enroll |
 | `ENROLL_BOOTSTRAP_TOKEN` | `POST /v1/enroll` (optional) | TrustEdgeClient `--api-token` |
@@ -103,53 +102,49 @@ Host agent: set `TRUSTEDGE_WG_AGENT_TOKEN` in the systemd unit — see [host-age
 | `USAGE_HISTORY_MINUTES` | Chart history window | `60` |
 | `BANDWIDTH_ALERT_MIB_PER_SEC` | Throughput alert threshold | `50` |
 
-### Behavior & policy (backend)
+### Behavior (backend)
 
 Key tuning variables — full list in [backend/.env.example](../backend/.env.example):
 
 | Variable | Description |
 |----------|-------------|
 | `BEHAVIOR_ALERT_THRESHOLD` | Score above which alerts fire |
-| `BEHAVIOR_AUTO_BLOCK_THRESHOLD` | Score above which auto-blocks trigger |
-| `POLICY_PACK_FETCH_ENABLED` | Fetch upstream block lists on startup |
-| `FORBIDDEN_COUNTRY_ENABLED` | Geo DNS blocking rules |
+| `BEHAVIOR_AUTO_BLOCK_THRESHOLD` | Score above which auto-actions trigger |
 | `NETWORK_REVIEW_MODE` | Dashboard AI review: `template` \| `openai` \| `ollama` |
 
 ### Network attribution (backend + client)
 
-Endpoint telemetry: foreground app time while VPN is connected, correlated with DNS queries.
+Endpoint / VPN foreground app time for network map device→app edges.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NETWORK_ATTRIBUTION_ENABLED` | Enable ingest and DNS correlation | `true` |
-| `NETWORK_ATTRIBUTION_MAX_AGE_SEC` | Max age of app context when tagging DNS | `120` |
+| `NETWORK_ATTRIBUTION_ENABLED` | Enable ingest and map attribution | `true` |
+| `NETWORK_ATTRIBUTION_MAX_AGE_SEC` | Max age of app context | `120` |
 | `NETWORK_ATTRIBUTION_RETENTION_DAYS` | Rollup retention (cleanup TBD) | `30` |
 | `CLIENT_ATTRIBUTION_PATH` | Client POST path | `/v1/network-attribution` |
 | `CLIENT_ATTRIBUTION_POLL_SEC` | Foreground app poll interval | `30` |
 | `CLIENT_ATTRIBUTION_REPORT_SEC` | Batch report interval | `60` |
 
-### Network flows (backend + EC2 host)
+### Network flows (backend)
 
-L4 session visibility from conntrack on the WireGuard host, correlated to DNS names on the map.
+Optional L4 session visibility from conntrack on the WireGuard host.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NETWORK_FLOWS_ENABLED` | Enable flow ingest and map merge | `true` |
 | `NETWORK_FLOWS_MAX_AGE_SEC` | Drop flow samples older than this | `300` |
-| `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | DNS reply → IP cache TTL | `600` |
+| `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP cache TTL | `600` |
 | `NETWORK_FLOWS_MAP_LIMIT` | Max flow nodes merged into map | `80` |
-
-**EC2 host** (`dns-sync/flow_watcher.py`, systemd unit `trustedge-flow-watcher.service`):
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `VPN_POOL_CIDR` | WireGuard client subnet to filter conntrack | `10.0.0.0/24` |
 | `FLOW_POLL_INTERVAL` | Seconds between conntrack samples | `5` |
 | `FLOW_BATCH_SIZE` | Max flows per POST | `100` |
-| `DNS_INGEST_TOKEN` | Same as backend / log watcher | — |
+| `DNS_INGEST_TOKEN` | Same as backend service token | — |
 | `API_BASE_URL` | Backend URL | `http://localhost:8000` |
 
-Requires `conntrack` on the host (`apt install conntrack`). DNS reply parsing for IP correlation runs in `dns_log_watcher.py` (posts to `/network-flows/dns-resolutions/bulk`).
+Requires `conntrack` on the host (`apt install conntrack`) when flow watching is enabled.
 
 ### Frontend
 
@@ -181,7 +176,7 @@ Requires `conntrack` on the host (`apt install conntrack`). DNS reply parsing fo
 - Set `ADMIN_API_TOKEN` in backend and `REACT_APP_ADMIN_API_TOKEN` in frontend to the same value
 - Redeploy frontend after changing build-time env
 
-### Policy blocks not reaching dnsmasq (EC2)
+### Quarantine not applying on EC2
 
-- Verify `DNS_INGEST_TOKEN` is set and matches dns-sync / log-watcher config
 - Verify `WG_AGENT_TOKEN` matches `trustedge-wg-agent` — see [host-agent/README.md](../host-agent/README.md)
+- Check `curl http://172.17.0.1:9109/health` from the host

@@ -13,7 +13,7 @@ from app.features.client_behavior.services.behavior_review_templates import (
     explain_alert_message,
 )
 from app.features.devices.repositories.device_repository import DeviceRepository
-from app.features.dns_queries.models.dns_alert import DnsAlert
+from app.features.alerts.models.alert import Alert
 from app.features.policy.repositories.policy_repository import PolicyRepository
 from app.features.policy.sensitivity import alert_threshold_for_sensitivity
 from app.shared.config import settings
@@ -82,12 +82,12 @@ class BehaviorReviewService:
         )
 
         recent_rows = (
-            self.db.query(DnsAlert)
+            self.db.query(Alert)
             .filter(
-                DnsAlert.device_id == device_id,
-                DnsAlert.alert_type == "behavior_anomaly",
+                Alert.device_id == device_id,
+                Alert.alert_type == "behavior_anomaly",
             )
-            .order_by(DnsAlert.timestamp.desc())
+            .order_by(Alert.timestamp.desc())
             .limit(5)
             .all()
         )

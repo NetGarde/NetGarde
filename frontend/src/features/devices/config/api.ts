@@ -1,5 +1,5 @@
 import { getAdminAuthHeaders } from '../../../shared/utils/authHeaders';
-import { DnsAlertListResponse } from '../../dns-queries/types/dnsQuery';
+import { BehaviorAlertListResponse } from '../types/behaviorAlert';
 import {
   Device,
   BehaviorProfile,
@@ -95,7 +95,7 @@ export const devicesApi = {
       method: 'DELETE',
     }),
   getBehaviorEvents: (deviceId: number, page = 1, pageSize = 20) =>
-    apiFetch<DnsAlertListResponse>(
+    apiFetch<BehaviorAlertListResponse>(
       `/devices/${deviceId}/behavior-events?page=${page}&page_size=${pageSize}`,
     ),
   getNetworkAttributionSummary: (deviceId: number, hours = 168) =>

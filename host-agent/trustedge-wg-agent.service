@@ -9,7 +9,6 @@ Environment=TRUSTEDGE_WG_AGENT_BIND=172.17.0.1
 Environment=TRUSTEDGE_WG_AGENT_PORT=9109
 Environment=TRUSTEDGE_WG_INTERFACE=wg0
 Environment=TRUSTEDGE_WG_POOL_CIDR=10.0.0.0/24
-Environment=TRUSTEDGE_DNS_SYNC_SCRIPT=/home/ubuntu/trustedge/dns-sync/run-sync.sh
 # Set a strong random token and mirror it in backend env WG_AGENT_TOKEN
 Environment=TRUSTEDGE_WG_AGENT_TOKEN=CHANGE_ME
 ExecStart=/usr/bin/python3 /opt/trustedge/trustedge-wg-agent.py

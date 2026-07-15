@@ -1,6 +1,6 @@
 # <img src="docs/assets/trustedge-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge
 
-**Self-hosted security observability** — VPN/DNS visibility, EDR-lite endpoint telemetry, rules-based detection, and optional enforcement.
+**Self-hosted security observability** — endpoint telemetry, rules-based detection, VPN enrollment, and optional quarantine.
 
 React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · WireGuard enrollment · AWS deploy with CI/CD.
 
@@ -14,21 +14,19 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ## Why it exists
 
-Most security tools are either heavy enterprises stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane:
+Most security tools are either heavy enterprise stacks or narrow point products. TrustEdge is a **unified, self-hosted** control plane:
 
 | Path | What it does |
 |------|----------------|
-| **VPN / DNS** | WireGuard enroll, dnsmasq policy, live WebSocket queries, behavior baselines |
-| **Endpoint** | [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) → [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) → stream → detection |
-| **Ops** | What-if policy preview, optional enforcement, CloudWatch logs, ECR deploy |
+| **Endpoint** | [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) → [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) → stream → detection → alerts |
+| **Access** | WireGuard enroll, IP pool, live usage, optional quarantine |
+| **Ops** | CloudWatch logs, Alembic, ECR deploy |
 
-Enforcement (quarantine, DNS blocks) is **opt-in**. Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
+Detection and scoring stay **rules-based**; optional LLMs only explain state for operators.
 
 ---
 
 ## How it works
-
-**Endpoint path**
 
 1. **Endpoint** — device running TrustEdge Agent  
 2. **Collector → Batch → Compress** — on-device telemetry pipeline  
@@ -36,13 +34,7 @@ Enforcement (quarantine, DNS blocks) is **opt-in**. Detection and scoring stay *
 4. **Agent API → Stream** — validate, persist, publish  
 5. **Detection Attack → Alert** — rules engine + dashboard alerts  
 
-**VPN / DNS path**
-
-```text
-Client → WireGuard → dnsmasq → log watcher → API → WebSocket → Dashboard
-Policy:  Dashboard → API → RDS → host agents → dns-sync → dnsmasq reload
-Enroll:  TrustEdgeClient → POST /v1/enroll → WireGuard config
-```
+VPN clients can also enroll for WireGuard access and report usage / foreground app context used on the network map.
 
 Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/DESIGN.md)
 
@@ -52,14 +44,12 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 
 | Capability | Implementation |
 |------------|----------------|
-| Security observability | Network map, client map, live telemetry, endpoint posture, attack alerts |
+| Security observability | Network map, client map, endpoint posture, attack alerts |
 | Endpoint telemetry | TrustEdge Agent: process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
-| What-if simulation | Preview global pack impact before apply |
 | Secure access | WireGuard VPN, enrollment API, IP pool |
-| Desired-state policy | Packs, profiles, schedules, geo rules |
 | Behavior intelligence | Per-device baselines, drift scoring |
-| Enforcement | Host agent + dns-sync (opt-in) |
+| Enforcement | Host agent quarantine (iptables, opt-in) |
 | AI operations | Optional network / behavior summaries |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
 
@@ -73,7 +63,7 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 
 ![Network overview — AI summary, live stats, and alerts](docs/images/dashboard-home.png)
 
-### Policy & clients
+### Clients
 
 ![Behavior baseline, score, and quarantine](docs/images/client-profiles.png)
 
@@ -85,7 +75,7 @@ Deep dive: [System architecture](docs/SYSTEM_ARCHITECTURE.md) · [Design](docs/D
 
 ## Architecture
 
-Application logic runs in Docker on EC2; WireGuard, iptables, and dnsmasq stay on the **host**.
+Application logic runs in Docker on EC2; WireGuard and iptables stay on the **host**.
 
 <p align="center">
   <img width="90%" alt="TrustEdge system architecture" src="https://github.com/user-attachments/assets/bab37178-52c4-4f6d-b4ac-1500230d0af5" />
@@ -93,19 +83,16 @@ Application logic runs in Docker on EC2; WireGuard, iptables, and dnsmasq stay o
 
 | Layer | Components | Responsibility |
 |-------|------------|----------------|
-| **Edge clients** | Laptops, phones, enrolled devices | DNS / traffic via WireGuard |
 | **Endpoint agents** | TrustEdge Agent | Process, app, network posture |
-| **EC2 host** | WireGuard, dnsmasq, iptables | VPN, DNS, quarantine |
-| **Host agents** | `trustedge-wg-agent`, `trustedge-log-watcher` | Peer apply, block, log ingest |
-| **Application** | FastAPI, dns-sync, detection-engine, React | Policy, ingest, detection, UI |
+| **EC2 host** | WireGuard, iptables | VPN, quarantine |
+| **Host agents** | `trustedge-wg-agent` | Peer apply, block/unblock |
+| **Application** | FastAPI, detection-engine, React | Ingest, detection, UI |
 | **Data** | PostgreSQL (RDS), Redis, Kafka/Redpanda, ECR | State, live usage, event bus, images |
 
 **Design notes**
 
-- **Generated dnsmasq config** — RDS is source of truth  
-- **Selective DNS persistence** — blocked queries by default (`PERSIST_ALL_DNS` opt-in)  
 - **Rules for security, LLM for explanation** — scoring stays deterministic  
-- **Observability-first enforcement** — DNS blocking off until operators opt in  
+- **Observability-first enforcement** — quarantine is opt-in  
 
 ---
 
@@ -118,7 +105,7 @@ Application logic runs in Docker on EC2; WireGuard, iptables, and dnsmasq stay o
 | Endpoint agent | Go 1.22 ([TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)) |
 | Real-time | WebSocket, Redis, Kafka/Redpanda |
 | Data | PostgreSQL 16 (RDS) |
-| Network | WireGuard, dnsmasq, iptables |
+| Network | WireGuard, iptables |
 | Infrastructure | AWS EC2, RDS, S3, CloudFront, ECR |
 | Observability | Structured JSON logging, CloudWatch Logs Insights |
 | CI/CD | GitHub Actions |

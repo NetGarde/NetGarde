@@ -14,8 +14,8 @@ from app.features.devices.schemas.device_login_geo import (
     DeviceLoginGeoSummaryItem,
     DeviceLoginGeoSummaryList,
 )
-from app.features.dns_queries.models.dns_alert import DnsAlert
-from app.features.dns_queries.repositories.dns_alert_repository import DnsAlertRepository
+from app.features.alerts.models.alert import Alert
+from app.features.alerts.repositories.alert_repository import AlertRepository
 from app.shared.config import settings
 from app.shared.geoip import lookup_geo
 from app.shared.request_client_ip import is_public_ip
@@ -32,7 +32,7 @@ class DeviceLoginGeoService:
         self.db = db
         self.repo = DeviceLoginGeoRepository(db)
         self.device_repo = DeviceRepository(db)
-        self.alert_repo = DnsAlertRepository(db)
+        self.alert_repo = AlertRepository(db)
 
     def record_vpn_enroll(
         self,
@@ -162,12 +162,12 @@ class DeviceLoginGeoService:
         since = datetime.now(timezone.utc) - timedelta(hours=hours)
         needle = f"({country_code})"
         existing = (
-            self.db.query(DnsAlert)
+            self.db.query(Alert)
             .filter(
-                DnsAlert.device_id == device_id,
-                DnsAlert.alert_type == _ALERT_TYPE,
-                DnsAlert.timestamp >= since,
-                DnsAlert.message.like(f"%{needle}%"),
+                Alert.device_id == device_id,
+                Alert.alert_type == _ALERT_TYPE,
+                Alert.timestamp >= since,
+                Alert.message.like(f"%{needle}%"),
             )
             .first()
         )

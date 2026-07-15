@@ -6,7 +6,6 @@ from typing import Dict, Optional, Set
 
 from sqlalchemy.orm import Session
 
-from app.features.devices.models.device import Device
 from app.features.network_attribution.schemas.network_attribution import (
     NetworkMapEdge,
     NetworkMapNode,
@@ -17,20 +16,14 @@ from app.features.network_attribution.services.network_attribution_service impor
 )
 from app.features.network_flows.services.flow_map_service import merge_flows_into_map
 from app.features.network_flows.services.flow_store import StoredFlow, list_recent_flows
-from app.features.policy.repositories.policy_repository import PolicyRepository
-from app.features.policy.services.policy_dns_service import PolicyDnsService
 from app.features.twin.graph.ids import (
     app_id,
-    device_id,
     domain_id,
     edge_id,
     flow_session_id,
     infra_id,
     ip_id,
     l4_service_id,
-    policy_pack_id,
-    policy_profile_id,
-    policy_rule_id,
 )
 from app.features.twin.graph.model import TwinGraph
 from app.features.twin.graph.schemas import TwinEdge, TwinGraphSnapshot, TwinLayer, TwinNode
@@ -766,161 +759,4 @@ class TwinGraphBuilder:
         return len(devices)
 
     def _ingest_policy_layer(self) -> None:
-        policy_repo = PolicyRepository(self.db)
-        dns_svc = PolicyDnsService(self.db)
-        sync = dns_svc.build_dns_sync()
-
-        for pack in policy_repo.list_packs():
-            pid = policy_pack_id(pack.slug)
-            self._upsert_node(
-                TwinNode(
-                    id=pid,
-                    entity_type="policy_pack",
-                    layer="desired",
-                    label=pack.name,
-                    properties={
-                        "slug": pack.slug,
-                        "enabled_globally": pack.enabled_globally,
-                    },
-                )
-            )
-
-        profile_ids: Set[int] = set()
-        for profile in policy_repo.list_profiles():
-            profile_ids.add(profile.id)
-            ppid = policy_profile_id(profile.id)
-            self._upsert_node(
-                TwinNode(
-                    id=ppid,
-                    entity_type="policy_profile",
-                    layer="desired",
-                    label=profile.name,
-                    properties={
-                        "slug": profile.slug,
-                        "enabled_pack_slugs": list(profile.enabled_pack_slugs or []),
-                    },
-                )
-            )
-            for slug in profile.enabled_pack_slugs or []:
-                self._upsert_edge(
-                    relation="includes",
-                    source_id=ppid,
-                    target_id=policy_pack_id(slug),
-                    layer="desired",
-                )
-
-        for entry in sync.entries:
-            dev_nid = device_id(entry.device_id)
-            if dev_nid not in self.state.nodes:
-                self._upsert_node(
-                    TwinNode(
-                        id=dev_nid,
-                        entity_type="device",
-                        layer="observed",
-                        label=f"Device {entry.device_id}",
-                        properties={
-                            "device_id": entry.device_id,
-                            "client_ip": entry.client_ip,
-                        },
-                    )
-                )
-
-            profile = None
-            device = self.db.query(Device).filter(Device.id == entry.device_id).first()
-            if device:
-                profile = (
-                    policy_repo.get_profile_by_id(device.policy_profile_id)
-                    if device.policy_profile_id
-                    else policy_repo.get_default_profile()
-                )
-            if profile is None:
-                continue
-
-            ppid = policy_profile_id(profile.id)
-            profile_ids.add(profile.id)
-            self.state.device_profiles[entry.device_id] = profile.id
-            self._upsert_edge(
-                relation="assigned",
-                source_id=dev_nid,
-                target_id=ppid,
-                layer="desired",
-            )
-            self._upsert_edge(
-                relation="enforces",
-                source_id=infra_id("dns_resolver"),
-                target_id=ppid,
-                layer="desired",
-            )
-
-            quarantine = policy_repo.get_active_quarantine(entry.device_id)
-            if quarantine:
-                q_nid = f"quarantine:{entry.device_id}"
-                self._upsert_node(
-                    TwinNode(
-                        id=q_nid,
-                        entity_type="quarantine",
-                        layer="desired",
-                        label=f"Quarantine device {entry.device_id}",
-                        properties={
-                            "device_id": entry.device_id,
-                            "score": quarantine.score,
-                            "expires_at": quarantine.expires_at.isoformat(),
-                        },
-                    )
-                )
-                self._upsert_edge(
-                    relation="quarantined",
-                    source_id=dev_nid,
-                    target_id=q_nid,
-                    layer="desired",
-                )
-
-            if entry.allowlist_only:
-                continue
-
-            blocked_set = {d.lower().rstrip(".") for d in entry.block_domains}
-            for domain in blocked_set:
-                d_nid = domain_id(domain)
-                if d_nid not in self.state.observed_domains:
-                    continue
-                rule_nid = policy_rule_id(profile.id, domain)
-                self._upsert_node(
-                    TwinNode(
-                        id=rule_nid,
-                        entity_type="policy_rule",
-                        layer="desired",
-                        label=f"block {domain}",
-                        properties={"action": "block", "domain": domain},
-                    )
-                )
-                self._upsert_edge(
-                    relation="blocks",
-                    source_id=rule_nid,
-                    target_id=d_nid,
-                    layer="desired",
-                )
-                for slug in profile.enabled_pack_slugs or []:
-                    pack_domains = self._pack_contains_domain(slug, domain)
-                    if pack_domains:
-                        self._upsert_edge(
-                            relation="defines",
-                            source_id=policy_pack_id(slug),
-                            target_id=rule_nid,
-                            layer="desired",
-                        )
-                        break
-                else:
-                    self._upsert_edge(
-                        relation="defines",
-                        source_id=ppid,
-                        target_id=rule_nid,
-                        layer="desired",
-                    )
-
-    @staticmethod
-    def _pack_contains_domain(slug: str, domain: str) -> bool:
-        from app.features.policy.pack_loader import load_all_packs
-
-        packs = load_all_packs()
-        normalized = domain.lower().rstrip(".")
-        return normalized in packs.get(slug, ())
+        return

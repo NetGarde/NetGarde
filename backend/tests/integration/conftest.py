@@ -9,7 +9,7 @@ from app.features.vpn.schemas.usage_history import UsageHistoryPoint, UsageHisto
 from app.features.vpn.schemas.usage_live import DeviceUsageLiveResponse
 from app.main import app
 from app.shared.dependencies import get_db
-from tests.helpers.integration import dns_query_payload, enroll_payload
+from tests.helpers.integration import enroll_payload
 
 pytestmark = pytest.mark.integration
 
@@ -30,13 +30,6 @@ def api_client(db_session, monkeypatch):
         yield client
     app.dependency_overrides.clear()
 
-
-@pytest.fixture
-def post_dns_query(api_client):
-    def _post(**kwargs):
-        return api_client.post("/dns-queries", json=dns_query_payload(**kwargs))
-
-    return _post
 
 
 @pytest.fixture
@@ -100,18 +93,6 @@ def mock_usage_redis_unavailable(monkeypatch):
         lambda: False,
     )
 
-
-@pytest.fixture
-def mock_whois_lookup():
-    with patch(
-        "app.features.dns_queries.controllers.dns_query_controller.lookup_domain_whois"
-    ) as mock:
-        mock.return_value = {
-            "domain": "example.com",
-            "source": "rdap",
-            "text": "Registrar: Test Registrar",
-        }
-        yield mock
 
 
 @pytest.fixture
