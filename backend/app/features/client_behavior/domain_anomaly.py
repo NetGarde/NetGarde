@@ -1,4 +1,4 @@
-"""Heuristics for suspicious DNS activity."""
+"""Heuristics for suspicious domain activity."""
 
 from __future__ import annotations
 

@@ -22,8 +22,8 @@ from app.features.client_behavior.services.behavior_baseline_service import Beha
 from app.features.client_behavior.services.behavior_review_service import BehaviorReviewService
 from fastapi import HTTPException
 from app.features.devices.repositories.device_repository import DeviceRepository
-from app.features.dns_queries.models.dns_alert import DnsAlert
-from app.features.dns_queries.schemas.dns_alert import DnsAlertResponse
+from app.features.alerts.models.alert import Alert
+from app.features.alerts.schemas.alert import DnsAlertResponse
 from app.features.policy.repositories.policy_repository import PolicyRepository
 from app.features.policy.repositories.policy_sync_repository import PolicySyncRepository
 from app.shared.config import settings
@@ -81,14 +81,14 @@ class ClientBehaviorApiService:
         page_size: int = 20,
     ) -> dict:
         self._require_device(device_id)
-        query = self.db.query(DnsAlert).filter(
-            DnsAlert.device_id == device_id,
-            DnsAlert.alert_type == "behavior_anomaly",
+        query = self.db.query(Alert).filter(
+            Alert.device_id == device_id,
+            Alert.alert_type == "behavior_anomaly",
         )
         total = query.count()
         offset = (page - 1) * page_size
         items = (
-            query.order_by(DnsAlert.timestamp.desc())
+            query.order_by(Alert.timestamp.desc())
             .offset(offset)
             .limit(page_size)
             .all()

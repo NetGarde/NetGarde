@@ -11,9 +11,7 @@ from app.shared.database import Base
 from tests.helpers.factories import create_vpn_device, seed_policy_catalog
 
 # Register all models on Base.metadata (required for create_all FK resolution)
-from app.features.dns_queries.models.dns_query import DnsQuery  # noqa: F401
-from app.features.dns_queries.models.dns_alert import DnsAlert  # noqa: F401
-from app.features.dns_queries.models.domain_first_seen import DomainFirstSeen  # noqa: F401
+from app.features.alerts.models.alert import Alert  # noqa: F401
 from app.features.devices.models.device import Device  # noqa: F401
 from app.features.devices.models.device_country_presence import DeviceCountryPresence  # noqa: F401
 from app.features.devices.models.device_login_geo import DeviceLoginGeoObservation  # noqa: F401

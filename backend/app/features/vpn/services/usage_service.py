@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.features.dns_queries.repositories.dns_alert_repository import DnsAlertRepository
+from app.features.alerts.repositories.alert_repository import AlertRepository
 from app.features.vpn.repositories.device_usage_repository import DeviceUsageRepository
 from app.features.vpn.schemas.usage import UsageReportRequest, UsageReportResponse
 from app.features.vpn.schemas.usage_history import UsageHistoryResponse
@@ -24,7 +24,7 @@ class UsageService:
     def __init__(self, db: Session):
         self.db = db
         self.usage_repo = DeviceUsageRepository(db)
-        self.alert_repo = DnsAlertRepository(db)
+        self.alert_repo = AlertRepository(db)
 
     def report_usage(self, payload: UsageReportRequest) -> UsageReportResponse:
         now = datetime.now(timezone.utc)

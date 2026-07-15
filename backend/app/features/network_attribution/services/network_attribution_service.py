@@ -7,7 +7,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.features.devices.models.device import Device
-from app.features.dns_queries.models.dns_query import DnsQuery
 from app.features.vpn.models.ip_lease import IpLease
 from app.features.network_attribution.models.device_network_context import DeviceNetworkContext
 from app.features.network_attribution.repositories.network_attribution_repository import (
@@ -28,7 +27,6 @@ from app.features.network_attribution.schemas.network_attribution import (
 from app.features.network_attribution.services.app_catalog import normalize_app
 from app.features.vpn.models.vpn_peer import VpnPeer
 from app.shared.config import settings
-from app.shared.domain_utils import extract_root_domain
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -173,13 +171,6 @@ class NetworkAttributionService:
             .filter(DeviceNetworkContext.observed_at >= since)
             .all()
         )
-        dns_rows = (
-            self.db.query(DnsQuery)
-            .filter(DnsQuery.timestamp >= since, DnsQuery.attributed_app_slug.isnot(None))
-            .order_by(DnsQuery.timestamp.desc())
-            .limit(400)
-            .all()
-        )
 
         device_rows = (
             self.db.query(Device.id, Device.hostname, IpLease.ip)
@@ -187,9 +178,6 @@ class NetworkAttributionService:
             .filter(IpLease.released_at.is_(None))
             .all()
         )
-        ip_to_device: dict[str, tuple[int, str, str]] = {
-            ip: (device_id, hostname or ip, ip) for device_id, hostname, ip in device_rows
-        }
         device_meta: dict[int, tuple[str, str]] = {
             device_id: (hostname or ip, ip) for device_id, hostname, ip in device_rows
         }
@@ -221,21 +209,7 @@ class NetworkAttributionService:
                 )
             return node_id
 
-        def ensure_domain(domain: str, blocked: bool) -> str:
-            node_id = f"domain:{domain}"
-            existing = nodes.get(node_id)
-            if existing is None:
-                nodes[node_id] = NetworkMapNode(
-                    id=node_id,
-                    type="domain",
-                    label=domain,
-                    blocked=blocked,
-                )
-            elif blocked and not existing.blocked:
-                nodes[node_id] = existing.model_copy(update={"blocked": True})
-            return node_id
-
-        def add_edge(source: str, target: str, kind: str, *, blocked: bool = False) -> None:
+        def add_edge(source: str, target: str, kind: str) -> None:
             key = (source, target, kind)
             edge = edge_map.get(key)
             if edge is None:
@@ -244,108 +218,20 @@ class NetworkAttributionService:
                     target=target,
                     kind=kind,
                     query_count=1,
-                    blocked_count=1 if blocked and kind == "dns" else 0,
+                    blocked_count=0,
                 )
                 return
             edge_map[key] = edge.model_copy(
-                update={
-                    "query_count": edge.query_count + 1,
-                    "blocked_count": edge.blocked_count + (1 if blocked and kind == "dns" else 0),
-                }
+                update={"query_count": edge.query_count + 1},
             )
 
         for ctx in contexts:
-            device_id = f"device:{ctx.device_id}"
-            ensure_device(ctx.device_id)
-            app_id = ensure_app(ctx.app_slug, ctx.app_display_name)
+            device_node = ensure_device(ctx.device_id)
+            app_node = ensure_app(ctx.app_slug, ctx.app_display_name)
             fresh = abs((now - _as_utc(ctx.observed_at)).total_seconds()) <= max_age
-            ctx_node = nodes[device_id]
-            nodes[device_id] = ctx_node.model_copy(update={"fresh": fresh})
-            add_edge(device_id, app_id, "foreground")
-
-        dns_group: dict[tuple[int, str, str], tuple[int, int]] = {}
-        for row in dns_rows:
-            match = ip_to_device.get(row.client_ip)
-            if match is None:
-                continue
-            device_id, _, _ = match
-            slug = (row.attributed_app_slug or "").strip()
-            if not slug:
-                continue
-            root_domain = extract_root_domain(row.domain)
-            key = (device_id, slug, root_domain)
-            blocked = bool(row.blocked)
-            prev = dns_group.get(key)
-            if prev is None:
-                dns_group[key] = (1, 1 if blocked else 0)
-            else:
-                dns_group[key] = (prev[0] + 1, prev[1] + (1 if blocked else 0))
-
-        per_pair_domains: dict[tuple[int, str], list[tuple[str, int, int]]] = {}
-        for (device_id, slug, domain), (count, blocked_count) in dns_group.items():
-            pair = (device_id, slug)
-            per_pair_domains.setdefault(pair, []).append((domain, count, blocked_count))
-
-        for (device_id, slug), domains in per_pair_domains.items():
-            domains.sort(key=lambda item: (-item[1], item[0]))
-            display = next(
-                (row.attributed_app_display_name for row in dns_rows if row.attributed_app_slug == slug),
-                slug.replace("_", " ").title(),
-            )
-            device_node = ensure_device(device_id)
-            app_node = ensure_app(slug, display or slug)
+            ctx_node = nodes[device_node]
+            nodes[device_node] = ctx_node.model_copy(update={"fresh": fresh})
             add_edge(device_node, app_node, "foreground")
-            for domain, count, blocked_count in domains[:8]:
-                domain_node = ensure_domain(domain, blocked_count > 0)
-                key = (app_node, domain_node, "dns")
-                edge_map[key] = NetworkMapEdge(
-                    source=app_node,
-                    target=domain_node,
-                    kind="dns",
-                    query_count=count,
-                    blocked_count=blocked_count,
-                )
-
-        attributed_roots: set[tuple[int, str]] = {
-            (device_id, root_domain) for device_id, _slug, root_domain in dns_group.keys()
-        }
-        all_dns_rows = (
-            self.db.query(DnsQuery)
-            .filter(DnsQuery.timestamp >= since)
-            .order_by(DnsQuery.timestamp.desc())
-            .limit(400)
-            .all()
-        )
-        direct_group: dict[tuple[int, str], tuple[int, int]] = {}
-        for row in all_dns_rows:
-            if (row.attributed_app_slug or "").strip():
-                continue
-            match = ip_to_device.get(row.client_ip)
-            if match is None:
-                continue
-            device_id, _, _ = match
-            root_domain = extract_root_domain(row.domain)
-            key = (device_id, root_domain)
-            if key in attributed_roots:
-                continue
-            blocked = bool(row.blocked)
-            prev = direct_group.get(key)
-            if prev is None:
-                direct_group[key] = (1, 1 if blocked else 0)
-            else:
-                direct_group[key] = (prev[0] + 1, prev[1] + (1 if blocked else 0))
-
-        for (device_id, root_domain), (count, blocked_count) in direct_group.items():
-            device_node = ensure_device(device_id)
-            domain_node = ensure_domain(root_domain, blocked_count > 0)
-            key = (device_node, domain_node, "dns_direct")
-            edge_map[key] = NetworkMapEdge(
-                source=device_node,
-                target=domain_node,
-                kind="dns_direct",
-                query_count=count,
-                blocked_count=blocked_count,
-            )
 
         return NetworkMapResponse(
             generated_at=now,
@@ -355,26 +241,7 @@ class NetworkAttributionService:
         )
 
     def enrich_dns_queries(self, queries: list) -> None:
-        """Attach attributed app fields from latest endpoint context (in-place)."""
-        if not settings.NETWORK_ATTRIBUTION_ENABLED or not queries:
-            return
-
-        from app.features.devices.repositories.device_repository import DeviceRepository
-
-        device_repo = DeviceRepository(self.db)
-        cache: dict[int, Optional[ResolvedAttribution]] = {}
-
-        for q in queries:
-            device = device_repo.get_by_client_ip(q.client_ip)
-            if not device:
-                continue
-            if device.id not in cache:
-                cache[device.id] = self.resolve_attribution(device.id, q.timestamp)
-            resolved = cache[device.id]
-            if resolved is None:
-                continue
-            q.attributed_app_slug = resolved.app_slug
-            q.attributed_app_display_name = resolved.app_display_name
+        """No-op: DNS query enrichment removed with DNS product."""
 
     @staticmethod
     def get_device_by_vpn_device_id(db: Session, vpn_device_id: str) -> Optional[Device]:

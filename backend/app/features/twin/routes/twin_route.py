@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.features.twin.graph.schemas import (
@@ -13,11 +13,7 @@ from app.features.twin.graph.schemas import (
 )
 from app.features.twin.schemas.simulation_command import SimulationCommandRequest, SimulationCommandResponse
 from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
-from app.features.twin.schemas.twin_simulation import (
-    PackToggleSimulationRequest,
-    PackToggleSimulationResponse,
-)
-from app.features.twin.services.pack_toggle_simulation_service import PackToggleSimulationService
+from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
 from app.features.twin.services.simulation_command_service import SimulationCommandService
 from app.features.twin.services.twin_alert_service import TwinAlertService
 from app.features.twin.services.twin_graph_service import TwinGraphService
@@ -132,21 +128,6 @@ def graph_neighbors(
         include_trusttwin=include_trusttwin,
     )
 
-
-@router.post("/simulate/pack-toggle", response_model=PackToggleSimulationResponse)
-def simulate_pack_toggle(
-    body: PackToggleSimulationRequest,
-    db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_api_token),
-):
-    """Preview impact of toggling a global policy pack (read-only; no dns-sync)."""
-    try:
-        return PackToggleSimulationService(db).simulate(
-            body.pack_slug,
-            body.enabled_globally,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/simulate/command", response_model=SimulationCommandResponse)

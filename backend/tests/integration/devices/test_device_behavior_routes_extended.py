@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.features.dns_queries.models.dns_alert import DnsAlert
+from app.features.alerts.models.alert import Alert
 from tests.helpers.factories import create_behavior_block
 
 
@@ -31,7 +31,7 @@ def test_behavior_events_empty(api_client, vpn_device):
 
 def test_behavior_events_with_alert(api_client, vpn_device, db_session):
     db_session.add(
-        DnsAlert(
+        Alert(
             timestamp=datetime.now(timezone.utc),
             client_ip="10.0.0.10",
             device_id=vpn_device.id,
