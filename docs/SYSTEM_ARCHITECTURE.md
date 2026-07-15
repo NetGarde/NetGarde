@@ -80,4 +80,4 @@ Details: [DESIGN.md § Security model](DESIGN.md#security-model).
 - [host-agent/README.md](../host-agent/README.md) — host agent setup
 - [ENV_SETUP.md](ENV_SETUP.md) — configuration
 - [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md) — operational logging
-- [TrustEdgeClient](https://github.com/TrustEdge/TrustEdgeClient) — VPN enroll client (separate repo)
+- [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) — VPN enroll client (separate repo)
