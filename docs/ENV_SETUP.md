@@ -25,8 +25,7 @@ LOG_LEVEL=INFO
 ENVIRONMENT=production
 
 ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
-DNS_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
-DEVICE_TOKEN_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
+TRUSTEDGE_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 REDIS_URL=redis://redis:6379/0
 ```
 
@@ -71,9 +70,8 @@ GENERATE_SOURCEMAP=false
 
 | Variable | Used by | Notes |
 |----------|---------|-------|
-| `ADMIN_API_TOKEN` | Dashboard, device admin APIs | **Required** in production |
-| `DNS_INGEST_TOKEN` | Flow ingest, twin alert ingest | Shared service token (name is historical) |
-| `DEVICE_TOKEN_SECRET` | Device-authenticated APIs | Signs HMAC device tokens |
+| `ADMIN_API_TOKEN` | Dashboard admin APIs | **Required** in production |
+| `TRUSTEDGE_INGEST_TOKEN` | Agent-API upsert, detection-engine, flow ingest | Shared service-to-service bearer |
 
 Frontend: set `REACT_APP_ADMIN_API_TOKEN` to the same value as `ADMIN_API_TOKEN`.
 
@@ -83,28 +81,11 @@ Frontend: set `REACT_APP_ADMIN_API_TOKEN` to the same value as `ADMIN_API_TOKEN`
 |----------|-------------|---------|
 | `REDIS_URL` | Redis for TrustEdge Agent live state / twin keys | `redis://redis:6379/0` |
 
-### Behavior (backend)
-
-Key tuning variables — full list in [backend/.env.example](../backend/.env.example):
+### Network review (backend)
 
 | Variable | Description |
 |----------|-------------|
-| `BEHAVIOR_ALERT_THRESHOLD` | Score above which alerts fire |
-| `BEHAVIOR_AUTO_BLOCK_THRESHOLD` | Score above which auto-actions trigger |
 | `NETWORK_REVIEW_MODE` | Dashboard AI review: `template` \| `openai` \| `ollama` |
-
-### Network attribution (backend + client)
-
-Endpoint foreground app time for network map device→app edges.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NETWORK_ATTRIBUTION_ENABLED` | Enable ingest and map attribution | `true` |
-| `NETWORK_ATTRIBUTION_MAX_AGE_SEC` | Max age of app context | `120` |
-| `NETWORK_ATTRIBUTION_RETENTION_DAYS` | Rollup retention (cleanup TBD) | `30` |
-| `CLIENT_ATTRIBUTION_PATH` | Client POST path | `/v1/network-attribution` |
-| `CLIENT_ATTRIBUTION_POLL_SEC` | Foreground app poll interval | `30` |
-| `CLIENT_ATTRIBUTION_REPORT_SEC` | Batch report interval | `60` |
 
 ### Network flows (backend)
 

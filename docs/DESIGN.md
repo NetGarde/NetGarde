@@ -88,8 +88,7 @@ DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, li
 | Token | Used by | Protects |
 |-------|---------|----------|
 | `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management |
-| `DNS_INGEST_TOKEN` | Flow watcher, detection-engine ingest | Service-to-service ingest (shared token name) |
-| `DEVICE_TOKEN_SECRET` | Device-authenticated APIs | HMAC device tokens |
+| `TRUSTEDGE_INGEST_TOKEN` | Agent-API, flow watcher, detection-engine | Service-to-service ingest bearer |
 
 - Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.
 - CloudFront terminates HTTPS for the dashboard and proxies API requests to the backend.
@@ -224,7 +223,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 - **Shared:** `get_db()` generator in `shared/dependencies.py`
 - **Feature factories:** `features/<name>/dependencies.py` for stateless services
 - **Inline factories:** DB-scoped services created in route modules
-- **Auth:** composable `Depends(verify_admin_api_token)`, `verify_dns_ingest_service`, `verify_enroll_bootstrap`
+- **Auth:** composable `Depends(verify_admin_api_token)`, `verify_ingest_service`, `verify_enroll_bootstrap`
 
 ### Schemas & models
 

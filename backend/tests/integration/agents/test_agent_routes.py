@@ -1,4 +1,4 @@
-def test_upsert_and_list_agents(api_client, dns_ingest_env):
+def test_upsert_and_list_agents(api_client, ingest_env):
     upsert = api_client.post(
         "/internal/agents/upsert",
         json={

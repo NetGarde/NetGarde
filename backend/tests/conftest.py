@@ -36,9 +36,9 @@ def db_session():
 
 
 @pytest.fixture
-def dns_ingest_env(monkeypatch):
+def ingest_env(monkeypatch):
     """Disable service ingest auth in tests."""
-    monkeypatch.setattr("app.shared.config.settings.DNS_INGEST_TOKEN", "")
+    monkeypatch.setattr("app.shared.config.settings.TRUSTEDGE_INGEST_TOKEN", "")
 
 
 @pytest.fixture

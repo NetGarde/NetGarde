@@ -5,7 +5,7 @@ from app.features.agents.schemas.agent import AgentListResponse, AgentRead, Agen
 from app.features.agents.services.agent_service import AgentService
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
-from app.shared.service_auth import verify_dns_ingest_service
+from app.shared.service_auth import verify_ingest_service
 
 router = APIRouter(tags=["Agents"])
 
@@ -17,7 +17,7 @@ def get_agent_service(db: Session = Depends(get_db)) -> AgentService:
 @router.post("/internal/agents/upsert", response_model=AgentRead)
 def upsert_agent(
     body: AgentUpsertRequest,
-    _: None = Depends(verify_dns_ingest_service),
+    _: None = Depends(verify_ingest_service),
     service: AgentService = Depends(get_agent_service),
 ):
     """Upsert a registered agent (called by Agent-API with service token)."""
