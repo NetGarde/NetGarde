@@ -1,7 +1,7 @@
 import { NetworkMapEdge } from '../types/networkMap';
 import { edgeKey } from './whatIfSimulation';
 
-export const WIREGUARD_NODE_ID = 'infra:wireguard';
+export const EC2_GATEWAY_NODE_ID = 'infra:ec2_gateway';
 export const DNS_GATEWAY_NODE_ID = 'infra:dns_resolver';
 
 export interface TunnelWhatIfSimulationResult {
@@ -11,7 +11,7 @@ export interface TunnelWhatIfSimulationResult {
   affectedPathCount: number;
 }
 
-/** Simulate WireGuard tunnel or EC2 DNS gateway failure. */
+/** Simulate EC2 gateway or EC2 DNS resolver failure. */
 export function computeTunnelWhatIfSimulation(
   edges: NetworkMapEdge[],
   tunnelBlocked: boolean,
@@ -28,7 +28,7 @@ export function computeTunnelWhatIfSimulation(
     let cut = false;
 
     if (tunnelBlocked) {
-      if (edge.source === WIREGUARD_NODE_ID || edge.target === WIREGUARD_NODE_ID) {
+      if (edge.source === EC2_GATEWAY_NODE_ID || edge.target === EC2_GATEWAY_NODE_ID) {
         cut = true;
       }
       if (edge.kind === 'flow_via_gateway') {

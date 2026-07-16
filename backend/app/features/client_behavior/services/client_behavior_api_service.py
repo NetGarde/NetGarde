@@ -179,11 +179,10 @@ class ClientBehaviorApiService:
             device = self.device_repo.get_by_id(quarantine.device_id)
             if not device:
                 continue
-            lease = getattr(device, "ip_lease", None)
             profile = self.profile_repo.get_by_device_id(device.id)
             by_device[device.id] = BlockedClientSummary(
                 device_id=device.id,
-                client_ip=lease.ip if lease is not None else None,
+                client_ip=None,
                 hostname=device.hostname,
                 mac_address=device.mac_address,
                 last_score=profile.last_score if profile else None,
@@ -197,14 +196,12 @@ class ClientBehaviorApiService:
             device = block.device
             if not device:
                 continue
-            lease = getattr(device, "ip_lease", None)
-            client_ip = lease.ip if lease is not None else None
             summary = by_device.get(device.id)
             if summary is None:
                 profile = self.profile_repo.get_by_device_id(device.id)
                 summary = BlockedClientSummary(
                     device_id=device.id,
-                    client_ip=client_ip,
+                    client_ip=None,
                     hostname=device.hostname,
                     mac_address=device.mac_address,
                     last_score=profile.last_score if profile else None,

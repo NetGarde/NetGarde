@@ -29,7 +29,7 @@ export default function DeviceLoginLocationSection({ deviceId }: DeviceLoginLoca
       const geo = await devicesApi.getLoginLocation(deviceId);
       setData(geo);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load VPN login location');
+      setError(e instanceof Error ? e.message : 'Failed to load login location');
     } finally {
       setLoading(false);
     }
@@ -46,15 +46,15 @@ export default function DeviceLoginLocationSection({ deviceId }: DeviceLoginLoca
       <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
         <LocationOnIcon color="primary" fontSize="small" />
         <Typography variant="subtitle1" sx={{ flex: 1 }}>
-          VPN login location
+          Login location
         </Typography>
         <Tooltip
-          title="Estimated from the device's public IP when it enrolled or re-connected to the VPN (before the tunnel). This is physical location, not DNS domain country."
+          title="Estimated from the device's public IP at check-in. This is physical location, not DNS domain country."
           arrow
         >
           <Box
             component="span"
-            aria-label="About VPN login location"
+            aria-label="About login location"
             sx={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -83,7 +83,7 @@ export default function DeviceLoginLocationSection({ deviceId }: DeviceLoginLoca
       )}
       {!loading && !latest && !error && (
         <Typography variant="body2" color="text.secondary">
-          No VPN enroll location recorded yet. Re-start the TrustEdge client to enroll again.
+          No login location recorded yet. Location appears after the next agent check-in with a public IP.
         </Typography>
       )}
       {!loading && latest && (
@@ -110,7 +110,7 @@ export default function DeviceLoginLocationSection({ deviceId }: DeviceLoginLoca
               .join(', ') || `Public IP ${latest.public_ip}`}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Last seen at VPN login · {formatShortDateTime(latest.observed_at)}
+            Last seen at login · {formatShortDateTime(latest.observed_at)}
           </Typography>
           {data && data.history.length > 1 && (
             <Typography variant="caption" color="text.secondary">

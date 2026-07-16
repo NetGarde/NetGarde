@@ -3,8 +3,6 @@ from app.features.devices.schemas.device import (
     DeviceCreate,
     DeviceUpdate,
     DeviceRead,
-    DhcpSyncRequest,
-    DhcpSyncResult,
 )
 from sqlalchemy.orm import Session
 
@@ -20,7 +18,4 @@ class IDeviceService(Protocol):
         ...
 
     def delete_device(self, device_id: int, db: Session) -> dict:
-        ...
-
-    def sync_from_dhcp_leases(self, payload: DhcpSyncRequest, db: Session) -> DhcpSyncResult:
         ...

@@ -119,7 +119,7 @@ function ClientGroupRows({
             )}
             <Chip
               size="small"
-              label={group.source === 'vpn' ? 'VPN' : 'Agent'}
+              label={group.source === 'endpoint' ? 'Endpoint' : 'Agent'}
               variant="outlined"
               sx={{ height: 20, fontSize: 11 }}
             />

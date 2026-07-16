@@ -6,7 +6,7 @@ import { TwinEdge, TwinGraphSnapshot, TwinNode } from '../types/twinGraph';
 
 export type TwinProjectionMode = 'attribution' | 'path' | 'flow' | 'unified';
 
-const WIREGUARD_ID = 'infra:wireguard';
+const EC2_GATEWAY_ID = 'infra:ec2_gateway';
 const DNS_RESOLVER_ID = 'infra:dns_resolver';
 const PUBLIC_NETWORK_ID = 'infra:public_network';
 
@@ -46,7 +46,7 @@ function twinDeviceToMap(node: TwinNode): NetworkMapNode {
     type: 'device',
     label: node.label,
     client_ip: clientIp,
-    // VPN devices use numeric PKs; TrustTwin agents use string ids in properties.
+    // Non-twin devices use numeric PKs; TrustTwin agents use string ids in properties.
     device_id: typeof deviceId === 'number' ? deviceId : null,
     fresh: node.properties.fresh as boolean | undefined,
     blocked: node.properties.blocked as boolean | undefined,
@@ -73,8 +73,8 @@ function twinDomainToMap(node: TwinNode): NetworkMapNode {
 
 function twinInfraToMap(node: TwinNode): NetworkMapNode | null {
   const kind = String(node.properties.kind ?? '');
-  if (kind === 'wireguard') {
-    return { id: node.id, type: 'tunnel', label: node.label };
+  if (kind === 'ec2_gateway') {
+    return { id: node.id, type: 'tunnel', label: node.label || 'EC2 Gateway' };
   }
   if (kind === 'dns_resolver') {
     return { id: node.id, type: 'gateway', label: 'EC2 DNS' };
@@ -86,11 +86,8 @@ function twinInfraToMap(node: TwinNode): NetworkMapNode | null {
   if (kind === 'tt_lan') {
     return { id: node.id, type: 'tunnel', label: node.label };
   }
-  if (kind === 'ec2_gateway') {
-    return null;
-  }
-  // Ignore legacy host-posture kinds if present in older snapshots.
-  if (kind.startsWith('tt_')) {
+  // Ignore legacy WireGuard / host-posture kinds if present in older snapshots.
+  if (kind === 'wireguard' || kind.startsWith('tt_')) {
     return null;
   }
   return { id: node.id, type: 'gateway', label: node.label };
@@ -298,7 +295,7 @@ export function projectPathGraph(
       [...nodeMap.values()].find((n) => n.type === 'policy')?.id;
     upsertMapEdge(edgeMap, {
       source: edge.source,
-      target: WIREGUARD_ID,
+      target: EC2_GATEWAY_ID,
       kind: 'path_egress',
       query_count: edge.query_count,
       blocked_count: 0,
@@ -314,9 +311,9 @@ export function projectPathGraph(
     }
   }
 
-  if (hasDnsFlow && nodeMap.has(WIREGUARD_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
+  if (hasDnsFlow && nodeMap.has(EC2_GATEWAY_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
     upsertMapEdge(edgeMap, {
-      source: WIREGUARD_ID,
+      source: EC2_GATEWAY_ID,
       target: DNS_RESOLVER_ID,
       kind: 'path_tunnel',
       query_count: 0,
@@ -567,19 +564,19 @@ export function projectUnifiedGraph(
       continue;
     }
     hasDnsPath = true;
-    if (nodeMap.has(WIREGUARD_ID)) {
+    if (nodeMap.has(EC2_GATEWAY_ID)) {
       upsertMapEdge(edgeMap, {
         source: edge.source,
-        target: WIREGUARD_ID,
+        target: EC2_GATEWAY_ID,
         kind: 'path_egress',
         query_count: edge.query_count,
         blocked_count: 0,
       });
     }
   }
-  if (hasDnsPath && nodeMap.has(WIREGUARD_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
+  if (hasDnsPath && nodeMap.has(EC2_GATEWAY_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
     upsertMapEdge(edgeMap, {
-      source: WIREGUARD_ID,
+      source: EC2_GATEWAY_ID,
       target: DNS_RESOLVER_ID,
       kind: 'path_tunnel',
       query_count: 0,
@@ -689,8 +686,8 @@ export function projectUnifiedGraph(
   }
 
   const flowSessions = snapshot.nodes.filter((node) => node.entity_type === 'flow_session');
-  const hasVpnFlows = flowSessions.some((node) => !isTrustTwinNode(node));
-  if (hasVpnFlows) {
+  const hasEndpointFlows = flowSessions.some((node) => !isTrustTwinNode(node));
+  if (hasEndpointFlows) {
     ensureGateway();
   }
 

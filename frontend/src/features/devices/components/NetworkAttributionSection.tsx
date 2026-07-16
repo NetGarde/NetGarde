@@ -15,6 +15,7 @@ import TableRow from '@mui/material/TableRow';
 import { Link as RouterLink } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import { getAppIconStyle } from '../../network-map/utils/appIcons';
+import { useDeviceNetworkAttribution } from '../hooks/useDeviceNetworkAttribution';
 
 interface NetworkAttributionSectionProps {
   deviceId: number;
@@ -31,7 +32,7 @@ export default function NetworkAttributionSection({ deviceId }: NetworkAttributi
           Network attribution (last 7 days)
         </Typography>
         <Tooltip
-          title="Foreground application time while VPN was connected. Hourly averages from endpoint telemetry. DNS blocks may show which app was active at query time."
+          title="Foreground application time from endpoint telemetry. Hourly averages while the TrustEdge agent is reporting."
           arrow
         >
           <Box
@@ -65,7 +66,7 @@ export default function NetworkAttributionSection({ deviceId }: NetworkAttributi
       )}
       {!loading && !error && data && data.items.length === 0 && (
         <Alert severity="info" variant="outlined">
-          No application usage reported yet. Connect with TrustEdge.app on macOS while VPN is active.
+          No application usage reported yet. Connect with the TrustEdge agent on macOS to start reporting.
         </Alert>
       )}
       {!loading && !error && data && data.items.length > 0 && (

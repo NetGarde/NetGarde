@@ -34,17 +34,16 @@ class DeviceLoginGeoService:
         self.device_repo = DeviceRepository(db)
         self.alert_repo = AlertRepository(db)
 
-    def record_vpn_enroll(
+    def record_login_geo(
         self,
         *,
         device_id: int,
-        peer_id: Optional[int],
         connect_ip: Optional[str],
         client_reported_ip: Optional[str] = None,
         client_ip_label: str = "",
     ) -> Optional[DeviceLoginGeoObservation]:
         """
-        Store geo from the client's public IP at enroll and alert on new login countries.
+        Store geo from the client's public IP at check-in and alert on new login countries.
         """
         if not getattr(settings, "DEVICE_LOGIN_GEO_ENABLED", True):
             return None
@@ -66,7 +65,6 @@ class DeviceLoginGeoService:
 
         row = self.repo.add(
             device_id=device_id,
-            peer_id=peer_id,
             public_ip=public_ip,
             country_code=country_code,
             country_name=country_name,
@@ -135,8 +133,8 @@ class DeviceLoginGeoService:
         device = self.device_repo.get_by_id(device_id)
         label = (device.hostname if device else None) or client_ip_label or public_ip
         message = (
-            f"{label} connected to the VPN from {country_name} ({country_code}) "
-            f"for the first time (public IP {public_ip})."
+            f"{label} logged in from a new country: {country_name} ({country_code}) "
+            f"(public IP {public_ip})."
         )
         self.alert_repo.create(
             timestamp=datetime.now(timezone.utc),
@@ -149,7 +147,7 @@ class DeviceLoginGeoService:
             device_id=device_id,
         )
         logger.warning(
-            "New VPN login country alert",
+            "New login country alert",
             extra=structured_extra(
                 "new_vpn_login_country",
                 device_id=device_id,

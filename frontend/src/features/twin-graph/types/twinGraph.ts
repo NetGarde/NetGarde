@@ -2,8 +2,6 @@ export type TwinLayer = 'observed' | 'desired' | 'simulated';
 
 export type TwinEntityType =
   | 'device'
-  | 'vpn_peer'
-  | 'ip_lease'
   | 'app'
   | 'domain'
   | 'ip_address'
@@ -19,8 +17,6 @@ export type TwinEntityType =
   | 'quarantine';
 
 export type TwinRelation =
-  | 'enrolled_as'
-  | 'leased_ip'
   | 'runs'
   | 'queries'
   | 'queries_direct'

@@ -23,9 +23,8 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Path | Role |
 |------|------|
 | `frontend/` | React 19 dashboard (feature modules) |
-| `backend/` | FastAPI API, WebSocket, devices, security graph, VPN |
+| `backend/` | FastAPI API, devices, security graph, detection |
 | `detection-engine/` | Rules engine on agent event stream |
-| `host-agent/` | EC2 host service — WireGuard peers, quarantine |
 | `scripts/` | EC2 setup helpers |
 | `.github/workflows/` | CI test, ECR build, S3/EC2 deploy |
 
@@ -43,8 +42,7 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 
 1. [DEPLOY.md](DEPLOY.md)  
 2. [ENV_SETUP.md](ENV_SETUP.md)  
-3. [../host-agent/README.md](../host-agent/README.md)  
-4. [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)  
+3. [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)  
 
 ---
 
@@ -58,5 +56,4 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Screenshot assets | [images/README.md](images/README.md) |
 | Endpoint agent | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) |
 | Agent API | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
-| VPN enroll client | [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) |
 | Organization | [TrustEdgeOrg](https://github.com/TrustEdgeOrg) |

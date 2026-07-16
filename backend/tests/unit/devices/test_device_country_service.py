@@ -2,11 +2,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.features.devices.services.device_country_service import DeviceCountryService
-from tests.helpers.factories import create_vpn_device, seed_country_presence
+from tests.helpers.factories import create_device, seed_country_presence
 
 
 def test_get_breakdown_with_presence(db_session):
-    device, _ = create_vpn_device(db_session, ip="10.0.0.60")
+    device = create_device(db_session, external_id="dev-60")
     seed_country_presence(db_session, device, country_code="IL", count=10)
     seed_country_presence(db_session, device, country_code="US", count=5)
 
@@ -27,7 +27,7 @@ def test_get_breakdown_device_not_found(db_session):
 
 
 def test_list_summaries(db_session):
-    device, _ = create_vpn_device(db_session, ip="10.0.0.61")
+    device = create_device(db_session, external_id="dev-61")
     seed_country_presence(db_session, device, country_code="DE", count=7)
 
     svc = DeviceCountryService(db_session)

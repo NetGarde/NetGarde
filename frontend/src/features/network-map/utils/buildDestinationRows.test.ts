@@ -80,7 +80,7 @@ describe('focusPathGraph', () => {
     expect(focused.nodes.filter((n) => n.type === 'port')).toHaveLength(1);
   });
 
-  it('shows VPN domains by default but not session pins', () => {
+  it('shows endpoint domains by default but not session pins', () => {
     const focused = focusPathGraph(sampleGraph, 'device:1', null);
     expect(focused.nodes.some((n) => n.id === 'domain:api.slack.com')).toBe(true);
     expect(focused.nodes.some((n) => n.type === 'app')).toBe(true);

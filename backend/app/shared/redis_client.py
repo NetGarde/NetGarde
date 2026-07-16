@@ -22,8 +22,6 @@ def get_redis() -> redis.Redis:
 
 
 def redis_available() -> bool:
-    if not settings.USAGE_REDIS_ENABLED:
-        return False
     if not settings.REDIS_URL.strip():
         return False
     try:

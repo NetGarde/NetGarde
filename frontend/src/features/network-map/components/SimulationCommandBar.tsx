@@ -57,7 +57,7 @@ export default function SimulationCommandBar({
         <TextField
           size="small"
           fullWidth
-          placeholder='Try "block wireguard", "block port 443", or "clear simulation"'
+          placeholder='Try "block port 443", or "clear simulation"'
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           disabled={loading}
@@ -70,7 +70,7 @@ export default function SimulationCommandBar({
         </Button>
       </Stack>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-        Natural-language what-if via Ollama (rules parser first). Example: block wireguard, block https, clear.
+        Natural-language what-if via Ollama (rules parser first). Example: block https, clear.
       </Typography>
       {feedback && (
         <Alert severity="success" sx={{ mt: 1 }} onClose={() => setFeedback(null)}>

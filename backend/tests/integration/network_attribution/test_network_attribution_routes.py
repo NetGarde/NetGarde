@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
 
+from app.shared.device_identity import create_device_token
+from tests.helpers.factories import create_device
+
 
 def _attribution_payload(device_id: str) -> dict:
     now = datetime.now(timezone.utc)
@@ -18,30 +21,22 @@ def _attribution_payload(device_id: str) -> dict:
 
 def test_network_attribution_ingest_and_summary(
     api_client,
-    enroll_env,
+    db_session,
     seed_policy,
-    mock_apply_peer_on_host,
-    mock_record_vpn_enroll,
-    enroll_device,
+    device_token_env,
 ):
-    enroll = enroll_device(device_id="attr-client", public_key="attrKey=")
-    assert enroll.status_code == 200
-    body = enroll.json()
-    token = body["device_token"]
-    client_ip = body["address"].split("/")[0]
+    device = create_device(db_session, external_id="attr-client", hostname="attr-host")
+    token = create_device_token(device_id=device.external_id)
 
     response = api_client.post(
         "/v1/network-attribution",
-        json=_attribution_payload("attr-client"),
+        json=_attribution_payload(device.external_id),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
     assert response.json()["intervals_received"] == 1
 
-    devices = api_client.get("/devices").json()
-    device_id = next(d["id"] for d in devices if d.get("client_ip") == client_ip)
-
-    summary = api_client.get(f"/devices/{device_id}/network-attribution/summary", params={"hours": 24})
+    summary = api_client.get(f"/devices/{device.id}/network-attribution/summary", params={"hours": 24})
     assert summary.status_code == 200
     items = summary.json()["items"]
     assert any(i["app_slug"] == "zoom" for i in items)
@@ -49,18 +44,16 @@ def test_network_attribution_ingest_and_summary(
 
 def test_network_attribution_map(
     api_client,
-    enroll_env,
+    db_session,
     seed_policy,
-    mock_apply_peer_on_host,
-    mock_record_vpn_enroll,
-    enroll_device,
+    device_token_env,
 ):
-    enroll = enroll_device(device_id="attr-map", public_key="attrMapKey=")
-    token = enroll.json()["device_token"]
+    device = create_device(db_session, external_id="attr-map", hostname="map-host")
+    token = create_device_token(device_id=device.external_id)
 
     api_client.post(
         "/v1/network-attribution",
-        json=_attribution_payload("attr-map"),
+        json=_attribution_payload(device.external_id),
         headers={"Authorization": f"Bearer {token}"},
     )
 

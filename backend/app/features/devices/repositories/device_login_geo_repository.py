@@ -17,7 +17,6 @@ class DeviceLoginGeoRepository:
         self,
         *,
         device_id: int,
-        peer_id: Optional[int],
         public_ip: str,
         country_code: Optional[str],
         country_name: Optional[str],
@@ -27,7 +26,6 @@ class DeviceLoginGeoRepository:
     ) -> DeviceLoginGeoObservation:
         row = DeviceLoginGeoObservation(
             device_id=device_id,
-            peer_id=peer_id,
             public_ip=public_ip,
             country_code=country_code,
             country_name=country_name,

@@ -7,7 +7,7 @@ from app.features.twin.graph.builder import TwinGraphBuilder
 from app.features.twin.graph.ids import app_id, device_id, infra_id
 from app.features.twin.graph.model import TwinGraph
 from app.shared.config import settings
-from tests.helpers.factories import create_vpn_device
+from tests.helpers.factories import create_device
 
 
 @pytest.fixture(autouse=True)
@@ -16,7 +16,7 @@ def enable_attribution(monkeypatch):
 
 
 def test_builder_includes_observed_layers(db_session):
-    device, _lease = create_vpn_device(db_session, device_id="graph-builder")
+    device = create_device(db_session, external_id="graph-builder")
     now = datetime.now(timezone.utc)
     db_session.add(
         DeviceNetworkContext(
@@ -34,7 +34,7 @@ def test_builder_includes_observed_layers(db_session):
 
     assert device_id(device.id) in graph.nodes
     assert app_id("zoom") in graph.nodes
-    assert infra_id("wireguard") in graph.nodes
+    assert infra_id("ec2_gateway") in graph.nodes
 
     layers = {node.layer for node in graph.nodes.values()}
     assert "observed" in layers

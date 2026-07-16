@@ -9,7 +9,6 @@ from app.features.client_behavior.models.client_behavior_profile import ClientBe
 from app.features.dashboard.schemas.network_overview import NetworkOverviewRead, NetworkOverviewStats
 from app.features.dashboard.services import network_overview_cache
 from app.features.dashboard.services.overview_templates import build_network_overview_bullets
-from app.features.vpn.services.usage_service import UsageService
 from app.shared.config import settings
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
@@ -22,7 +21,6 @@ OverviewSource = Literal["template", "llm"]
 class NetworkOverviewService:
     def __init__(self, db: Session):
         self.db = db
-        self.usage_service = UsageService(db)
 
     def build_overview(self, *, period_minutes: int = 60, refresh: bool = False) -> NetworkOverviewRead:
         period = max(5, min(period_minutes, 24 * 60))
@@ -65,15 +63,9 @@ class NetworkOverviewService:
     def _build_snapshot(self, *, period: int, now: datetime) -> dict[str, Any]:
         since = now - timedelta(minutes=period)
 
-        live = self.usage_service.list_live_bandwidth()
-        reporting = len(live.items)
-        live_total = round(sum(item.total_mib_per_sec for item in live.items), 3)
-
-        history = self.usage_service.list_usage_history(minutes=period)
+        reporting = 0
+        live_total = 0.0
         peak = 0.0
-        for point in history.points:
-            peak = max(peak, point.total_mib_per_sec)
-        peak = round(peak, 3)
 
         alert_rows = (
             self.db.query(Alert.alert_type, func.count(Alert.id))

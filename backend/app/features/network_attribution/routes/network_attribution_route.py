@@ -38,7 +38,7 @@ def report_network_attribution(
     if payload.device_id.strip() != device.device_id:
         raise HTTPException(status_code=403, detail="device_id does not match authenticated device")
 
-    row = NetworkAttributionService.get_device_by_vpn_device_id(db, device.device_id)
+    row = NetworkAttributionService.get_device_by_external_id(db, device.device_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Device not registered")
 

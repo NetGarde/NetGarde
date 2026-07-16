@@ -45,7 +45,7 @@ fi
 
 # --- repo-root .env for docker compose (dns-sync needs both tokens) ---
 touch "$COMPOSE_ENV"
-for key in WG_AGENT_URL WG_AGENT_TOKEN DNS_INGEST_TOKEN ADMIN_API_TOKEN; do
+for key in DNS_INGEST_TOKEN ADMIN_API_TOKEN; do
   val="$(read_env "$key")"
   [ -n "$val" ] || continue
   if grep -q "^${key}=" "$COMPOSE_ENV" 2>/dev/null; then

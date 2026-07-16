@@ -8,15 +8,15 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
-TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + behavior baselines + rules-based detection + optional VPN quarantine) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
+TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + behavior baselines + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Live observability** — TrustEdge Agent streams process, app, and network posture; VPN usage feeds live charts (network map, client map, detection alerts).
+1. **Live observability** — TrustEdge Agent streams process, app, and network posture into the network map and detection alerts.
 2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
 3. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
 4. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
-5. **Enforcement as actuator** — Quarantine propagates to host iptables when operators opt in.
+5. **Soft quarantine** — Operators can flag devices; agent-side network isolation is a follow-on.
 
-DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (removed from the product).
+DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
 
 ---
 
@@ -24,8 +24,7 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
-| Connectivity | WireGuard peers, usage samples | Client map, live throughput |
-| Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
+| Application | Foreground app reports (TrustEdge Agent) | Network map |
 | Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
 | Drift | Behavior baselines vs live scoring | Client profiles |
 | Detection | TrustEdge Agent events → detection-engine rules | Security alerts, network map |
@@ -36,9 +35,9 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 
 | Principle | What it means in practice |
 |-----------|---------------------------|
-| **Host vs container boundary** | The FastAPI backend runs in Docker and owns device/VPN state in PostgreSQL. WireGuard peer updates and iptables drops run on the EC2 host via `trustedge-wg-agent`. |
-| **Single source of truth** | Device and alert state live in RDS. Host networking is applied from that state. |
-| **Feature modules** | Both frontend and backend are organized by domain feature (`devices`, `twin`, `vpn`, etc.), not by technical layer alone. |
+| **Endpoint-first** | Device identity is agent `external_id` in PostgreSQL; live posture also lands in Redis twin keys. |
+| **Single source of truth** | Device and alert state live in RDS. |
+| **Feature modules** | Both frontend and backend are organized by domain feature (`devices`, `twin`, etc.), not by technical layer alone. |
 | **Dark-first UI** | The dashboard defaults to dark mode. Light mode is supported; navigation chrome adapts per mode. |
 | **Pragmatic layering** | Backend layering (route → controller → service → repository) is encouraged but not uniform. Mature paths (`devices`) use controllers and Protocols; newer paths may call services directly from routes. |
 
@@ -51,10 +50,8 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 │ TrustEdge Agent  │── HTTPS events ───►│ Agent API → Kafka → detection-engine   │
 └──────────────────┘                    └──────────────────┬──────────────────────┘
                                                            │ alerts ingest
-┌──────────────────┐     WireGuard      ┌──────────────────▼──────────────────────┐
-│ VPN clients      │◄──────────────────►│ EC2 host                                 │
-└──────────────────┘                    │  WireGuard · iptables                     │
-                                        │  trustedge-wg-agent (systemd)            │
+                                        ┌──────────────────▼──────────────────────┐
+                                        │ EC2 host                                 │
                                         │  ┌─────────────────────────────────┐    │
                                         │  │ Docker: FastAPI backend :8000   │    │
                                         │  └──────────────┬──────────────────┘    │
@@ -62,7 +59,7 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
                                                           │
                     ┌─────────────────────────────────────┼─────────────────────┐
                     ▼                                     ▼                     ▼
-             CloudFront + S3                       AWS RDS PostgreSQL      Redis (usage)
+             CloudFront + S3                       AWS RDS PostgreSQL      Redis (twin)
              React dashboard                       devices + alerts
 ```
 
@@ -71,12 +68,9 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 | Component | Runs where | Responsibility |
 |-----------|------------|----------------|
 | **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, devices, network map |
-| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, alerts API, VPN enroll |
+| **FastAPI backend** | Docker on EC2 | REST API, alerts, devices, security graph |
 | **detection-engine** | Docker / service | Rules on agent Kafka topic → alert ingest |
-| **trustedge-wg-agent** | systemd on host | Apply WG peers, iptables block/unblock |
-| **WireGuard** | host | VPN tunnel for enrolled clients |
-
-See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
+| **TrustEdge Agent API** | Docker on EC2 | Agent event ingest |
 
 ---
 
@@ -88,20 +82,14 @@ See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
 
 ### Devices & clients
 
-- **Device** — A network client identified by MAC, IP lease, VPN pubkey, and optional user label.
+- **Device** — An endpoint identified by `external_id` (agent device id), optional hostname/MAC.
 - **Behavior profile** — Rolling baseline of activity; abnormal scores surface drift.
-- **Quarantine** — Full-network block: iptables drop on VPN traffic for the device IP.
+- **Quarantine** — Soft flag in the API/dashboard; agent-side network isolation is not yet enforced.
 
 ### Alerts
 
 - Detection-engine posts to `POST /security/alerts/ingest`.
 - Dashboard shows attack alerts; the `dns_alerts` table remains as the store for alert rows via `app.features.alerts`.
-
-### VPN
-
-- Clients enroll via `POST /v1/enroll` and receive a WireGuard config.
-- Usage samples (`POST /v1/usage`) feed live throughput charts (Redis-backed).
-- Peer `allowed-ips` are applied by the host agent after enroll.
 
 ---
 
@@ -109,11 +97,10 @@ See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
 
 ```
 Dashboard action (quarantine)
-    → Backend writes DB state
-    → Host agent: iptables block/unblock
+    → Backend writes soft quarantine state in DB
 ```
 
-**Why the split?** Docker containers cannot safely mutate host `wg0` or `iptables`. The backend orchestrates; the host agent executes.
+Agent-enforced network isolation is a follow-on (no WireGuard host agent).
 
 ---
 
@@ -123,11 +110,9 @@ Dashboard action (quarantine)
 |-------|---------|----------|
 | `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management, quarantine |
 | `DNS_INGEST_TOKEN` | Flow watcher, detection-engine ingest | Service-to-service ingest (shared token name) |
-| `WG_AGENT_TOKEN` | Backend → host agent | Peer apply, block/unblock |
-| Device enroll token | TrustEdge client | `POST /v1/enroll` bootstrap |
+| `DEVICE_TOKEN_SECRET` | Device-authenticated APIs | HMAC device tokens (e.g. network attribution) |
 
 - Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.
-- The host agent binds to the Docker bridge IP (`172.17.0.1`) — not the public interface.
 - CloudFront terminates HTTPS for the dashboard and proxies API requests to the backend.
 
 ---
@@ -237,7 +222,6 @@ backend/app/
     ├── alerts/             # Alert model (dns_alerts table) + repository
     ├── devices/
     ├── twin/
-    ├── vpn/
     ├── dashboard/
     ├── network_attribution/
     ├── network_flows/
@@ -259,7 +243,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 | Pattern | Features | Notes |
 |---------|----------|-------|
 | Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
-| Thin routes | `vpn`, `dashboard`, `twin` | Route calls service directly |
+| Thin routes | `dashboard`, `twin` | Route calls service directly |
 | Mixed | `devices` (extended routes) | Behavior/quarantine endpoints inline |
 
 **Reference implementation:** `devices` — route → controller/service → repository.
@@ -282,8 +266,8 @@ Route (FastAPI endpoint, Depends auth + DB)
 Three styles coexist (prefer domain exceptions + controller mapping for new code):
 
 1. **Domain exceptions** — `DeviceNotFoundError` raised in service, mapped to 404 in controller
-2. **HTTPException in service** — used in some VPN/device paths
-3. **Route try/except** — VPN enroll catches `ValueError` at the route layer
+2. **HTTPException in service** — used in some device/policy paths
+3. **Route try/except** — used sparingly at the route layer
 
 Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, `ValidationError`).
 
@@ -292,7 +276,7 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 No global event bus. Services import peer services explicitly:
 
 - Alert ingest feeds dashboard attack views
-- `device_route.py` aggregates devices, behavior, and VPN usage endpoints
+- `device_route.py` aggregates devices, behavior, and policy endpoints
 - Network attribution builds maps from endpoint context (+ optional flows)
 
 ---
@@ -301,9 +285,9 @@ No global event bus. Services import peer services explicitly:
 
 | Data | Store | Notes |
 |------|-------|-------|
-| Devices, leases, peers | PostgreSQL (RDS) | Source of truth |
+| Devices | PostgreSQL (RDS) | Identity via `external_id` |
 | Alerts | PostgreSQL (`dns_alerts` table via `alerts` module) | Detection + behavior alerts |
-| Live VPN usage | Redis | Real-time throughput charts |
+| Agent live state | Redis | Twin / connected agents |
 | Agent events | Kafka / Redis (Agent API) | Upstream of detection-engine |
 
 ---
@@ -313,11 +297,6 @@ No global event bus. Services import peer services explicitly:
 | Environment | Trigger | Target |
 |-------------|---------|--------|
 | `develop` / `main` push | GitHub Actions | EC2 backend (ECR), S3/CloudFront frontend |
-
-Host systemd services on EC2:
-
-- `trustedge-wg-agent` — peer apply, block/unblock
-- `wg-quick@wg0` — WireGuard
 
 ---
 
@@ -348,4 +327,3 @@ Host systemd services on EC2:
 - [ENV_SETUP.md](ENV_SETUP.md) — configuration
 - [DEPLOY.md](DEPLOY.md) — production AWS
 - [GRAPH_ENGINE.md](GRAPH_ENGINE.md) — observability graph
-- [host-agent/README.md](../host-agent/README.md) — EC2 host agent

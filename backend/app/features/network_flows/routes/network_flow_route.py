@@ -48,5 +48,5 @@ def list_live_network_flows(
     _: None = Depends(verify_admin_api_token),
     service: NetworkFlowIngestService = Depends(get_flow_service),
 ):
-    """Recent L4 flows seen on the VPN gateway (Redis rolling window)."""
+    """Recent L4 flows from the rolling Redis window."""
     return service.list_live(max_age_sec=max_age_sec)

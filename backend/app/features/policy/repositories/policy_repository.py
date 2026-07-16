@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.features.devices.models.device import Device
 from app.features.policy.models.device_quarantine import DeviceQuarantine
@@ -25,12 +25,7 @@ class PolicyRepository:
         return self.get_profile_by_slug("teen")
 
     def assign_profile_to_device(self, device_id: int, profile_id: Optional[int]) -> Optional[Device]:
-        device = (
-            self.db.query(Device)
-            .options(joinedload(Device.ip_lease))
-            .filter(Device.id == device_id)
-            .first()
-        )
+        device = self.db.query(Device).filter(Device.id == device_id).first()
         if not device:
             return None
         device.policy_profile_id = profile_id

@@ -105,15 +105,15 @@ def test_builder_ingests_trusttwin_security_destinations(db_session, monkeypatch
     )
     assert any(edge.target_id == public_net for edge in lan_out)
 
-    # TrustTwin devices are not attached to the VPN infra chain.
-    routed_vpn = graph.neighbors(
+    # TrustTwin devices are not attached to the static desired infra chain.
+    routed_desired = graph.neighbors(
         device_nid,
         direction="out",
         relations=["routed_via"],
         layers=["desired"],
     )
-    assert routed_vpn == []
-    assert infra_id("wireguard") in graph.nodes
+    assert routed_desired == []
+    assert infra_id("ec2_gateway") in graph.nodes
 
     # Remote ports hang off Internet egress (not the client node).
     opens = graph.neighbors(

@@ -7,42 +7,14 @@ class Settings(BaseSettings):
         "https://d2qp7beltc09b8.cloudfront.net,https://daemixzdg8jfd.cloudfront.net"
     )
 
-    # WireGuard enroll defaults (single shared pool)
-    VPN_POOL_NAME: str = "default"
-    VPN_POOL_CIDR: str = "10.0.0.0/24"
-    VPN_GATEWAY_IP: str = "10.0.0.1"
-    VPN_DNS_IP: str = "10.0.0.1"
-    VPN_MTU: int = 1420
-    VPN_ALLOWED_IPS: str = "0.0.0.0/0,::/0"
-
-    VPN_ENDPOINT: str = ""
-    VPN_SERVER_PUBLIC_KEY: str = ""
-    VPN_PERSISTENT_KEEPALIVE: int = 25
-
-    # Host WireGuard agent (runs on EC2 host, reachable from docker bridge)
-    WG_AGENT_URL: str = "http://172.17.0.1:9109"
-    WG_AGENT_TOKEN: str = ""
-
     # Service identity: detection-engine / network-flow ingest (historical name: DNS_INGEST_TOKEN)
     DNS_INGEST_TOKEN: str = ""
 
-    BANDWIDTH_ALERT_MIB_PER_SEC: float = 50.0
-    USAGE_LIVE_MAX_AGE_SEC: int = 45
     REDIS_URL: str = "redis://redis:6379/0"
-    USAGE_REDIS_ENABLED: bool = True
-    USAGE_HISTORY_MINUTES: int = 60
-    USAGE_PERSIST_SAMPLES: bool = False
 
-    # Device identity (issued at VPN enroll, used for /v1/usage and future device APIs)
+    # Device identity tokens (HMAC) for device-authenticated APIs such as network attribution
     DEVICE_TOKEN_SECRET: str = ""
     DEVICE_TOKEN_TTL_DAYS: int = 365
-    # Optional: require Bearer token on POST /v1/enroll (TrustEdgeClient --api-token)
-    ENROLL_BOOTSTRAP_TOKEN: str = ""
-
-    # Public client bootstrap (GET /v1/client-config)
-    CLIENT_STATS_INTERVAL_SEC: float = 5.0
-    CLIENT_INSTALL_POLICY_CA_DEFAULT: bool = False
-    CLIENT_SERVICE_NAME: str = "TrustEdge"
 
     # Admin identity: dashboard APIs
     ADMIN_API_TOKEN: str = ""
@@ -69,7 +41,7 @@ class Settings(BaseSettings):
     DEVICE_COUNTRY_ALERT_ENABLED: bool = True
     DEVICE_COUNTRY_ALERT_COOLDOWN_HOURS: int = 24
 
-    # Physical location at VPN enroll (public IP GeoIP — not DNS domain country)
+    # Physical location observations (GeoIP)
     DEVICE_LOGIN_GEO_ENABLED: bool = True
     DEVICE_LOGIN_GEO_ALERT_ENABLED: bool = True
     DEVICE_LOGIN_GEO_ALERT_COOLDOWN_HOURS: int = 24
@@ -90,10 +62,6 @@ class Settings(BaseSettings):
     NETWORK_FLOWS_MAX_AGE_SEC: int = 300
     NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC: int = 600
     NETWORK_FLOWS_MAP_LIMIT: int = 80
-
-    # Reject VPN enroll when login GeoIP is in these countries (comma or JSON list), e.g. IR
-    VPN_LOGIN_GEO_BLOCK_ENABLED: bool = True
-    BLOCKED_VPN_LOGIN_COUNTRIES: str = "IR"
 
     # Dashboard network / AI review (template | openai | ollama)
     NETWORK_REVIEW_MODE: str = "template"
@@ -121,4 +89,3 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
-

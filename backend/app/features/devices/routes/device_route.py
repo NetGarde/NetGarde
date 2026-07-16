@@ -1,11 +1,7 @@
-from typing import Optional
-
-import hmac
-
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.features.devices.schemas.device import DeviceCreate, DeviceUpdate, DhcpSyncRequest
+from app.features.devices.schemas.device import DeviceCreate, DeviceUpdate
 from app.features.client_behavior.schemas.behavior import (
     BehaviorProfileRead,
     BehaviorReviewRead,
@@ -26,7 +22,6 @@ from app.features.devices.controllers.device_controller import (
     get_devices_controller,
     update_device_controller,
     delete_device_controller,
-    sync_dhcp_leases_controller,
 )
 from app.features.devices.dependencies import get_device_service
 from app.features.devices.schemas.device_country import (
@@ -40,16 +35,8 @@ from app.features.devices.schemas.device_login_geo import (
 from app.features.devices.services.device_country_service import DeviceCountryService
 from app.features.devices.services.device_login_geo_service import DeviceLoginGeoService
 from app.features.devices.services.device_service_interface import IDeviceService
-from app.shared.database import SessionLocal
 from app.shared.dependencies import get_db
-from app.features.vpn.schemas.usage_history import UsageHistoryResponse, UsageWsSnapshot
-from app.features.vpn.schemas.usage_live import DeviceUsageLiveResponse
-from app.features.vpn.services.usage_service import UsageService
 from app.shared.admin_auth import verify_admin_api_token
-from app.shared.config import settings
-from app.shared.usage_ws_manager import usage_ws_manager
-from app.shared.logging_context import structured_extra
-from app.shared.service_auth import verify_dns_ingest_service
 from app.shared.utils.logging import get_logger
 
 router = APIRouter(prefix="/devices", tags=["Devices"])
@@ -91,73 +78,6 @@ def get_devices_endpoint(
     return get_devices_controller(db, service)
 
 
-@router.get("/usage/live", response_model=DeviceUsageLiveResponse)
-def list_live_device_usage(
-    max_age_sec: Optional[int] = Query(default=None, ge=5, le=300),
-    db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_api_token),
-):
-    """Latest per-device VPN throughput from trustedge-wg /v1/usage reports."""
-    return UsageService(db).list_live_bandwidth(max_age_sec=max_age_sec)
-
-
-@router.get("/usage/history", response_model=UsageHistoryResponse)
-def list_usage_history(
-    minutes: Optional[int] = Query(default=None, ge=1, le=24 * 60),
-    db: Session = Depends(get_db),
-    _: None = Depends(verify_admin_api_token),
-):
-    """Server aggregate throughput time series (Redis rolling window)."""
-    return UsageService(db).list_usage_history(minutes=minutes)
-
-
-@router.websocket("/usage/ws")
-async def device_usage_websocket(websocket: WebSocket):
-    """
-    Real-time VPN usage for the dashboard (snapshot on connect, updates on each sample).
-    Admin token via ?token= when ADMIN_API_TOKEN is set.
-    """
-    expected = settings.ADMIN_API_TOKEN.strip()
-    if expected:
-        token = websocket.query_params.get("token", "").strip()
-        if not token:
-            await websocket.close(code=4401)
-            return
-        if not hmac.compare_digest(token, expected):
-            await websocket.close(code=4403)
-            return
-
-    await usage_ws_manager.connect(websocket)
-    db = SessionLocal()
-    try:
-        service = UsageService(db)
-        history = service.list_usage_history()
-        live = service.list_live_bandwidth()
-        snapshot = UsageWsSnapshot(history=history, live=live)
-        await websocket.send_text(snapshot.model_dump_json())
-    except Exception as exc:
-        logger.warning(
-            "Usage WebSocket snapshot failed",
-            extra=structured_extra("usage_ws_snapshot_failed", error=str(exc)),
-        )
-    finally:
-        db.close()
-
-    try:
-        while True:
-            data = await websocket.receive_text()
-            if data == "ping":
-                await websocket.send_text("pong")
-    except WebSocketDisconnect:
-        usage_ws_manager.disconnect(websocket)
-    except Exception as e:
-        usage_ws_manager.disconnect(websocket)
-        logger.warning(
-            "Usage WebSocket connection error",
-            extra=structured_extra("usage_ws_error", error=str(e)),
-        )
-
-
 @router.put("/{device_id}")
 def update_device_endpoint(
     device_id: int,
@@ -177,17 +97,6 @@ def delete_device_endpoint(
     service: IDeviceService = Depends(get_device_service),
 ):
     return delete_device_controller(device_id, db, service)
-
-
-@router.post("/sync-dhcp")
-def sync_dhcp_endpoint(
-    payload: DhcpSyncRequest,
-    db: Session = Depends(get_db),
-    _: None = Depends(verify_dns_ingest_service),
-    service: IDeviceService = Depends(get_device_service),
-):
-    """Bulk upsert devices from router DHCP lease records."""
-    return sync_dhcp_leases_controller(payload, db, service)
 
 
 @router.get("/blocked-clients", response_model=BlockedClientsListResponse)
@@ -214,7 +123,7 @@ def list_device_login_locations_summary_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: DeviceLoginGeoService = Depends(get_device_login_geo_service),
 ):
-    """Latest VPN login location per device (GeoIP from public IP at enroll)."""
+    """Latest login location per device (GeoIP from public IP at check-in)."""
     return service.list_summaries()
 
 
@@ -224,7 +133,7 @@ def get_device_login_location_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: DeviceLoginGeoService = Depends(get_device_login_geo_service),
 ):
-    """Physical location at last VPN enroll(s) for this device."""
+    """Physical location at last login check-in(s) for this device."""
     return service.get_device_login_geo(device_id)
 
 
@@ -353,7 +262,7 @@ def start_device_quarantine_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: PolicyService = Depends(get_policy_service),
 ):
-    """Block all client network access (VPN iptables drop) for the given duration."""
+    """Flag the device as quarantined for the given duration (soft quarantine)."""
     return service.start_device_quarantine(device_id, hours=body.hours)
 
 

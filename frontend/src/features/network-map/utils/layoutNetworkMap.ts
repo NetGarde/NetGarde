@@ -319,7 +319,7 @@ export function pathColumnLabels(mode: NetworkMapLayoutMode): { key: string; lab
     return [
       { key: 'device', label: 'Devices' },
       { key: 'app', label: 'Processes' },
-      { key: 'tunnel', label: 'WireGuard' },
+      { key: 'tunnel', label: 'EC2 Gateway' },
       { key: 'gateway', label: 'EC2 DNS' },
       { key: 'port', label: 'Ports' },
       { key: 'domain', label: 'DNS names' },
@@ -339,7 +339,7 @@ export function pathColumnLabels(mode: NetworkMapLayoutMode): { key: string; lab
     return [
       { key: 'device', label: 'Devices' },
       { key: 'app', label: 'Processes' },
-      { key: 'tunnel', label: 'WireGuard' },
+      { key: 'tunnel', label: 'EC2 Gateway' },
       { key: 'gateway', label: 'DNS' },
       { key: 'policy', label: 'Policy' },
       { key: 'domain', label: 'Destinations' },

@@ -44,17 +44,7 @@ services:
       LOG_JSON: "1"
       LOG_LEVEL: "INFO"
       LOG_SERVICE: "backend"
-      # VPN enroll settings (required for POST /v1/enroll)
-      VPN_ENDPOINT: ${VPN_ENDPOINT:-44.218.45.174:51820}
-      VPN_SERVER_PUBLIC_KEY: ${VPN_SERVER_PUBLIC_KEY:-ooeDpLVJvX8OaNz13CPNAuZXFMMzMx3nV7Kvg0LPy1c=}
-      # Host WireGuard agent (must match systemd service on EC2)
-      WG_AGENT_URL: ${WG_AGENT_URL:-http://172.17.0.1:9109}
-      # Required: set WG_AGENT_TOKEN in repo-root `.env` (see `.env.production.example`) or export it in your shell.
-      WG_AGENT_TOKEN: ${WG_AGENT_TOKEN:?WG_AGENT_TOKEN is required (set in .env or environment)}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      USAGE_REDIS_ENABLED: ${USAGE_REDIS_ENABLED:-true}
-      USAGE_HISTORY_MINUTES: ${USAGE_HISTORY_MINUTES:-60}
-      USAGE_PERSIST_SAMPLES: ${USAGE_PERSIST_SAMPLES:-false}
       # AI review settings: use /etc/trustedge/backend.env only (compose env would override env_file)
     depends_on:
       redis:

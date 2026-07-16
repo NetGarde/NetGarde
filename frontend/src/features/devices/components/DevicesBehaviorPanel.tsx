@@ -78,7 +78,7 @@ function DeviceBehaviorCard({ device }: { device: Device }) {
     }
   };
 
-  const label = device.hostname || device.client_ip;
+  const label = device.hostname || device.external_id;
   const profileStatus = profile?.profile_ready ? 'Ready' : 'Learning';
 
   return (
@@ -88,7 +88,7 @@ function DeviceBehaviorCard({ device }: { device: Device }) {
           <Box>
             <Typography variant="subtitle1">{label}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {device.client_ip}
+              {device.external_id}
               {device.mac_address ? ` · ${device.mac_address}` : ''}
             </Typography>
           </Box>
