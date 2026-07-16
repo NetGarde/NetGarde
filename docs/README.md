@@ -23,7 +23,7 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Path | Role |
 |------|------|
 | `frontend/` | React 19 dashboard (feature modules) |
-| `backend/` | FastAPI API, WebSocket, devices, twin, VPN |
+| `backend/` | FastAPI API, WebSocket, devices, security graph, VPN |
 | `detection-engine/` | Rules engine on agent event stream |
 | `host-agent/` | EC2 host service — WireGuard peers, quarantine |
 | `scripts/` | EC2 setup helpers |

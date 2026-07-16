@@ -10,7 +10,7 @@ Component topology and data flows for the TrustEdge **security observability pla
   <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="assets/architecture.png" />
 </p>
 
-**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine → `/twin/alerts/ingest` → FastAPI → React dashboard.
+**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine → alerts ingest (`/security/alerts/ingest`) → FastAPI → React dashboard.
 
 ---
 
@@ -19,7 +19,7 @@ Component topology and data flows for the TrustEdge **security observability pla
 | Layer | Components | Role |
 |-------|------------|------|
 | **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
-| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, twin/alerts, endpoint ingest, rules engine |
+| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, alerts, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
 | **Redis** | TrustEdge Agent live state (EC2) | Endpoint agent mirror for observability graph |
 | **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
@@ -32,7 +32,7 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 ```
 TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
-                 → detection-engine → POST /twin/alerts/ingest → Backend
+                 → detection-engine → POST /security/alerts/ingest → Backend
                  → observability graph + dashboard alerts
 ```
 

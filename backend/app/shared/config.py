@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, List
+from typing import List
 
 class Settings(BaseSettings):
     DB_URL: str
@@ -23,11 +23,9 @@ class Settings(BaseSettings):
     WG_AGENT_URL: str = "http://172.17.0.1:9109"
     WG_AGENT_TOKEN: str = ""
 
-    # DNS ingest: when false, only blocked queries are stored in RDS (live feed uses WebSocket)
-    PERSIST_ALL_DNS: bool = False
+    # Service identity: detection-engine / network-flow ingest (historical name: DNS_INGEST_TOKEN)
+    DNS_INGEST_TOKEN: str = ""
 
-    # Anomaly detection
-    NEW_DOMAIN_ALERTS: bool = True
     BANDWIDTH_ALERT_MIB_PER_SEC: float = 50.0
     USAGE_LIVE_MAX_AGE_SEC: int = 45
     REDIS_URL: str = "redis://redis:6379/0"
@@ -46,14 +44,7 @@ class Settings(BaseSettings):
     CLIENT_INSTALL_POLICY_CA_DEFAULT: bool = False
     CLIENT_SERVICE_NAME: str = "TrustEdge"
 
-    # Service identity: dns_log_watcher / automation posting DNS queries
-    DNS_INGEST_TOKEN: str = ""
-
-    # DNS blocking enforcement (policy packs → dnsmasq, block-page, quarantine).
-    # Disabled by default while focusing on observability; ingest and anomaly alerts still run.
-    DNS_BLOCKING_ENABLED: bool = False
-
-    # Admin identity: dashboard and policy APIs
+    # Admin identity: dashboard APIs
     ADMIN_API_TOKEN: str = ""
 
     # Client behavior profiles
@@ -74,7 +65,7 @@ class Settings(BaseSettings):
     # Parent-facing behavior text (template | openai | ollama)
     BEHAVIOR_REVIEW_MODE: str = "template"
     BEHAVIOR_REVIEW_CACHE_TTL_SEC: int = 300
-    # Alert when a device uses DNS associated with a new country/region (ccTLD heuristic)
+    # Alert when a device uses domains associated with a new country/region (ccTLD heuristic)
     DEVICE_COUNTRY_ALERT_ENABLED: bool = True
     DEVICE_COUNTRY_ALERT_COOLDOWN_HOURS: int = 24
 
@@ -86,12 +77,7 @@ class Settings(BaseSettings):
     GEOIP_PROVIDER: str = "ip_api"
     GEOIP_TIMEOUT_SEC: float = 3.0
 
-    # When VPN login country matches user_country, block destination ccTLDs (dnsmasq + alerts).
-    # JSON list, e.g. [{"user_country":"IL","blocked_countries":["IR","SY","KP"]}]
-    FORBIDDEN_COUNTRY_ENABLED: bool = False
-    FORBIDDEN_COUNTRY_RULES: str = '[{"user_country":"IL","blocked_countries":["IR"]}]'
-
-    # Endpoint network attribution (foreground app → DNS correlation)
+    # Endpoint network attribution (foreground app → network context)
     NETWORK_ATTRIBUTION_ENABLED: bool = True
     NETWORK_ATTRIBUTION_MAX_AGE_SEC: int = 120
     NETWORK_ATTRIBUTION_RETENTION_DAYS: int = 30
@@ -109,16 +95,6 @@ class Settings(BaseSettings):
     VPN_LOGIN_GEO_BLOCK_ENABLED: bool = True
     BLOCKED_VPN_LOGIN_COUNTRIES: str = "IR"
 
-    # Policy packs: fetch upstream hosts lists into on-disk snapshots (all built-in packs).
-    # Writable dir in Docker production (see docker-compose policy-pack-snapshots volume).
-    POLICY_PACK_SNAPSHOT_DIR: str = ""
-    POLICY_PACK_FETCH_ENABLED: bool = False
-    POLICY_PACK_FETCH_TIMEOUT_SECONDS: float = 30.0
-    POLICY_PACK_SNAPSHOT_MAX_AGE_SECONDS: int = 86400
-    # Comma-separated slug=url overrides, e.g. social=https://example.com/hosts
-    POLICY_PACK_REMOTE_URLS: str = ""
-    POLICY_PACK_REFRESH_ON_STARTUP: bool = True
-
     # Dashboard network / AI review (template | openai | ollama)
     NETWORK_REVIEW_MODE: str = "template"
     NETWORK_REVIEW_CACHE_TTL_SEC: int = 90
@@ -128,23 +104,6 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://ollama:11434"
     OLLAMA_MODEL: str = "llama3.2:3b"
     LLM_TIMEOUT_SEC: float = 180.0
-
-    @property
-    def policy_pack_remote_urls(self) -> Dict[str, str]:
-        out: Dict[str, str] = {}
-        raw = self.POLICY_PACK_REMOTE_URLS.strip()
-        if not raw:
-            return out
-        for part in raw.split(","):
-            part = part.strip()
-            if not part or "=" not in part:
-                continue
-            slug, url = part.split("=", 1)
-            slug = slug.strip().lower()
-            url = url.strip()
-            if slug and url:
-                out[slug] = url
-        return out
 
     @property
     def device_token_secret(self) -> str:

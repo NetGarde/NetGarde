@@ -55,7 +55,6 @@ services:
       USAGE_REDIS_ENABLED: ${USAGE_REDIS_ENABLED:-true}
       USAGE_HISTORY_MINUTES: ${USAGE_HISTORY_MINUTES:-60}
       USAGE_PERSIST_SAMPLES: ${USAGE_PERSIST_SAMPLES:-false}
-      POLICY_PACK_SNAPSHOT_DIR: /var/lib/trustedge/policy-snapshots
       # AI review settings: use /etc/trustedge/backend.env only (compose env would override env_file)
     depends_on:
       redis:
@@ -69,7 +68,6 @@ services:
       start_period: 40s
     volumes:
       - ./backend:/app
-      - policy-pack-snapshots:/var/lib/trustedge/policy-snapshots
     command: >
       bash -c "
       alembic upgrade head &&
@@ -150,7 +148,6 @@ services:
 
 volumes:
   ollama-data:
-  policy-pack-snapshots:
   trustedge-agent-data:
   redpanda-data:
 

@@ -42,7 +42,7 @@ The graph engine separates **topology** (entities + dependencies) from **present
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Graph builders (ingest)                      │
-│  App attribution · Flow ingest · Device enroll · Twin alerts    │
+│  App attribution · Flow ingest · Device enroll · Alert ingest   │
 └────────────────────────────┬────────────────────────────────────┘
                              │ upsert nodes/edges
                              ▼
@@ -250,7 +250,7 @@ infra:ec2_gateway
 
 This unifies:
 
-- What-if command parse (today: `POST /twin/simulate/command`)
+- What-if command parse (today: `POST /security/simulate/command`)
 - Port what-if (today: frontend-only)
 - Future quarantine / geo / schedule simulation
 
@@ -263,13 +263,13 @@ All analytics features compile to these primitives.
 ### Neighbors
 
 ```http
-GET /twin/graph/neighbors?node_id=...&direction=out|in|both&relations=...&layers=...
+GET /security/graph/neighbors?node_id=...&direction=out|in|both&relations=...&layers=...
 ```
 
 ### Traverse (BFS/DFS)
 
 ```json
-POST /twin/graph/traverse
+POST /security/graph/traverse
 {
   "seed_node_ids": ["device:42"],
   "direction": "out",
@@ -285,7 +285,7 @@ Returns: `{ nodes, edges, paths: [{ seed, hops: [node_id...] }] }`.
 ### Subgraph extract
 
 ```json
-POST /twin/graph/subgraph
+POST /security/graph/subgraph
 {
   "node_ids": ["policy_pack:social-media"],
   "depth": 3,
@@ -389,7 +389,7 @@ Layout assigns `(x, y)` to **already-filtered** nodes. Changing preset must not 
 | 1 | Pydantic + TypeScript schemas (`TwinNode`, `TwinEdge`, `TwinGraphSnapshot`) | Done |
 | 2 | `TwinGraph` in-memory index + `neighbors()`, `traverse()`, `subgraph()` | Done |
 | 3 | `TwinGraphBuilder` from attribution + flows + policy | Done |
-| 4 | `GET /twin/graph/snapshot` + `POST /twin/graph/traverse` + `GET /twin/graph/neighbors` | Done |
+| 4 | `GET /security/graph/snapshot` + `POST /security/graph/traverse` + `GET /security/graph/neighbors` | Done |
 | 5 | Frontend `useTwinGraph` + projection presets + `TwinGraphIndex` | Done (RCA UI pending) |
 | 6 | Projection presets replacing expand* in map component | Done |
 | 7 | Force-directed layout; column presets as optional | Pending |

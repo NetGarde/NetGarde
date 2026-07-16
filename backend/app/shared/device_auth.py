@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from dataclasses import dataclass
 
 from fastapi import Depends, Header, HTTPException
@@ -19,7 +21,7 @@ class AuthenticatedDevice:
     public_key: str
 
 
-def _extract_bearer(authorization: str | None) -> str:
+def _extract_bearer(authorization: Optional[str]) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing Bearer token")
     token = authorization[7:].strip()
@@ -28,7 +30,7 @@ def _extract_bearer(authorization: str | None) -> str:
     return token
 
 
-def verify_enroll_bootstrap(authorization: str | None = Header(default=None)) -> None:
+def verify_enroll_bootstrap(authorization: Optional[str] = Header(default=None)) -> None:
     """Require shared bootstrap token for enroll when ENROLL_BOOTSTRAP_TOKEN is set."""
     expected = settings.ENROLL_BOOTSTRAP_TOKEN.strip()
     if not expected:
@@ -45,7 +47,7 @@ def hmac_compare(a: str, b: str) -> bool:
 
 
 def get_authenticated_device(
-    authorization: str | None = Header(default=None),
+    authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ) -> AuthenticatedDevice:
     token = _extract_bearer(authorization)

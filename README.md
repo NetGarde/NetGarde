@@ -36,7 +36,7 @@ TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Ag
 | **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth · validate · persist · publish |
 | **3 · Stream** | Kafka / Redpanda | Durable `agent.events` bus |
 | **4 · Detect** | `detection-engine` | Attack / drift rules → alerts |
-| **5 · Operate** | FastAPI · Twin · React dashboard | Alerts, graph, maps, behavior |
+| **5 · Operate** | FastAPI · Security Graph · React dashboard | Alerts, graph, maps, behavior |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
 
 More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)

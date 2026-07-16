@@ -1,4 +1,4 @@
-.PHONY: dev-up dev-down dev-wipe dev-logs dev-ps seed-map
+.PHONY: dev-up dev-down dev-wipe dev-logs dev-ps
 
 dev-up:
 	./scripts/dev-up.sh
@@ -14,7 +14,3 @@ dev-logs:
 
 dev-ps:
 	docker compose -f docker-compose.dev.yml --env-file .env.dev ps
-
-# Full Network map demo: VPN clients + DNS + flows (requires make dev-up)
-seed-map:
-	python3 scripts/seed_network_map_demo.py

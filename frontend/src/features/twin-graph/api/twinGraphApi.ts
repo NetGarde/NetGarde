@@ -22,7 +22,7 @@ export async function fetchTwinGraphSnapshot(
   if (includeFlows) {
     params.set('include_flows', 'true');
   }
-  const res = await fetch(`${API_BASE_URL}/twin/graph/snapshot?${params}`, {
+  const res = await fetch(`${API_BASE_URL}/security/graph/snapshot?${params}`, {
     headers: {
       Accept: 'application/json',
       ...getAdminAuthHeaders(),
@@ -48,7 +48,7 @@ export async function traverseTwinGraph(
   if (includeFlows) {
     params.set('include_flows', 'true');
   }
-  const res = await fetch(`${API_BASE_URL}/twin/graph/traverse?${params}`, {
+  const res = await fetch(`${API_BASE_URL}/security/graph/traverse?${params}`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -91,7 +91,7 @@ export interface SimulationCommandResponse {
 export async function parseSimulationCommand(
   body: SimulationCommandRequest,
 ): Promise<SimulationCommandResponse> {
-  const res = await fetch(`${API_BASE_URL}/twin/simulate/command`, {
+  const res = await fetch(`${API_BASE_URL}/security/simulate/command`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',

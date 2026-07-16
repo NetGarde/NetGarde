@@ -57,13 +57,6 @@ def active_vpn_pool(db_session, enroll_env):
 
 
 @pytest.fixture
-def forbidden_country_defaults(monkeypatch):
-    monkeypatch.setattr("app.shared.config.settings.VPN_LOGIN_GEO_BLOCK_ENABLED", False)
-    monkeypatch.setattr("app.shared.config.settings.BLOCKED_VPN_LOGIN_COUNTRIES", "")
-    monkeypatch.setattr("app.shared.config.settings.FORBIDDEN_COUNTRY_RULES", "[]")
-
-
-@pytest.fixture
 def mock_apply_peer_on_host():
     with patch("app.features.vpn.services.enroll_service.apply_peer_on_host") as mock:
         yield mock
@@ -96,20 +89,6 @@ def mock_usage_redis_unavailable(monkeypatch):
 
 
 @pytest.fixture
-def mock_policy_notify():
-    with patch(
-        "app.features.policy.repositories.policy_sync_repository.PolicySyncRepository.notify_policy_changed"
-    ) as mock:
-        yield mock
-
-
-@pytest.fixture
-def mock_host_dns_sync():
-    with patch("app.features.policy.services.policy_service.sync_dns_policy_on_host") as mock:
-        yield mock
-
-
-@pytest.fixture
 def mock_host_client_block():
     with patch(
         "app.features.policy.services.policy_service.block_client_on_host"
@@ -117,13 +96,6 @@ def mock_host_client_block():
         "app.features.policy.services.policy_service.unblock_client_on_host"
     ) as unblock_mock:
         yield block_mock, unblock_mock
-
-
-@pytest.fixture
-def mock_refresh_pack():
-    with patch("app.features.policy.services.policy_service.refresh_pack") as mock:
-        mock.return_value = 42
-        yield mock
 
 
 @pytest.fixture

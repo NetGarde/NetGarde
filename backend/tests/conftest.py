@@ -24,23 +24,15 @@ from app.features.client_behavior.models.client_behavior_rollup import ClientBeh
 from app.features.client_behavior.models.client_behavior_profile import ClientBehaviorProfile  # noqa: F401
 from app.features.client_behavior.models.client_blocked_domain import ClientBlockedDomain  # noqa: F401
 from app.features.client_behavior.models.device_security_policy import DeviceSecurityPolicy  # noqa: F401
-from app.features.policy.models.policy_pack import PolicyPack  # noqa: F401
 from app.features.policy.models.policy_profile import PolicyProfile  # noqa: F401
-from app.features.policy.models.geo_country_block import (  # noqa: F401
-    GeoCountryBlock,
-    GeoCountryPolicyConfig,
-)
 from app.features.policy.models.device_quarantine import DeviceQuarantine  # noqa: F401
-from app.features.policy.models.policy_sync_status import PolicySyncStatus  # noqa: F401
 from app.features.network_attribution.models.device_app_usage_rollup import DeviceAppUsageRollup  # noqa: F401
 from app.features.network_attribution.models.device_network_context import DeviceNetworkContext  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
 def test_runtime_settings(monkeypatch):
-    """Keep tests fast and offline: no remote pack fetch or Redis usage."""
-    monkeypatch.setattr("app.shared.config.settings.POLICY_PACK_FETCH_ENABLED", False)
-    monkeypatch.setattr("app.shared.config.settings.POLICY_PACK_REFRESH_ON_STARTUP", False)
+    """Keep tests fast and offline: no Redis usage."""
     monkeypatch.setattr("app.shared.config.settings.USAGE_REDIS_ENABLED", False)
     monkeypatch.setattr("app.shared.config.settings.REDIS_URL", "")
 
@@ -91,16 +83,8 @@ def enroll_env(monkeypatch):
 
 @pytest.fixture
 def dns_ingest_env(monkeypatch):
-    """Disable DNS ingest auth and persist all queries in tests."""
+    """Disable service ingest auth in tests."""
     monkeypatch.setattr("app.shared.config.settings.DNS_INGEST_TOKEN", "")
-    monkeypatch.setattr("app.shared.config.settings.PERSIST_ALL_DNS", True)
-
-
-@pytest.fixture
-def dns_live_stats_env(monkeypatch):
-    """DNS ingest with in-memory live stats (selective persistence)."""
-    monkeypatch.setattr("app.shared.config.settings.DNS_INGEST_TOKEN", "")
-    monkeypatch.setattr("app.shared.config.settings.PERSIST_ALL_DNS", False)
 
 
 @pytest.fixture
@@ -117,9 +101,3 @@ def behavior_env(monkeypatch):
 def topology_env(monkeypatch, enroll_env):
     """VPN pool settings for topology tests (reuses enroll_env VPN settings)."""
     pass
-
-
-@pytest.fixture
-def dns_blocking_env(monkeypatch):
-    """Enable DNS blocking enforcement for policy/quarantine integration tests."""
-    monkeypatch.setattr("app.shared.config.settings.DNS_BLOCKING_ENABLED", True)

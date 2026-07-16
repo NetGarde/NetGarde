@@ -11,8 +11,6 @@ from app.features.client_behavior.schemas.behavior import (
     BehaviorReviewRead,
     BlockedClientSummary,
     BlockedClientsListResponse,
-    ClientBlockSyncEntry,
-    ClientBlockSyncResponse,
     ClientBlockedDomainCreate,
     ClientBlockedDomainRead,
     DeviceSecurityPolicyRead,
@@ -25,7 +23,6 @@ from app.features.devices.repositories.device_repository import DeviceRepository
 from app.features.alerts.models.alert import Alert
 from app.features.alerts.schemas.alert import DnsAlertResponse
 from app.features.policy.repositories.policy_repository import PolicyRepository
-from app.features.policy.repositories.policy_sync_repository import PolicySyncRepository
 from app.shared.config import settings
 from app.shared.domain_utils import extract_root_domain
 
@@ -38,7 +35,6 @@ class ClientBehaviorApiService:
         self.policy_repo = DeviceSecurityPolicyRepository(db)
         self.block_repo = ClientBlockedDomainRepository(db)
         self.policy_repo_main = PolicyRepository(db)
-        self.sync_repo = PolicySyncRepository(db)
 
     def _require_device(self, device_id: int):
         device = self.device_repo.get_by_id(device_id)
@@ -151,7 +147,6 @@ class ClientBehaviorApiService:
             expires_at=expires_at,
         )
         self.db.commit()
-        self.sync_repo.notify_policy_changed(source="admin_block")
         return ClientBlockedDomainRead.model_validate(block)
 
     def revoke_client_block(self, device_id: int, block_id: int) -> dict:
@@ -160,7 +155,6 @@ class ClientBehaviorApiService:
         if not revoked:
             return {"revoked": False, "message": "Block not found"}
         self.db.commit()
-        self.sync_repo.notify_policy_changed(source="admin_block_revoke")
         return {"revoked": True, "block_id": block_id}
 
     @staticmethod
@@ -178,7 +172,7 @@ class ClientBehaviorApiService:
         return BehaviorBaselineService(self.db).recompute_all()
 
     def list_blocked_clients(self) -> BlockedClientsListResponse:
-        """Devices with active quarantine or per-device DNS blocks."""
+        """Devices with active quarantine or per-device domain blocks."""
         by_device: dict[int, BlockedClientSummary] = {}
 
         for quarantine in self.policy_repo_main.list_active_quarantines():
@@ -237,24 +231,3 @@ class ClientBehaviorApiService:
             reverse=True,
         )
         return BlockedClientsListResponse(items=items, total=len(items))
-
-    def get_client_blocks_for_sync(self) -> ClientBlockSyncResponse:
-        blocks = self.block_repo.list_active_for_sync()
-        by_device: dict[int, ClientBlockSyncEntry] = {}
-        for block in blocks:
-            device = block.device
-            if not device or not device.mac_address:
-                continue
-            tag = f"te_device_{device.id}"
-            entry = by_device.get(device.id)
-            if not entry:
-                entry = ClientBlockSyncEntry(
-                    device_id=device.id,
-                    mac_address=device.mac_address,
-                    tag=tag,
-                    domains=[],
-                )
-                by_device[device.id] = entry
-            if block.domain not in entry.domains:
-                entry.domains.append(block.domain)
-        return ClientBlockSyncResponse(entries=list(by_device.values()))

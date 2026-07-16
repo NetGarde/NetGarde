@@ -78,14 +78,6 @@ def test_client_blocks_list_and_revoke(api_client, vpn_device, db_session):
     assert revoked.json()["revoked"] is True
 
 
-def test_client_blocks_sync_endpoint(api_client, dns_ingest_env, vpn_device, db_session):
-    create_behavior_block(db_session, vpn_device, domain="sync.test")
-    response = api_client.get("/devices/client-blocks/sync")
-    assert response.status_code == 200
-    body = response.json()
-    assert "entries" in body
-
-
 def test_create_client_block_manual(api_client, vpn_device):
     response = api_client.post(
         f"/devices/{vpn_device.id}/client-blocks",
@@ -102,7 +94,7 @@ def test_create_client_block_manual(api_client, vpn_device):
 
 
 def test_start_and_end_quarantine(
-    api_client, vpn_device, db_session, mock_host_dns_sync, mock_host_client_block, dns_blocking_env
+    api_client, vpn_device, db_session, mock_host_client_block
 ):
     start = api_client.post(
         f"/devices/{vpn_device.id}/quarantine",
@@ -130,7 +122,7 @@ def test_start_and_end_quarantine(
     assert assignment2.json()["in_quarantine"] is False
 
 
-def test_quarantine_requires_vpn_ip(api_client, db_session, dns_blocking_env):
+def test_quarantine_requires_vpn_ip(api_client, db_session):
     from app.features.devices.models.device import Device
 
     device = Device(ip_lease_id=999999, hostname="no-lease", mac_address="aa:bb:cc:dd:ee:99", source="manual")

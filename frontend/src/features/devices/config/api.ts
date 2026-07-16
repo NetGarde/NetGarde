@@ -15,7 +15,7 @@ import {
   AppUsageSummaryResponse,
   AppUsageHourlyListResponse,
 } from '../types/device';
-import { DevicePolicyAssignment } from '../../policy/types/policy';
+import { DevicePolicyAssignment } from '../types/device';
 import { UsageHistoryResponse } from '../../dashboard/types/usageHistory';
 import { DeviceUsageLiveResponse } from '../../dashboard/types/usageLive';
 

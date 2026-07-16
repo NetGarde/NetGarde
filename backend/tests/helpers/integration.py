@@ -2,26 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any, Optional
-
-
-def dns_query_payload(
-    *,
-    client_ip: str = "10.0.0.10",
-    domain: str = "blocked.test",
-    blocked: bool = True,
-    timestamp: Optional[datetime] = None,
-    **extra: Any,
-) -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "timestamp": (timestamp or datetime.now(timezone.utc)).isoformat(),
-        "client_ip": client_ip,
-        "domain": domain,
-        "blocked": blocked,
-    }
-    payload.update(extra)
-    return payload
 
 
 def enroll_payload(

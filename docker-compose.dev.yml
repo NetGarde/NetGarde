@@ -61,9 +61,6 @@ services:
       LOG_SERVICE: backend
       ENVIRONMENT: development
       USAGE_REDIS_ENABLED: "true"
-      POLICY_PACK_SNAPSHOT_DIR: /var/lib/trustedge/policy-snapshots
-      POLICY_PACK_FETCH_ENABLED: "${POLICY_PACK_FETCH_ENABLED:-false}"
-      POLICY_PACK_REFRESH_ON_STARTUP: "${POLICY_PACK_REFRESH_ON_STARTUP:-false}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +68,6 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - trustedge-dev-policy-snapshots:/var/lib/trustedge/policy-snapshots
     command: >
       bash -c "
       alembic upgrade head &&
@@ -165,6 +161,5 @@ services:
 
 volumes:
   trustedge-dev-pg:
-  trustedge-dev-policy-snapshots:
   trustedge-dev-agent-data:
   trustedge-dev-redpanda-data:

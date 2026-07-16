@@ -46,11 +46,6 @@ def unblock_client_on_host(*, client_ip: str) -> None:
     _post_wg_agent("/v1/unblock-client", {"client_ip": client_ip})
 
 
-def sync_dns_policy_on_host() -> None:
-    """Run host run-sync.sh: pull /policy/dns-sync and reload dnsmasq."""
-    _post_wg_agent("/v1/sync-dns-policy", {}, timeout_sec=120)
-
-
 def _post_wg_agent(path: str, payload: dict, *, timeout_sec: int = 5) -> None:
     base = (settings.WG_AGENT_URL or "").strip().rstrip("/")
     token = (settings.WG_AGENT_TOKEN or "").strip()

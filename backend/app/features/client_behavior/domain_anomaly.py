@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Set
+from typing import List, Optional, Set
 
 from app.shared.domain_utils import extract_root_domain
 
@@ -23,7 +23,7 @@ SUSPICIOUS_TLDS: Set[str] = {
 _ENTROPY_LABEL = re.compile(r"^[a-z0-9]{16,}$", re.IGNORECASE)
 
 
-def matched_suspicious_tld(root_domain: str) -> str | None:
+def matched_suspicious_tld(root_domain: str) -> Optional[str]:
     root = root_domain.lower()
     for tld in sorted(SUSPICIOUS_TLDS, key=len, reverse=True):
         if root.endswith(tld):

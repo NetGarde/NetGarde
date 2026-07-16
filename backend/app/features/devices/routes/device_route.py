@@ -11,7 +11,6 @@ from app.features.client_behavior.schemas.behavior import (
     BehaviorReviewRead,
     BehaviorRecomputeResult,
     BlockedClientsListResponse,
-    ClientBlockSyncResponse,
     ClientBlockedDomainCreate,
     ClientBlockedDomainRead,
     DeviceSecurityPolicyRead,
@@ -191,34 +190,12 @@ def sync_dhcp_endpoint(
     return sync_dhcp_leases_controller(payload, db, service)
 
 
-@router.get("/client-blocks/sync", response_model=ClientBlockSyncResponse)
-def client_blocks_sync_endpoint(
-    _: None = Depends(verify_dns_ingest_service),
-    db: Session = Depends(get_db),
-):
-    """Legacy alias; use GET /policy/dns-sync. Returns block domains only (no quarantine allowlist)."""
-    from app.features.client_behavior.schemas.behavior import ClientBlockSyncEntry
-    from app.features.policy.services.policy_dns_service import PolicyDnsService
-
-    sync = PolicyDnsService(db).build_dns_sync()
-    entries = [
-        ClientBlockSyncEntry(
-            device_id=e.device_id,
-            mac_address=e.mac_address,
-            tag=e.tag,
-            domains=e.block_domains if not e.allowlist_only else e.allowlist_domains,
-        )
-        for e in sync.entries
-    ]
-    return ClientBlockSyncResponse(entries=entries)
-
-
 @router.get("/blocked-clients", response_model=BlockedClientsListResponse)
 def list_blocked_clients_endpoint(
     _: None = Depends(verify_admin_api_token),
     behavior: ClientBehaviorApiService = Depends(get_client_behavior_service),
 ):
-    """Devices with active quarantine or per-device DNS blocks."""
+    """Devices with active quarantine or per-device domain blocks."""
     return behavior.list_blocked_clients()
 
 
@@ -376,7 +353,7 @@ def start_device_quarantine_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: PolicyService = Depends(get_policy_service),
 ):
-    """Block all client network access (VPN iptables drop + full DNS deny) for the given duration."""
+    """Block all client network access (VPN iptables drop) for the given duration."""
     return service.start_device_quarantine(device_id, hours=body.hours)
 
 
