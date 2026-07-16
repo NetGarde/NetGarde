@@ -236,6 +236,19 @@ function DetailFields({ detail }: { detail: AlertDetail }) {
   );
 }
 
+function MetaField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <Typography variant="caption" color="text.secondary" component="span" sx={{ display: 'inline-flex', gap: 0.5 }}>
+      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600 }}>
+        {label}
+      </Box>
+      <Box component="span" sx={mono ? { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' } : undefined}>
+        {value}
+      </Box>
+    </Typography>
+  );
+}
+
 function AlertRow({
   alert,
   expanded,
@@ -266,22 +279,10 @@ function AlertRow({
           }
           secondary={
             <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-              <Typography variant="caption" color="text.secondary">
-                {formatShortDateTime(alert.timestamp)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                {alert.device_id}
-              </Typography>
-              {alert.event_type && (
-                <Typography variant="caption" color="text.secondary">
-                  {alert.event_type}
-                </Typography>
-              )}
-              {alert.event_id && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                  {alert.event_id}
-                </Typography>
-              )}
+              <MetaField label="Time" value={formatShortDateTime(alert.timestamp)} />
+              <MetaField label="Device" value={alert.device_id} mono />
+              {alert.event_type ? <MetaField label="Event" value={alert.event_type} /> : null}
+              {alert.event_id ? <MetaField label="Event ID" value={alert.event_id} mono /> : null}
             </Stack>
           }
         />
