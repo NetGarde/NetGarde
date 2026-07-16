@@ -27,3 +27,9 @@ export type SecurityAlertListParams = {
   alert_type?: string;
   device_id?: string;
 };
+
+export type SecurityAlertExplainResponse = {
+  explanation: string;
+  model: string;
+  source: string;
+};

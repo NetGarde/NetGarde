@@ -13,11 +13,15 @@ import CircularProgress from '@mui/material/CircularProgress';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Collapse from '@mui/material/Collapse';
+import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { useMemo, useState } from 'react';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { useMemo, useState, type MouseEvent } from 'react';
+import { twinApi } from '../features/twin/config/api';
 import { useSecurityAlerts } from '../features/twin/hooks/useSecurityAlerts';
 import { SecurityAlert } from '../features/twin/types/securityAlert';
 import { formatShortDateTime } from '../shared/utils/dateUtils';
@@ -249,6 +253,55 @@ function MetaField({ label, value, mono = false }: { label: string; value: strin
   );
 }
 
+function AlertMetadata({ alert }: { alert: SecurityAlert }) {
+  const entries: Array<[string, string]> = [
+    ['Device', alert.device_id],
+    ...(alert.event_type ? [['Event', alert.event_type] as [string, string]] : []),
+    ...(alert.event_id ? [['Event ID', alert.event_id] as [string, string]] : []),
+  ];
+
+  if (entries.length === 0) return null;
+
+  return (
+    <Stack spacing={0.75}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Alert metadata
+      </Typography>
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: 'grid',
+          gridTemplateColumns: 'max-content 1fr',
+          columnGap: 1.5,
+          rowGap: 0.5,
+        }}
+      >
+        {entries.map(([key, value]) => (
+          <Box key={key} sx={{ display: 'contents' }}>
+            <Typography component="dt" variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              {key}
+            </Typography>
+            <Typography
+              component="dd"
+              variant="body2"
+              sx={{
+                m: 0,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                fontSize: '0.75rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {value}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Stack>
+  );
+}
+
 function AlertRow({
   alert,
   expanded,
@@ -262,10 +315,33 @@ function AlertRow({
   const severity = SEVERITY_COLOR[alert.severity] || 'default';
   const detail = parseDetail(alert.detail);
   const hasDetail = detail != null;
+  const hasMetadata = Boolean(alert.device_id || alert.event_type || alert.event_id);
+  const canExpand = hasDetail || hasMetadata;
+  const [explaining, setExplaining] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explainModel, setExplainModel] = useState<string | null>(null);
+  const [explainError, setExplainError] = useState<string | null>(null);
+
+  const handleExplain = async (event: MouseEvent) => {
+    event.stopPropagation();
+    setExplaining(true);
+    setExplainError(null);
+    try {
+      const result = await twinApi.explainAlert(alert);
+      setExplanation(result.explanation);
+      setExplainModel(result.model);
+    } catch (err) {
+      setExplanation(null);
+      setExplainModel(null);
+      setExplainError(err instanceof Error ? err.message : 'Failed to explain alert');
+    } finally {
+      setExplaining(false);
+    }
+  };
 
   return (
     <Box>
-      <ListItemButton onClick={hasDetail ? onToggle : undefined} sx={{ py: 1, px: 2, alignItems: 'flex-start' }}>
+      <ListItemButton onClick={canExpand ? onToggle : undefined} sx={{ py: 1, px: 2, alignItems: 'flex-start' }}>
         <ListItemText
           primary={
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -274,26 +350,58 @@ function AlertRow({
               <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 160 }}>
                 {alert.message || label}
               </Typography>
-              {hasDetail && (expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />)}
+              {canExpand && (expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />)}
             </Stack>
           }
           secondary={
             <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
               <MetaField label="Time" value={formatShortDateTime(alert.timestamp)} />
-              <MetaField label="Device" value={alert.device_id} mono />
-              {alert.event_type ? <MetaField label="Event" value={alert.event_type} /> : null}
-              {alert.event_id ? <MetaField label="Event ID" value={alert.event_id} mono /> : null}
             </Stack>
           }
         />
       </ListItemButton>
-      {hasDetail && (
+      {canExpand && (
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           <Box sx={{ px: 2, pb: 1.5, pt: 0.5 }}>
             <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
               <Stack spacing={1.5}>
-                <ProcessChainView detail={detail} />
-                <DetailFields detail={detail} />
+                <AlertMetadata alert={alert} />
+                {detail ? <ProcessChainView detail={detail} /> : null}
+                {detail ? <DetailFields detail={detail} /> : null}
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={explaining ? <CircularProgress size={14} /> : <AutoAwesomeIcon />}
+                    onClick={handleExplain}
+                    disabled={explaining}
+                  >
+                    {explaining ? 'Explaining…' : 'Explain with Ollama'}
+                  </Button>
+                  {explainModel ? (
+                    <Typography variant="caption" color="text.secondary">
+                      Model: {explainModel}
+                    </Typography>
+                  ) : null}
+                </Stack>
+                {explainError ? (
+                  <Alert severity="error" onClose={() => setExplainError(null)}>
+                    {explainError}
+                  </Alert>
+                ) : null}
+                {explanation ? (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                      AI explanation
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{ mt: 0.5, whiteSpace: 'pre-wrap', lineHeight: 1.55 }}
+                    >
+                      {explanation}
+                    </Typography>
+                  </Box>
+                ) : null}
               </Stack>
             </Paper>
           </Box>

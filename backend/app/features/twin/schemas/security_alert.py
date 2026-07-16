@@ -43,3 +43,21 @@ class SecurityAlertListResponse(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class SecurityAlertExplainRequest(BaseModel):
+    timestamp: datetime
+    device_id: str = Field(min_length=1, max_length=64)
+    event_id: Optional[str] = Field(default=None, max_length=64)
+    event_type: Optional[str] = Field(default=None, max_length=32)
+    alert_type: str = Field(min_length=1, max_length=64)
+    severity: str = Field(default="medium", max_length=16)
+    message: Optional[str] = None
+    detail: Optional[str] = None
+    fingerprint: Optional[str] = Field(default=None, max_length=64)
+
+
+class SecurityAlertExplainResponse(BaseModel):
+    explanation: str
+    model: str
+    source: str = "ollama"
