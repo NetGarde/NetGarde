@@ -210,3 +210,63 @@ def test_list_security_alerts_filter_severity(api_client, db_session, ingest_env
     assert body["total"] >= 1
     assert all(item["severity"] == "high" for item in body["items"])
     assert all(item["alert_type"] == "temp_path_execution" for item in body["items"])
+
+
+def test_ingest_noop_when_detection_engine_is_source(api_client, db_session, ingest_env, monkeypatch):
+    monkeypatch.setattr(
+        "app.shared.config.settings.DETECTION_ENGINE_URL",
+        "http://detection-engine:9090",
+    )
+    ts = datetime(2026, 7, 11, 15, 0, 0, tzinfo=timezone.utc).isoformat()
+    ingest = api_client.post(
+        "/security/alerts/ingest",
+        json=[
+            {
+                "timestamp": ts,
+                "device_id": "dev_engine_mode",
+                "alert_type": "temp_path_execution",
+                "severity": "high",
+                "message": "should not persist",
+            }
+        ],
+    )
+    assert ingest.status_code == 200
+    assert ingest.json()["created"] == 0
+
+
+def test_list_proxies_detection_engine(api_client, monkeypatch):
+    from app.features.twin.schemas.security_alert import SecurityAlertListResponse, SecurityAlertResponse
+
+    ts = datetime(2026, 7, 11, 16, 0, 0, tzinfo=timezone.utc)
+
+    def fake_fetch(**_kwargs):
+        return SecurityAlertListResponse(
+            items=[
+                SecurityAlertResponse(
+                    id=1,
+                    timestamp=ts,
+                    device_id="dev_proxy",
+                    alert_type="shell_spawns_downloader",
+                    severity="high",
+                    message="from engine",
+                )
+            ],
+            total=1,
+            page=1,
+            page_size=50,
+            pages=1,
+        )
+
+    monkeypatch.setattr(
+        "app.features.twin.services.security_alert_service.fetch_security_alerts",
+        fake_fetch,
+    )
+    monkeypatch.setattr(
+        "app.shared.config.settings.DETECTION_ENGINE_URL",
+        "http://detection-engine:9090",
+    )
+    response = api_client.get("/security/alerts?device_id=dev_proxy")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["message"] == "from engine"

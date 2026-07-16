@@ -60,6 +60,7 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_SERVICE: backend
       ENVIRONMENT: development
+      DETECTION_ENGINE_URL: ${DETECTION_ENGINE_URL:-http://detection-engine:9090}
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,6 +114,8 @@ services:
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
       KAFKA_GROUP_ID: detection-engine
+      ALERT_API_PORT: "9090"
+      TRUSTEDGE_POST_ALERTS_TO_BACKEND: "0"
       API_BASE_URL: http://backend:8000
       TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
       LOG_JSON: "1"

@@ -10,7 +10,7 @@ Component topology and data flows for the TrustEdge **security observability pla
   <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="assets/architecture.png" />
 </p>
 
-**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine → alerts ingest (`/security/alerts/ingest`) → FastAPI → React dashboard.
+**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine (in-memory alerts + `GET /alerts`) → FastAPI `GET /security/alerts` (proxy) → React dashboard.
 
 ---
 

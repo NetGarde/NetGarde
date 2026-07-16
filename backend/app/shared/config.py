@@ -36,6 +36,9 @@ class Settings(BaseSettings):
         """Parse CORS_ORIGINS string into a list."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
+    # Detection-engine in-memory alert API (GET /alerts); empty = read from Postgres.
+    DETECTION_ENGINE_URL: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

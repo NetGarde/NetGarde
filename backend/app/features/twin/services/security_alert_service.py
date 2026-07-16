@@ -11,6 +11,8 @@ from app.features.twin.schemas.security_alert import (
     SecurityAlertListResponse,
     SecurityAlertResponse,
 )
+from app.features.twin.services.detection_engine_client import fetch_security_alerts
+from app.shared.config import settings
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
 
@@ -61,6 +63,10 @@ class SecurityAlertService:
         self.repo = SecurityAlertRepository(db)
 
     def ingest(self, alerts: list[SecurityAlertCreate]) -> int:
+        if settings.DETECTION_ENGINE_URL.strip():
+            # Alerts are kept in the detection-engine process; do not persist to Postgres.
+            return 0
+
         created = 0
         skipped = 0
         seen_in_batch: set[str] = set()
@@ -110,6 +116,15 @@ class SecurityAlertService:
         device_id: Optional[str] = None,
         severity: Optional[str] = None,
     ) -> SecurityAlertListResponse:
+        if settings.DETECTION_ENGINE_URL.strip():
+            return fetch_security_alerts(
+                page=page,
+                page_size=page_size,
+                alert_type=alert_type,
+                device_id=device_id,
+                severity=severity,
+            )
+
         items, total = self.repo.get_recent(
             page=page,
             page_size=page_size,

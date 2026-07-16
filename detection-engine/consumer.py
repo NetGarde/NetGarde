@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TrustEdge Agent event consumer — evaluates rules and posts security alerts to the API."""
+"""TrustEdge Agent event consumer — evaluates rules and serves recent alerts over HTTP."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 import time
 from typing import Any
 
@@ -15,7 +16,9 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 
 from api_client import post_alerts
+from http_api import serve_forever
 from log_config import setup_logging, structured_extra
+from recent_alerts import append as remember_alert
 from rules.engine import evaluate_event
 from rules.state import StateStore
 
@@ -83,6 +86,10 @@ def _mark_seen(fingerprint: str, now: float) -> bool:
     return True
 
 
+def _post_alerts_to_backend() -> bool:
+    return _env("TRUSTEDGE_POST_ALERTS_TO_BACKEND", "0").lower() in ("1", "true", "yes")
+
+
 def _process_event(raw: str) -> None:
     try:
         payload = json.loads(raw)
@@ -116,8 +123,11 @@ def _process_event(raw: str) -> None:
     if not fresh:
         return
 
-    api_alerts = [alert.to_api() for alert in fresh]
+    api_alerts = []
     for alert in fresh:
+        api = alert.to_api()
+        remember_alert(api)
+        api_alerts.append(api)
         LOG.warning(
             "security alert raised",
             extra=structured_extra(
@@ -127,12 +137,16 @@ def _process_event(raw: str) -> None:
                 severity=alert.severity,
             ),
         )
-    post_alerts(api_alerts)
+    if _post_alerts_to_backend() and api_alerts:
+        post_alerts(api_alerts)
 
 
 def run() -> int:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    api_thread = threading.Thread(target=serve_forever, name="alert-api", daemon=True)
+    api_thread.start()
 
     retries = 0
     consumer: KafkaConsumer | None = None
