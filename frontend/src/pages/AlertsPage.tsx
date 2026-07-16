@@ -239,7 +239,7 @@ export default function AlertsPage() {
             Alerts
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            High-severity detection findings from the rules engine. Expand an alert to see linked
+            Detection findings from the rules engine (all severities). Expand an alert to see linked
             process or network evidence.
           </Typography>
         </Box>
