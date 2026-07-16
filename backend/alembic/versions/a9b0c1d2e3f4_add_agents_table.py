@@ -1,11 +1,13 @@
 """add_agents_table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: a9b0c1d2e3f4
 Revises: z1a2b3c4d5e6
-Create Date: 2026-07-16 14:40:00.000000
+Create Date: 2026-07-16 14:45:00.000000
 
 Durable registry of TrustEdge Agent installs. Primary identity is agent_id
 (same as the agent's local device_id); hostname is mutable metadata.
+
+Note: revision id a1b2c3d4e5f6 was already taken by create_dns_queries_table.
 """
 
 from typing import Sequence, Union
@@ -13,7 +15,7 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "a9b0c1d2e3f4"
 down_revision: Union[str, Sequence[str], None] = "z1a2b3c4d5e6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
