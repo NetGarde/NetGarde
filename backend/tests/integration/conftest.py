@@ -22,9 +22,3 @@ def api_client(db_session, monkeypatch):
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def device_token_env(monkeypatch):
-    """Enable device-token auth (network attribution, etc.) in tests."""
-    monkeypatch.setattr("app.shared.config.settings.DEVICE_TOKEN_SECRET", "test-device-token-secret")

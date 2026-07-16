@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.features.dashboard.schemas.network_overview import NetworkOverviewRead, NetworkOverviewStats
 from app.features.dashboard.services import network_overview_cache
 from app.features.dashboard.services.overview_templates import build_network_overview_bullets
-from app.features.devices.models.device import Device
-from app.features.twin.models.twin_alert import TwinAlert
+from app.features.twin.services import trusttwin_store
 from app.shared.config import settings
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
@@ -38,7 +36,7 @@ class NetworkOverviewService:
             reporting_clients=int(snapshot["live"]["reporting"]),
             live_total_mib_per_sec=0.0,
             peak_mib_per_sec=0.0,
-            alerts_total=int(snapshot["alerts"]["total"]),
+            alerts_total=0,
         )
 
         overview = NetworkOverviewRead(
@@ -58,32 +56,17 @@ class NetworkOverviewService:
         return overview
 
     def _build_snapshot(self, *, period: int, now: datetime) -> dict[str, Any]:
-        since = now - timedelta(minutes=period)
-
-        # Devices seen recently (optional last_seen_at) or created in window as a proxy.
-        reporting = (
-            self.db.query(Device)
-            .filter(
-                (Device.last_seen_at.isnot(None) & (Device.last_seen_at >= since))
-                | ((Device.last_seen_at.is_(None)) & (Device.updated_at >= since))
-            )
-            .count()
-        )
-
-        alert_rows = (
-            self.db.query(TwinAlert.alert_type, func.count(TwinAlert.id))
-            .filter(TwinAlert.timestamp >= since)
-            .group_by(TwinAlert.alert_type)
-            .all()
-        )
-        alerts_by_type = {alert_type: int(count) for alert_type, count in alert_rows}
-        alerts_total = sum(alerts_by_type.values())
+        cutoff = now - timedelta(minutes=period)
+        reporting = 0
+        for row in trusttwin_store.list_latest():
+            if row.last_seen_at and row.last_seen_at >= cutoff:
+                reporting += 1
 
         return {
             "period_minutes": period,
             "live": {"reporting": reporting, "total_mib_per_sec": 0.0},
             "history": {"peak_mib_per_sec": 0.0},
-            "alerts": {"total": alerts_total, "by_type": alerts_by_type},
+            "alerts": {"total": 0, "by_type": {}},
         }
 
     def _resolve_review(

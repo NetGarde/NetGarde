@@ -12,10 +12,6 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # Device identity tokens (HMAC) for device-authenticated APIs
-    DEVICE_TOKEN_SECRET: str = ""
-    DEVICE_TOKEN_TTL_DAYS: int = 365
-
     # Admin identity: dashboard APIs
     ADMIN_API_TOKEN: str = ""
 
@@ -36,18 +32,10 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_SEC: float = 180.0
 
     @property
-    def device_token_secret(self) -> str:
-        return self.DEVICE_TOKEN_SECRET.strip()
-
-    @property
-    def DEVICE_TOKEN_TTL_SECONDS(self) -> int:
-        days = max(1, int(self.DEVICE_TOKEN_TTL_DAYS))
-        return days * 24 * 60 * 60
-    @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS_ORIGINS string into a list."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-    
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
