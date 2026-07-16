@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { devicesApi } from '../../devices/config/api';
 import { NetworkMapResponse } from '../../network-map/types/networkMap';
 import { projectAttributionGraph } from '../projections/projectGraph';
 import {
@@ -19,18 +18,9 @@ export function useTwinGraph(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadDeviceIndex = useCallback(async () => {
-    try {
-      await devicesApi.list();
-    } catch {
-      // keep prior state
-    }
-  }, []);
-
   const load = useCallback(async () => {
     setError(null);
     try {
-      await loadDeviceIndex();
       const response = await fetchTwinGraphSnapshot(minutes, includeFlows);
       setSnapshot(response);
       setAttribution(projectAttributionGraph(response));
@@ -39,7 +29,7 @@ export function useTwinGraph(
     } finally {
       setLoading(false);
     }
-  }, [minutes, includeFlows, loadDeviceIndex]);
+  }, [minutes, includeFlows]);
 
   useEffect(() => {
     load();

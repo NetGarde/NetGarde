@@ -14,8 +14,6 @@ import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import HubIcon from '@mui/icons-material/Hub';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
-import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import './MenuContent.css';
 
 const mainListItems = [
@@ -24,10 +22,6 @@ const mainListItems = [
 
 const digitalTwinItems = [
   { text: 'Network map', icon: <HubIcon />, path: '/network-map', iconClass: 'networkMapIcon' },
-];
-
-const analyticsItems = [
-  { text: 'Client profiles', icon: <DevicesOtherIcon />, path: '/client-profiles', iconClass: 'clientProfilesIcon' },
 ];
 
 const secondaryListItems: typeof mainListItems = [];
@@ -40,7 +34,6 @@ export default function MenuContent({ open = true }: MenuContentProps) {
   const theme = useTheme();
   const location = useLocation();
   const [digitalTwinOpen, setDigitalTwinOpen] = useState(true);
-  const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const navItemSx = sidebarNavItemSx(theme);
   const nestedNavItemSx = sidebarNavItemSx(theme, true);
   const sectionSx = sidebarSectionButtonSx(theme);
@@ -50,13 +43,9 @@ export default function MenuContent({ open = true }: MenuContentProps) {
     if (hasSelectedChild) {
       setDigitalTwinOpen(true);
     }
-    const hasSelectedAnalytics = analyticsItems.some((item) => location.pathname === item.path);
-    if (hasSelectedAnalytics) {
-      setAnalyticsOpen(true);
-    }
   }, [location.pathname]);
 
-  const renderNavItem = (item: typeof mainListItems[0], index: number) => {
+  const renderNavItem = (item: (typeof mainListItems)[0], index: number) => {
     const isSelected = location.pathname === item.path;
     const button = (
       <ListItemButton
@@ -175,35 +164,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
           </>
         )}
 
-        {open && (
-          <>
-            <ListItem disablePadding sx={{ display: 'block' }}>
-              <ListItemButton onClick={() => setAnalyticsOpen(!analyticsOpen)} sx={sectionSx}>
-                <ListItemIcon className="menuIcon" sx={{ minWidth: 40, justifyContent: 'flex-start' }}>
-                  <AnalyticsIcon />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Analytics"
-                  sx={{ color: 'text.secondary' }}
-                  primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 400 }}
-                />
-                {analyticsOpen ? <ExpandLess /> : <ExpandMore />}
-              </ListItemButton>
-            </ListItem>
-            <Collapse in={analyticsOpen} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding dense>
-                {renderSectionItems(analyticsItems)}
-              </List>
-            </Collapse>
-          </>
-        )}
-
-        {!open && (
-          <>
-            {renderSectionItems(digitalTwinItems, false)}
-            {renderSectionItems(analyticsItems, false)}
-          </>
-        )}
+        {!open && renderSectionItems(digitalTwinItems, false)}
       </List>
       <List dense sx={{ px: 0 }}>
         {secondaryListItems.map((item, index) => renderNavItem(item, index))}

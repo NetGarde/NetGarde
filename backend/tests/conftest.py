@@ -8,11 +8,6 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("DB_URL", "sqlite:///:memory:")
 
 from app.shared.database import Base
-from tests.helpers.factories import create_device
-
-# Register all models on Base.metadata (required for create_all FK resolution)
-from app.features.devices.models.device import Device  # noqa: F401
-from app.features.twin.models.twin_alert import TwinAlert  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
@@ -37,11 +32,6 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture
-def sample_device(db_session):
-    return create_device(db_session)
 
 
 @pytest.fixture

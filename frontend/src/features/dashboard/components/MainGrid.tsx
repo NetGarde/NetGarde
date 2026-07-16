@@ -2,7 +2,6 @@ import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Copyright from '../internals/components/Copyright';
-import AttackAlertsView from './AttackAlertsView';
 import ConnectedAgentsView from './ConnectedAgentsView';
 import NetworkOverviewCard from './NetworkOverviewCard';
 
@@ -16,13 +15,10 @@ export default function MainGrid() {
       <NetworkOverviewCard />
 
       <Typography component="h2" variant="h6" sx={{ mt: 4, mb: 2 }}>
-        Security signals
+        Agents
       </Typography>
       <Grid container spacing={2} columns={12}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <AttackAlertsView />
-        </Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
+        <Grid size={{ xs: 12 }}>
           <ConnectedAgentsView />
         </Grid>
       </Grid>

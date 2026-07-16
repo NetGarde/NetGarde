@@ -77,14 +77,9 @@ DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, li
 
 - **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, and RCA. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
 
-### Devices & clients
+### Agents
 
-- **Device** — An endpoint identified by `external_id` (agent device id), optional hostname/MAC.
-
-### Alerts
-
-- Detection-engine posts to `POST /security/alerts/ingest`.
-- Dashboard shows attack alerts; rows live in `twin_alerts` via `app.features.twin`.
+- Live agent identity and posture live in Redis (`twin:devices`, `twin:device:{id}:*`), not Postgres.
 
 ---
 
@@ -203,8 +198,7 @@ backend/app/
 ├── main.py                 # App factory, middleware, router registration
 ├── shared/                 # DB, config, auth, errors, logging, Redis, WebSocket
 └── features/               # Vertical domain modules
-    ├── devices/
-    ├── twin/               # Detection alerts (twin_alerts) + agent twin
+    ├── twin/               # Live agents (Redis) + security graph
     ├── dashboard/
     └── network_flows/
 ```
@@ -221,7 +215,6 @@ Route (FastAPI endpoint, Depends auth + DB)
 
 | Pattern | Features | Notes |
 |---------|----------|-------|
-| Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
 | Thin routes | `dashboard`, `twin`, `network_flows` | Route calls service directly |
 
 **Reference implementation:** `devices` — route → controller/service → repository.
@@ -262,8 +255,6 @@ No global event bus. Services import peer services explicitly:
 
 | Data | Store | Notes |
 |------|-------|-------|
-| Devices | PostgreSQL (RDS) | Identity via `external_id` |
-| Alerts | PostgreSQL (`twin_alerts` via `twin` module) | Detection-engine alerts |
 | Agent live state | Redis | Twin / connected agents |
 | Agent events | Kafka / Redis (Agent API) | Upstream of detection-engine |
 

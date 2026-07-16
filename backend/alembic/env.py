@@ -8,9 +8,7 @@ from alembic import context
 from app.shared.config import settings
 from app.shared.database import Base
 
-# Import all models so Alembic can detect them
-from app.features.devices.models.device import Device  # noqa: F401
-from app.features.twin.models.twin_alert import TwinAlert  # noqa: F401
+# No ORM domain models remain; Base.metadata stays empty intentionally.
 
 
 config = context.config

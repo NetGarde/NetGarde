@@ -11,7 +11,6 @@ import os
 from app.shared.request_logging_middleware import RequestLoggingMiddleware
 from app.shared.utils.logging import setup_logging
 from app.shared.dependencies import get_db
-from app.features.devices.routes.device_route import router as device_router
 from app.features.dashboard.routes.dashboard_route import router as dashboard_router
 from app.features.network_flows.routes.network_flow_route import router as network_flow_router
 from app.features.twin.routes.twin_route import router as twin_router
@@ -122,7 +121,6 @@ def health(db: Session = Depends(get_db)):
     return {"status": "ok"}
 
 # Include routers
-app.include_router(device_router)
 app.include_router(twin_router)
 app.include_router(network_flow_router)
 app.include_router(dashboard_router)
