@@ -16,6 +16,7 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `POST` | `/internal/agents/upsert` | Upsert agent from Agent-API (`TRUSTEDGE_INGEST_TOKEN`) |
 | **Security observability** | | |
 | `GET` | `/security/alerts` | Recent detection alerts (proxies detection-engine `GET /alerts` when `DETECTION_ENGINE_URL` is set; otherwise Postgres) |
+| `POST` | `/security/alerts/explain` | Explain an alert with the local Ollama model (admin token) |
 | `POST` | `/security/alerts/ingest` | Legacy ingest from detection-engine (no-op when `DETECTION_ENGINE_URL` is set) |
 | `GET` | `/security/agents` | Live agent presence from Redis (optional) |
 | **Network flows** | | |

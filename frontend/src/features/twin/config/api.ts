@@ -1,6 +1,11 @@
 import { getAdminAuthHeaders } from '../../../shared/utils/authHeaders';
 import { API_BASE_URL } from '../../../shared/config/apiBaseUrl';
-import { SecurityAlertListParams, SecurityAlertListResponse } from '../types/securityAlert';
+import {
+  SecurityAlert,
+  SecurityAlertExplainResponse,
+  SecurityAlertListParams,
+  SecurityAlertListResponse,
+} from '../types/securityAlert';
 import { ConnectedAgentListResponse } from '../types/connectedAgent';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -33,6 +38,22 @@ function listAlertsQuery(params: SecurityAlertListParams = {}): string {
 export const twinApi = {
   listAlerts: (params?: SecurityAlertListParams) =>
     apiFetch<SecurityAlertListResponse>(listAlertsQuery(params)),
+  explainAlert: (alert: SecurityAlert) =>
+    apiFetch<SecurityAlertExplainResponse>('/security/alerts/explain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        timestamp: alert.timestamp,
+        device_id: alert.device_id,
+        event_id: alert.event_id,
+        event_type: alert.event_type,
+        alert_type: alert.alert_type,
+        severity: alert.severity,
+        message: alert.message,
+        detail: alert.detail,
+        fingerprint: alert.fingerprint,
+      }),
+    }),
   listConnectedAgents: (connectedWithinSec = 300) =>
     apiFetch<ConnectedAgentListResponse>(
       `/security/agents?connected_within_sec=${encodeURIComponent(String(connectedWithinSec))}`

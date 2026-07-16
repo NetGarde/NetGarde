@@ -1,10 +1,16 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.features.twin.schemas.connected_agent import ConnectedAgentListResponse
-from app.features.twin.schemas.security_alert import SecurityAlertCreate, SecurityAlertListResponse
+from app.features.twin.schemas.security_alert import (
+    SecurityAlertCreate,
+    SecurityAlertExplainRequest,
+    SecurityAlertExplainResponse,
+    SecurityAlertListResponse,
+)
+from app.features.twin.services.alert_explain_service import explain_security_alert
 from app.features.twin.services.connected_agent_service import ConnectedAgentService
 from app.features.twin.services.security_alert_service import SecurityAlertService
 from app.shared.admin_auth import verify_admin_api_token
@@ -40,6 +46,18 @@ def list_security_alerts(
         device_id=device_id,
         severity=severity,
     )
+
+
+@router.post("/alerts/explain", response_model=SecurityAlertExplainResponse)
+def explain_security_alert_route(
+    body: SecurityAlertExplainRequest,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Ask the local Ollama model to explain a security alert for an operator."""
+    try:
+        return explain_security_alert(body)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.post("/alerts/ingest")
