@@ -25,6 +25,7 @@ PRESENCE_ACTIVE = "active"
 PRESENCE_IDLE = "idle"
 
 from rules.process_rules import PROCESS_RULES
+from rules.security_rules import SECURITY_RULES
 
 
 def _alert(
@@ -549,7 +550,7 @@ def evaluate_chain(chain: DeviceChain) -> list[SecurityAlert]:
     """Run all chain rules; dedupe by alert_type keeping highest severity."""
     severity_rank = {"low": 1, "medium": 2, "high": 3}
     by_type: dict[str, SecurityAlert] = {}
-    all_rules = [*CHAIN_RULES, *PROCESS_RULES]
+    all_rules = [*CHAIN_RULES, *PROCESS_RULES, *SECURITY_RULES]
     for _name, rule in all_rules:
         for alert in rule(chain):
             existing = by_type.get(alert.alert_type)

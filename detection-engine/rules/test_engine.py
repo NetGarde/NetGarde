@@ -38,6 +38,16 @@ def _client_event(device_id: str, ts: str = "2026-07-11T12:00:00Z"):
     }
 
 
+def _security_event(device_id: str, event_type: str, ts: str = "2026-07-11T12:00:00Z", **payload):
+    return {
+        "event_id": f"evt_{event_type}_{ts}",
+        "device_id": device_id,
+        "type": event_type,
+        "ts": ts,
+        "payload": payload,
+    }
+
+
 def test_network_type_change_alert():
     store = StateStore()
     device = "dev_test"
@@ -212,6 +222,59 @@ def test_temp_path_execution_alert():
     )
     types = {a.alert_type for a in alerts}
     assert "temp_path_execution" in types
+
+
+def test_registry_persistence_alert():
+    store = StateStore()
+    alerts = evaluate_event(
+        _security_event(
+            "dev_security",
+            "registry_persistence",
+            value_name="com.example.persist",
+            value="/tmp/persist.sh",
+            path="/Users/test/Library/LaunchAgents/com.example.persist.plist",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "registry_persistence")
+    assert alert.severity == "high"
+    assert "com.example.persist" in alert.message
+    assert alert.detail is not None
+    assert "LaunchAgents" in alert.detail
+
+
+def test_service_install_alert():
+    store = StateStore()
+    alerts = evaluate_event(
+        _security_event(
+            "dev_security",
+            "service_install",
+            name="com.example.daemon",
+            path="/Library/LaunchDaemons/com.example.daemon.plist",
+            service_type="LaunchDaemon",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "service_install")
+    assert alert.severity == "medium"
+    assert "com.example.daemon" in alert.message
+
+
+def test_driver_load_alert():
+    store = StateStore()
+    alerts = evaluate_event(
+        _security_event(
+            "dev_security",
+            "driver_load",
+            name="com.example.driver",
+            service_type="kext",
+            version="1.0",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "driver_load")
+    assert alert.severity == "high"
+    assert "com.example.driver" in alert.message
 
 
 def test_event_burst_fingerprint_shares_cooldown_bucket():

@@ -44,6 +44,9 @@ const TYPE_LABEL: Record<string, string> = {
   network_flap_5m: 'Network flap',
   event_burst: 'Event burst',
   active_ip_churn: 'Active IP churn',
+  driver_load: 'Driver loaded',
+  service_install: 'Service installed',
+  registry_persistence: 'Persistence artifact',
 };
 
 const DETAIL_LABELS: Record<string, string> = {
@@ -70,6 +73,20 @@ const DETAIL_LABELS: Record<string, string> = {
   presence: 'Presence',
   listening_count: 'Listening ports',
   network_events: 'Network events',
+  name: 'Name',
+  display_name: 'Display name',
+  state: 'State',
+  status: 'Status',
+  path: 'Path',
+  service_type: 'Service type',
+  start_mode: 'Start mode',
+  account: 'Account',
+  program: 'Program',
+  hive: 'Hive',
+  key_path: 'Key path',
+  value_name: 'Value name',
+  value: 'Value',
+  version: 'Version',
 };
 
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
