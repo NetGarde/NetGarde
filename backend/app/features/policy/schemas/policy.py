@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DevicePolicyAssignmentRead(BaseModel):
@@ -27,3 +27,14 @@ class PolicyProfileRead(BaseModel):
     quarantine_hours: int
     is_builtin: bool
     model_config = ConfigDict(from_attributes=True)
+
+
+class QuarantineStartRequest(BaseModel):
+    hours: int = Field(default=4, ge=1, le=168)
+
+
+class QuarantineActionResponse(BaseModel):
+    device_id: int
+    in_quarantine: bool
+    quarantine_expires_at: Optional[datetime] = None
+    message: str

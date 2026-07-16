@@ -30,13 +30,6 @@ def test_create_device_via_api(api_client, db_session):
     assert body["hostname"] == "api-created"
 
 
-def test_get_device_login_locations_summary_empty(api_client):
-    response = api_client.get("/devices/login-locations/summary")
-    assert response.status_code == 200
-    body = response.json()
-    assert body["items"] == []
-
-
 def test_assign_policy_profile_to_device(api_client, seed_policy, sample_device):
     response = api_client.put(
         f"/devices/{sample_device.id}/policy-assignment",

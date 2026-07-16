@@ -19,36 +19,6 @@ class Settings(BaseSettings):
     # Admin identity: dashboard APIs
     ADMIN_API_TOKEN: str = ""
 
-    # Client behavior profiles
-    BEHAVIOR_BASELINE_LOOKBACK_DAYS: int = 7
-    # Minimum number of hourly rollup buckets required to mark profile_ready.
-    # If set > 0, this overrides BEHAVIOR_MIN_PROFILE_DAYS.
-    BEHAVIOR_MIN_PROFILE_HOURS: int = 0
-    BEHAVIOR_MIN_PROFILE_DAYS: int = 3
-    BEHAVIOR_MIN_PROFILE_QUERIES: int = 500
-    BEHAVIOR_BASELINE_RECOMPUTE_HOURS: int = 1
-    BEHAVIOR_SCORE_WINDOW_MINUTES: int = 15
-    BEHAVIOR_ALERT_THRESHOLD: int = 70
-    BEHAVIOR_AUTO_BLOCK_THRESHOLD: int = 85
-    BEHAVIOR_AUTO_BLOCK_DEFAULT: bool = False
-    BEHAVIOR_AUTO_BLOCK_TTL_HOURS: int = 24
-    BEHAVIOR_AUTO_BLOCK_DOMAINS_PER_EVENT: int = 5
-    BEHAVIOR_MAX_BLOCKS_PER_DAY: int = 10
-    # Parent-facing behavior text (template | openai | ollama)
-    BEHAVIOR_REVIEW_MODE: str = "template"
-    BEHAVIOR_REVIEW_CACHE_TTL_SEC: int = 300
-    # Alert when a device uses domains associated with a new country/region (ccTLD heuristic)
-    DEVICE_COUNTRY_ALERT_ENABLED: bool = True
-    DEVICE_COUNTRY_ALERT_COOLDOWN_HOURS: int = 24
-
-    # Physical location observations (GeoIP)
-    DEVICE_LOGIN_GEO_ENABLED: bool = True
-    DEVICE_LOGIN_GEO_ALERT_ENABLED: bool = True
-    DEVICE_LOGIN_GEO_ALERT_COOLDOWN_HOURS: int = 24
-    GEOIP_ENABLED: bool = True
-    GEOIP_PROVIDER: str = "ip_api"
-    GEOIP_TIMEOUT_SEC: float = 3.0
-
     # Endpoint network attribution (foreground app → network context)
     NETWORK_ATTRIBUTION_ENABLED: bool = True
     NETWORK_ATTRIBUTION_MAX_AGE_SEC: int = 120
