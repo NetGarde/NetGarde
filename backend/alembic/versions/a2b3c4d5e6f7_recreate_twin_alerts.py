@@ -1,7 +1,7 @@
 """recreate twin_alerts table
 
 Revision ID: a2b3c4d5e6f7
-Revises: z1a2b3c4d5e6
+Revises: a9b0c1d2e3f4
 Create Date: 2026-07-16 18:15:00.000000
 
 Restore durable detection alerts for detection-engine ingest and Alerts UI.
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a2b3c4d5e6f7"
-down_revision: Union[str, Sequence[str], None] = "z1a2b3c4d5e6"
+down_revision: Union[str, Sequence[str], None] = "a9b0c1d2e3f4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
