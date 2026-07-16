@@ -15,8 +15,8 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `GET` | `/agents` | List registered agents (Postgres registry) |
 | `POST` | `/internal/agents/upsert` | Upsert agent from Agent-API (`TRUSTEDGE_INGEST_TOKEN`) |
 | **Security observability** | | |
-| `GET` | `/security/alerts` | Detection / attack alerts |
-| `POST` | `/security/alerts/ingest` | Ingest alerts from detection-engine |
+| `GET` | `/security/alerts` | Recent detection alerts (proxies detection-engine `GET /alerts` when `DETECTION_ENGINE_URL` is set; otherwise Postgres) |
+| `POST` | `/security/alerts/ingest` | Legacy ingest from detection-engine (no-op when `DETECTION_ENGINE_URL` is set) |
 | `GET` | `/security/agents` | Live agent presence from Redis (optional) |
 | **Network flows** | | |
 | `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`TRUSTEDGE_INGEST_TOKEN`) |
