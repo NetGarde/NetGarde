@@ -1,5 +1,5 @@
 def test_graph_snapshot(api_client, seed_policy, vpn_device):
-    response = api_client.get("/twin/graph/snapshot", params={"minutes": 15})
+    response = api_client.get("/security/graph/snapshot", params={"minutes": 15})
     assert response.status_code == 200
     body = response.json()
     assert "nodes" in body
@@ -10,12 +10,12 @@ def test_graph_snapshot(api_client, seed_policy, vpn_device):
 
 
 def test_graph_traverse_from_infra(api_client, seed_policy, vpn_device):
-    snapshot = api_client.get("/twin/graph/snapshot", params={"minutes": 15}).json()
+    snapshot = api_client.get("/security/graph/snapshot", params={"minutes": 15}).json()
     wireguard = next(
         node for node in snapshot["nodes"] if node["id"] == "infra:wireguard"
     )
     response = api_client.post(
-        "/twin/graph/traverse",
+        "/security/graph/traverse",
         params={"minutes": 15},
         json={
             "seed_node_ids": [wireguard["id"]],
@@ -32,7 +32,7 @@ def test_graph_traverse_from_infra(api_client, seed_policy, vpn_device):
 
 def test_graph_neighbors(api_client, seed_policy, vpn_device):
     response = api_client.get(
-        "/twin/graph/neighbors",
+        "/security/graph/neighbors",
         params={"node_id": "infra:dns_resolver", "direction": "both", "minutes": 15},
     )
     assert response.status_code == 200

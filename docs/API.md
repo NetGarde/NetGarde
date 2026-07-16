@@ -12,12 +12,12 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
 | **Security observability** | | |
-| `GET` | `/twin/alerts` | Detection / attack alerts |
-| `POST` | `/twin/alerts/ingest` | Ingest alerts from detection-engine |
-| `GET` | `/twin/graph/snapshot` | Canonical entity/dependency graph (`minutes`, `include_flows`) |
-| `POST` | `/twin/graph/traverse` | Walk dependencies from seed nodes (impact, blast radius, RCA) |
-| `GET` | `/twin/graph/neighbors` | One-hop neighbors of a node (`node_id`, `direction`, optional `relations`, `layers`) |
-| `POST` | `/twin/simulate/command` | Parse natural-language what-if commands (rules + Ollama fallback) |
+| `GET` | `/security/alerts` | Detection / attack alerts |
+| `POST` | `/security/alerts/ingest` | Ingest alerts from detection-engine |
+| `GET` | `/security/graph/snapshot` | Canonical entity/dependency graph (`minutes`, `include_flows`) |
+| `POST` | `/security/graph/traverse` | Walk dependencies from seed nodes (impact, blast radius, RCA) |
+| `GET` | `/security/graph/neighbors` | One-hop neighbors of a node (`node_id`, `direction`, optional `relations`, `layers`) |
+| `POST` | `/security/simulate/command` | Parse natural-language what-if commands (rules + Ollama fallback) |
 | **Devices** | | |
 | `GET` | `/devices` | List devices |
 | `GET` | `/devices/blocked-clients` | Devices with active quarantine |

@@ -20,7 +20,7 @@ def post_alerts(alerts: list[dict[str, Any]]) -> bool:
         return True
     base = _env("API_BASE_URL", "http://backend:8000").rstrip("/")
     token = _env("DNS_INGEST_TOKEN", "")
-    url = f"{base}/twin/alerts/ingest"
+    url = f"{base}/security/alerts/ingest"
     body = json.dumps(alerts).encode("utf-8")
     headers = {"Content-Type": "application/json"}
     if token:

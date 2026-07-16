@@ -21,7 +21,7 @@ from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
 from app.shared.service_auth import verify_dns_ingest_service
 
-router = APIRouter(prefix="/twin", tags=["Security Observability"])
+router = APIRouter(prefix="/security", tags=["Security Observability"])
 
 
 def get_twin_graph_service(db: Session = Depends(get_db)) -> TwinGraphService:

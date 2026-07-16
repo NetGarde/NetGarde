@@ -6,35 +6,19 @@ from datetime import datetime, timezone
 
 from app.features.client_behavior.models.client_blocked_domain import ClientBlockedDomain
 from app.features.devices.models.device import Device
-from app.features.policy.models.policy_pack import PolicyPack
 from app.features.policy.models.policy_profile import PolicyProfile
 from app.features.vpn.models.ip_lease import IpLease
 from app.features.vpn.models.ip_pool import IpPool
 from app.features.vpn.models.vpn_peer import VpnPeer
 
 
-def seed_policy_catalog(db_session) -> tuple[PolicyPack, PolicyProfile]:
-    """Insert minimal policy packs and a builtin profile (mirrors migration seed)."""
-    malware = PolicyPack(
-        slug="malware",
-        name="Malware",
-        description="Known malicious domains",
-        enabled_globally=True,
-    )
-    social = PolicyPack(
-        slug="social",
-        name="Social",
-        description="Social networks",
-        enabled_globally=False,
-    )
-    db_session.add_all([malware, social])
-    db_session.flush()
-
+def seed_policy_catalog(db_session) -> PolicyProfile:
+    """Insert minimal builtin policy profiles (mirrors migration seed)."""
     teen = PolicyProfile(
         slug="teen",
         name="Teen",
         description="Default teen profile",
-        enabled_pack_slugs=["malware"],
+        enabled_pack_slugs=[],
         extra_block_domains=[],
         allowlist_domains=[],
         schedule_rules=[],
@@ -47,7 +31,7 @@ def seed_policy_catalog(db_session) -> tuple[PolicyPack, PolicyProfile]:
         slug="work",
         name="Work",
         description="Custom work profile",
-        enabled_pack_slugs=["malware"],
+        enabled_pack_slugs=[],
         extra_block_domains=[],
         allowlist_domains=[],
         schedule_rules=[],
@@ -58,10 +42,8 @@ def seed_policy_catalog(db_session) -> tuple[PolicyPack, PolicyProfile]:
     )
     db_session.add_all([teen, work])
     db_session.commit()
-    db_session.refresh(malware)
     db_session.refresh(teen)
-    db_session.refresh(work)
-    return malware, teen
+    return teen
 
 
 def seed_country_presence(db_session, device: Device, *, country_code: str = "IL", count: int = 5):

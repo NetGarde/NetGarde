@@ -1,9 +1,5 @@
 import { getAdminAuthHeaders } from '../../../shared/utils/authHeaders';
 import { API_BASE_URL } from '../../../shared/config/apiBaseUrl';
-import {
-  PackToggleSimulationRequest,
-  PackToggleSimulationResponse,
-} from '../types/twinSimulation';
 import { TwinAlertListParams, TwinAlertListResponse } from '../types/twinAlert';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -30,16 +26,10 @@ function listAlertsQuery(params: TwinAlertListParams = {}): string {
   if (params.alert_type) search.set('alert_type', params.alert_type);
   if (params.device_id) search.set('device_id', params.device_id);
   const qs = search.toString();
-  return qs ? `/twin/alerts?${qs}` : '/twin/alerts';
+  return qs ? `/security/alerts?${qs}` : '/security/alerts';
 }
 
 export const twinApi = {
   listAlerts: (params?: TwinAlertListParams) =>
     apiFetch<TwinAlertListResponse>(listAlertsQuery(params)),
-  simulatePackToggle: (body: PackToggleSimulationRequest) =>
-    apiFetch<PackToggleSimulationResponse>('/twin/simulate/pack-toggle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
 };

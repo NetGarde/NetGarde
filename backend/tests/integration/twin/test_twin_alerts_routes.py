@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 def test_ingest_and_list_twin_alerts(api_client, db_session):
     ts = datetime(2026, 7, 11, 12, 0, 0, tzinfo=timezone.utc).isoformat()
     ingest = api_client.post(
-        "/twin/alerts/ingest",
+        "/security/alerts/ingest",
         json=[
             {
                 "timestamp": ts,
@@ -20,7 +20,7 @@ def test_ingest_and_list_twin_alerts(api_client, db_session):
     assert ingest.status_code == 200
     assert ingest.json()["created"] == 1
 
-    listed = api_client.get("/twin/alerts?device_id=dev_alert_test")
+    listed = api_client.get("/security/alerts?device_id=dev_alert_test")
     assert listed.status_code == 200
     body = listed.json()
     assert body["total"] >= 1
@@ -31,7 +31,7 @@ def test_ingest_and_list_twin_alerts(api_client, db_session):
 def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session):
     ts = datetime(2026, 7, 11, 12, 30, 0, tzinfo=timezone.utc).isoformat()
     ingest = api_client.post(
-        "/twin/alerts/ingest",
+        "/security/alerts/ingest",
         json=[
             {
                 "timestamp": ts,
@@ -45,7 +45,7 @@ def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session):
     assert ingest.status_code == 200
     assert ingest.json()["created"] == 1
 
-    listed = api_client.get("/twin/alerts?device_id=dev_legacy_alias")
+    listed = api_client.get("/security/alerts?device_id=dev_legacy_alias")
     assert listed.status_code == 200
     assert listed.json()["items"][0]["device_id"] == "dev_legacy_alias"
 
@@ -53,7 +53,7 @@ def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session):
 def test_list_twin_alerts_filter_type(api_client, db_session):
     ts = datetime(2026, 7, 11, 13, 0, 0, tzinfo=timezone.utc).isoformat()
     api_client.post(
-        "/twin/alerts/ingest",
+        "/security/alerts/ingest",
         json=[
             {
                 "timestamp": ts,
@@ -64,7 +64,7 @@ def test_list_twin_alerts_filter_type(api_client, db_session):
             }
         ],
     )
-    response = api_client.get("/twin/alerts?alert_type=new_public_ip&device_id=dev_filter")
+    response = api_client.get("/security/alerts?alert_type=new_public_ip&device_id=dev_filter")
     assert response.status_code == 200
     items = response.json()["items"]
     assert all(item["alert_type"] == "new_public_ip" for item in items)
@@ -74,7 +74,7 @@ def test_list_twin_alerts_filter_severity(api_client, db_session):
     ts_high = datetime(2026, 7, 11, 14, 0, 0, tzinfo=timezone.utc).isoformat()
     ts_low = datetime(2026, 7, 11, 14, 1, 0, tzinfo=timezone.utc).isoformat()
     api_client.post(
-        "/twin/alerts/ingest",
+        "/security/alerts/ingest",
         json=[
             {
                 "timestamp": ts_high,
@@ -92,7 +92,7 @@ def test_list_twin_alerts_filter_severity(api_client, db_session):
             },
         ],
     )
-    response = api_client.get("/twin/alerts?device_id=dev_sev&severity=high")
+    response = api_client.get("/security/alerts?device_id=dev_sev&severity=high")
     assert response.status_code == 200
     body = response.json()
     assert body["total"] >= 1

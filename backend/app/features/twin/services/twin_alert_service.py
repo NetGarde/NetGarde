@@ -36,7 +36,7 @@ class TwinAlertService:
         if created:
             self.db.commit()
             logger.warning(
-                "Twin alerts ingested",
+                "Security alerts ingested",
                 extra=structured_extra("twin_alerts_ingested", count=created),
             )
         return created

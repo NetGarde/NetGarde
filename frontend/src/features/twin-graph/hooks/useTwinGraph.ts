@@ -35,7 +35,7 @@ export function useTwinGraph(
       setSnapshot(response);
       setAttribution(projectAttributionGraph(response));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load twin graph');
+      setError(e instanceof Error ? e.message : 'Failed to load security graph');
     } finally {
       setLoading(false);
     }

@@ -157,6 +157,15 @@ export interface BlockedClientsListResponse {
   total: number;
 }
 
+export interface DevicePolicyAssignment {
+  device_id: number;
+  policy_profile_id: number | null;
+  policy_profile_slug: string | null;
+  policy_profile_name: string | null;
+  in_quarantine: boolean;
+  quarantine_expires_at: string | null;
+}
+
 export interface ClientBlockedDomain {
   id: number;
   device_id: number;

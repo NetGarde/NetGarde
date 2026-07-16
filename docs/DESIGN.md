@@ -28,7 +28,7 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 | Application | Foreground app reports (TrustEdgeClient / TrustEdge Agent) | Network map |
 | Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
 | Drift | Behavior baselines vs live scoring | Client profiles |
-| Detection | TrustEdge Agent events → detection-engine rules | Twin alerts, network map |
+| Detection | TrustEdge Agent events → detection-engine rules | Security alerts, network map |
 
 ---
 
@@ -71,8 +71,8 @@ DNS policy packs, dnsmasq sync, and live DNS query feeds are **out of scope** (r
 | Component | Runs where | Responsibility |
 |-----------|------------|----------------|
 | **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, devices, network map |
-| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, twin/alerts, VPN enroll |
-| **detection-engine** | Docker / service | Rules on agent Kafka topic → twin alert ingest |
+| **FastAPI backend** | Docker on EC2 | REST + WebSocket API, alerts API, VPN enroll |
+| **detection-engine** | Docker / service | Rules on agent Kafka topic → alert ingest |
 | **trustedge-wg-agent** | systemd on host | Apply WG peers, iptables block/unblock |
 | **WireGuard** | host | VPN tunnel for enrolled clients |
 
@@ -94,7 +94,7 @@ See [host-agent/README.md](../host-agent/README.md) for quarantine flow.
 
 ### Alerts
 
-- Detection-engine posts to `POST /twin/alerts/ingest`.
+- Detection-engine posts to `POST /security/alerts/ingest`.
 - Dashboard shows attack alerts; the `dns_alerts` table remains as the store for alert rows via `app.features.alerts`.
 
 ### VPN
@@ -214,7 +214,7 @@ export const devicesApi = {
 };
 ```
 
-**Cross-feature imports are allowed** — e.g. dashboard hooks compose devices + twin alerts.
+**Cross-feature imports are allowed** — e.g. dashboard hooks compose devices + security alerts.
 
 ### Page patterns
 
@@ -291,7 +291,7 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 
 No global event bus. Services import peer services explicitly:
 
-- Twin alert ingest feeds dashboard attack views
+- Alert ingest feeds dashboard attack views
 - `device_route.py` aggregates devices, behavior, and VPN usage endpoints
 - Network attribution builds maps from endpoint context (+ optional flows)
 

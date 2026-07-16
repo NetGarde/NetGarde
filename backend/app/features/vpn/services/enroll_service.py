@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from app.features.devices.models.device import Device
@@ -52,9 +54,9 @@ class EnrollService:
     def _sync_device_for_lease(
         self,
         lease_row,
-        hostname: str | None,
-        mac_address: str | None,
-    ) -> Device | None:
+        hostname: Optional[str],
+        mac_address: Optional[str],
+    ) -> Optional[Device]:
         dev = self.db.query(Device).filter(Device.ip_lease_id == lease_row.id).first()
         if dev is not None:
             if hostname is not None:
@@ -91,13 +93,13 @@ class EnrollService:
         if by_key is not None and by_key.device_id != device_id:
             raise ValueError("public_key already registered to another device")
 
-    def enroll(self, payload: EnrollRequest, *, connect_ip: str | None = None) -> dict:
+    def enroll(self, payload: EnrollRequest, *, connect_ip: Optional[str] = None) -> dict:
         device_id = payload.device_id.strip()
         public_key = payload.public_key.strip()
 
-        from app.features.policy.services.geo_country_policy_service import GeoCountryPolicyService
+        from app.features.policy.services.vpn_login_geo_block_service import VpnLoginGeoBlockService
 
-        GeoCountryPolicyService(self.db).assert_vpn_enroll_allowed(
+        VpnLoginGeoBlockService().assert_enroll_allowed(
             connect_ip=connect_ip,
             client_reported_ip=payload.client_public_ip,
         )
