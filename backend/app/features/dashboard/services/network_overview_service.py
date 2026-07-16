@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.features.dashboard.schemas.network_overview import NetworkOverviewRead, NetworkOverviewStats
 from app.features.dashboard.services import network_overview_cache
 from app.features.dashboard.services.overview_templates import build_network_overview_bullets
+from app.features.twin.models.twin_alert import TwinAlert
 from app.features.twin.services import trusttwin_store
 from app.shared.config import settings
 from app.shared.logging_context import structured_extra
@@ -36,7 +38,7 @@ class NetworkOverviewService:
             reporting_clients=int(snapshot["live"]["reporting"]),
             live_total_mib_per_sec=0.0,
             peak_mib_per_sec=0.0,
-            alerts_total=0,
+            alerts_total=int(snapshot["alerts"]["total"]),
         )
 
         overview = NetworkOverviewRead(
@@ -62,11 +64,20 @@ class NetworkOverviewService:
             if row.last_seen_at and row.last_seen_at >= cutoff:
                 reporting += 1
 
+        alert_rows = (
+            self.db.query(TwinAlert.alert_type, func.count(TwinAlert.id))
+            .filter(TwinAlert.timestamp >= cutoff)
+            .group_by(TwinAlert.alert_type)
+            .all()
+        )
+        alerts_by_type = {alert_type: int(count) for alert_type, count in alert_rows}
+        alerts_total = sum(alerts_by_type.values())
+
         return {
             "period_minutes": period,
             "live": {"reporting": reporting, "total_mib_per_sec": 0.0},
             "history": {"peak_mib_per_sec": 0.0},
-            "alerts": {"total": 0, "by_type": {}},
+            "alerts": {"total": alerts_total, "by_type": alerts_by_type},
         }
 
     def _resolve_review(
