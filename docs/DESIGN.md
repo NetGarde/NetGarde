@@ -10,11 +10,11 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Live observability** — TrustEdge Agent streams process, app, and network posture into the network map and detection alerts.
+1. **Live observability** — TrustEdge Agent streams process, app, and network posture into detection and the Agents registry.
 2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
 3. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview for operators; falls back to templates when AI is off or unavailable.
 
-DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
+DNS policy packs, soft quarantine, network map / attribution, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
 
 ---
 
@@ -22,9 +22,9 @@ DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, li
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
-| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, connected agents |
-| Detection | TrustEdge Agent events → detection-engine rules | Security alerts (`twin_alerts`) |
-| L4 flows | Host conntrack watcher | Network map / twin graph |
+| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Agents registry |
+| Detection | TrustEdge Agent events → detection-engine rules | Security alerts |
+| L4 flows | Host conntrack watcher | Flow ingest / live API (no map UI) |
 
 ---
 
@@ -64,8 +64,8 @@ DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, li
 
 | Component | Runs where | Responsibility |
 |-----------|------------|----------------|
-| **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, devices, network map |
-| **FastAPI backend** | Docker on EC2 | REST API, alerts, devices, security graph |
+| **React dashboard** | S3 + CloudFront | Admin UI, attack alerts, agents |
+| **FastAPI backend** | Docker on EC2 | REST API, alerts, agents registry |
 | **detection-engine** | Docker / service | Rules on agent Kafka topic → alert ingest |
 | **TrustEdge Agent API** | Docker on EC2 | Agent event ingest |
 
@@ -73,13 +73,10 @@ DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, li
 
 ## Domain concepts
 
-### Observability graph
-
-- **Observability graph engine** — Canonical entity/dependency model for impact analysis, blast radius, and RCA. See [GRAPH_ENGINE.md](GRAPH_ENGINE.md).
-
 ### Agents
 
-- Live agent identity and posture live in Redis (`twin:devices`, `twin:device:{id}:*`), not Postgres.
+- Durable registry lives in Postgres (`agents` table, keyed by stable `agent_id`).
+- Optional live presence keys may still exist in Redis for legacy connected-agent APIs.
 
 ---
 
@@ -150,8 +147,7 @@ Defined in `features/dashboard/components/MenuContent.tsx`:
 | Section | Items |
 |---------|-------|
 | **Home** | Dashboard (`/`) |
-| **My network** | Client map, Network map |
-| **Analytics** | Client profiles |
+| **Observability** | Agents |
 
 Routes are declared in `frontend/src/routes/index.tsx`. Pages in `pages/` are thin entry points; feature UI lives in `features/`.
 
@@ -197,9 +193,10 @@ backend/app/
 ├── main.py                 # App factory, middleware, router registration
 ├── shared/                 # DB, config, auth, errors, logging, Redis, WebSocket
 └── features/               # Vertical domain modules
-    ├── twin/               # Live agents (Redis) + security graph
+    ├── agents/             # Durable agent registry
+    ├── twin/               # Optional live Redis presence APIs
     ├── dashboard/
-    └── network_flows/
+    └── network_flows/      # L4 flow ingest (no map UI)
 ```
 
 ### Layered architecture (pragmatic)
@@ -246,7 +243,7 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 No global event bus. Services import peer services explicitly:
 
 - Twin alert ingest feeds dashboard attack views
-- Network map is built from L4 flows (+ live twin state)
+- Agent-API upserts registered agents into Postgres on enroll / events
 
 ---
 
@@ -293,4 +290,3 @@ No global event bus. Services import peer services explicitly:
 - [API.md](API.md) — REST reference
 - [ENV_SETUP.md](ENV_SETUP.md) — configuration
 - [DEPLOY.md](DEPLOY.md) — production AWS
-- [GRAPH_ENGINE.md](GRAPH_ENGINE.md) — observability graph

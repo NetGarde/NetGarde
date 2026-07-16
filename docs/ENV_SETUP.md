@@ -93,7 +93,7 @@ Optional L4 session visibility from host conntrack.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NETWORK_FLOWS_ENABLED` | Enable flow ingest and map merge | `true` |
+| `NETWORK_FLOWS_ENABLED` | Enable flow ingest | `true` |
 | `NETWORK_FLOWS_MAX_AGE_SEC` | Drop flow samples older than this | `300` |
 | `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP cache TTL | `600` |
 | `NETWORK_FLOWS_MAP_LIMIT` | Max flow nodes merged into map | `80` |

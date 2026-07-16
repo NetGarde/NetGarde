@@ -59,7 +59,7 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 |------------|----------------|
 | Endpoint telemetry | Process, app focus, network posture |
 | Detection | Kafka-backed rules on agent events |
-| Observability | Attack alerts, network map, behavior drift |
+| Observability | Attack alerts, agents registry |
 | AI operations | Optional summaries (OpenAI / Ollama / template) |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
 
