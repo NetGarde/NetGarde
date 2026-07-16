@@ -12,10 +12,11 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { useAgents } from './hooks/useAgents';
+import { isAgentOnline } from './utils/presence';
 import { formatShortDateTime } from '../../shared/utils/dateUtils';
 
 export default function AgentsList() {
-  const { agents, connectedIds, loading, error, refresh } = useAgents();
+  const { agents, loading, error, refresh } = useAgents();
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -25,7 +26,7 @@ export default function AgentsList() {
             Agents
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Registered TrustEdge Agent installs. Identity is stable agent_id; hostname can change.
+            Registered TrustEdge Agent installs. Online means last seen within the last 5 minutes.
           </Typography>
         </Box>
         <Button size="small" onClick={refresh} disabled={loading}>
@@ -59,13 +60,13 @@ export default function AgentsList() {
                 <TableCell>Agent ID</TableCell>
                 <TableCell>OS</TableCell>
                 <TableCell>Version</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Presence</TableCell>
                 <TableCell>Last seen</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {agents.map((agent) => {
-                const connected = connectedIds.has(agent.agent_id);
+                const online = isAgentOnline(agent.last_seen_at);
                 return (
                   <TableRow key={agent.agent_id} hover>
                     <TableCell>{agent.hostname || '—'}</TableCell>
@@ -77,15 +78,12 @@ export default function AgentsList() {
                     </TableCell>
                     <TableCell>{agent.agent_version || '—'}</TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.75}>
-                        <Chip size="small" label={agent.status} variant="outlined" />
-                        <Chip
-                          size="small"
-                          label={connected ? 'connected' : 'offline'}
-                          color={connected ? 'success' : 'default'}
-                          variant="outlined"
-                        />
-                      </Stack>
+                      <Chip
+                        size="small"
+                        label={online ? 'online' : 'offline'}
+                        color={online ? 'success' : 'default'}
+                        variant="outlined"
+                      />
                     </TableCell>
                     <TableCell>{formatShortDateTime(agent.last_seen_at)}</TableCell>
                   </TableRow>
