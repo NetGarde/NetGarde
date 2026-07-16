@@ -17,6 +17,7 @@ class SecurityAlert(Base):
     severity = Column(String(16), nullable=False, default="medium")
     message = Column(Text, nullable=True)
     detail = Column(Text, nullable=True)
+    fingerprint = Column(String(64), nullable=True, unique=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

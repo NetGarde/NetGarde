@@ -11,6 +11,16 @@ class SecurityAlertRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def exists_fingerprint(self, fingerprint: str) -> bool:
+        if not fingerprint:
+            return False
+        return (
+            self.db.query(SecurityAlert.id)
+            .filter(SecurityAlert.fingerprint == fingerprint)
+            .first()
+            is not None
+        )
+
     def create(
         self,
         *,
@@ -22,6 +32,7 @@ class SecurityAlertRepository:
         event_type: Optional[str] = None,
         message: Optional[str] = None,
         detail: Optional[str] = None,
+        fingerprint: Optional[str] = None,
     ) -> SecurityAlert:
         alert = SecurityAlert(
             timestamp=timestamp,
@@ -32,6 +43,7 @@ class SecurityAlertRepository:
             severity=severity,
             message=message,
             detail=detail,
+            fingerprint=fingerprint,
         )
         self.db.add(alert)
         self.db.flush()

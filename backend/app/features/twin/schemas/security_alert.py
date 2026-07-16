@@ -17,6 +17,7 @@ class SecurityAlertCreate(BaseModel):
     severity: str = Field(default="medium", max_length=16)
     message: Optional[str] = None
     detail: Optional[str] = None
+    fingerprint: Optional[str] = Field(default=None, max_length=64)
 
 
 class SecurityAlertResponse(BaseModel):
@@ -29,6 +30,7 @@ class SecurityAlertResponse(BaseModel):
     severity: str
     message: Optional[str] = None
     detail: Optional[str] = None
+    fingerprint: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
