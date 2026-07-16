@@ -27,10 +27,10 @@ def _verify_static_bearer(authorization: Optional[str], expected: str, *, detail
         raise HTTPException(status_code=403, detail=detail)
 
 
-def verify_dns_ingest_service(authorization: Optional[str] = Header(default=None)) -> None:
-    """Require DNS_INGEST_TOKEN on DNS query write endpoints when configured."""
+def verify_ingest_service(authorization: Optional[str] = Header(default=None)) -> None:
+    """Require TRUSTEDGE_INGEST_TOKEN on service-to-service write endpoints when configured."""
     _verify_static_bearer(
         authorization,
-        settings.DNS_INGEST_TOKEN.strip(),
-        detail="Invalid DNS ingest credentials",
+        settings.TRUSTEDGE_INGEST_TOKEN.strip(),
+        detail="Invalid ingest credentials",
     )

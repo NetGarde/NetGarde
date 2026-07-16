@@ -45,12 +45,18 @@ upsert_env "TRUSTEDGE_AGENT_ENROLL_TOKEN" "$TRUSTEDGE_AGENT_ENROLL_TOKEN"
 BACKEND_URL="${TRUSTEDGE_BACKEND_URL:-http://backend:8000}"
 upsert_env "TRUSTEDGE_BACKEND_URL" "$BACKEND_URL"
 if [ -f /etc/trustedge/backend.env ]; then
-  DNS_INGEST_TOKEN="$(sudo grep -E '^DNS_INGEST_TOKEN=' /etc/trustedge/backend.env | head -1 | cut -d= -f2- | tr -d '\r' || true)"
-  if [ -n "${DNS_INGEST_TOKEN:-}" ]; then
-    upsert_env "DNS_INGEST_TOKEN" "$DNS_INGEST_TOKEN"
-    upsert_env "TRUSTEDGE_INGEST_TOKEN" "$DNS_INGEST_TOKEN"
-    echo "Synced DNS_INGEST_TOKEN into ${COMPOSE_ENV} for agent registry upsert"
+  TRUSTEDGE_INGEST_TOKEN="$(sudo grep -E '^TRUSTEDGE_INGEST_TOKEN=' /etc/trustedge/backend.env | head -1 | cut -d= -f2- | tr -d '\r' || true)"
+  if [ -z "${TRUSTEDGE_INGEST_TOKEN:-}" ]; then
+    TRUSTEDGE_INGEST_TOKEN="$(sudo grep -E '^DNS_INGEST_TOKEN=' /etc/trustedge/backend.env | head -1 | cut -d= -f2- | tr -d '\r' || true)"
   fi
+  if [ -n "${TRUSTEDGE_INGEST_TOKEN:-}" ]; then
+    upsert_env "TRUSTEDGE_INGEST_TOKEN" "$TRUSTEDGE_INGEST_TOKEN"
+    echo "Synced TRUSTEDGE_INGEST_TOKEN into ${COMPOSE_ENV} for agent registry upsert"
+  fi
+fi
+# Drop obsolete compose key
+if grep -q "^DNS_INGEST_TOKEN=" "$COMPOSE_ENV" 2>/dev/null; then
+  sed -i.bak '/^DNS_INGEST_TOKEN=/d' "$COMPOSE_ENV" && rm -f "${COMPOSE_ENV}.bak"
 fi
 
 API_IMAGE="${TRUSTEDGE_AGENT_API_IMAGE:-${TRUSTTWIN_API_IMAGE:-}}"

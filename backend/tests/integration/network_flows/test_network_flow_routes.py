@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 
-def test_ingest_flows_and_map(api_client, dns_ingest_env, monkeypatch):
+def test_ingest_flows_and_map(api_client, ingest_env, monkeypatch):
     monkeypatch.setattr("app.shared.config.settings.NETWORK_FLOWS_ENABLED", True)
 
     now = datetime.now(timezone.utc).isoformat()

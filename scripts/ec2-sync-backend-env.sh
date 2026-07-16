@@ -43,6 +43,14 @@ ensure_secret() {
   local token_file
   token_file="$(token_file_for_key "$key")"
 
+  # Already queued (e.g. migrated from DNS_INGEST_TOKEN)
+  local u
+  for u in "${UPDATES[@]:-}"; do
+    if [[ "$u" == "${key}="* ]]; then
+      return 0
+    fi
+  done
+
   local current=""
   current="$(sudo grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
 
@@ -70,23 +78,39 @@ for arg in "$@"; do
   fi
 done
 
-ensure_secret DEVICE_TOKEN_SECRET
-ensure_secret DNS_INGEST_TOKEN
+# One-time migrate legacy DNS_INGEST_TOKEN → TRUSTEDGE_INGEST_TOKEN before ensure_secret
+legacy_dns="$(sudo grep -E '^DNS_INGEST_TOKEN=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+current_ingest="$(sudo grep -E '^TRUSTEDGE_INGEST_TOKEN=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+if [ -n "$legacy_dns" ] && { [ -z "$current_ingest" ] || [[ "$current_ingest" == *"REPLACE_WITH"* ]]; }; then
+  UPDATES+=("TRUSTEDGE_INGEST_TOKEN=${legacy_dns}")
+  echo "Migrating DNS_INGEST_TOKEN → TRUSTEDGE_INGEST_TOKEN"
+fi
+
+ensure_secret TRUSTEDGE_INGEST_TOKEN
 ensure_secret ADMIN_API_TOKEN
 
-if [ "${#UPDATES[@]}" -eq 0 ]; then
+DELETE_KEYS=()
+for obsolete in DNS_INGEST_TOKEN DEVICE_TOKEN_SECRET; do
+  if sudo grep -qE "^${obsolete}=" "$ENV_FILE" 2>/dev/null; then
+    DELETE_KEYS+=("$obsolete")
+  fi
+done
+
+if [ "${#UPDATES[@]}" -eq 0 ] && [ "${#DELETE_KEYS[@]}" -eq 0 ]; then
   echo "No env updates to apply"
   exit 0
 fi
 
-UPDATES_JSON="$(printf '%s\n' "${UPDATES[@]}" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().splitlines()))")"
+UPDATES_JSON="$(printf '%s\n' "${UPDATES[@]:-}" | python3 -c "import json,sys; print(json.dumps([l for l in sys.stdin.read().splitlines() if l]))")"
+DELETE_KEYS_JSON="$(printf '%s\n' "${DELETE_KEYS[@]:-}" | python3 -c "import json,sys; print(json.dumps([l for l in sys.stdin.read().splitlines() if l]))")"
 
-sudo ENV_FILE="$ENV_FILE" UPDATES_JSON="$UPDATES_JSON" python3 <<'PY'
+sudo ENV_FILE="$ENV_FILE" UPDATES_JSON="$UPDATES_JSON" DELETE_KEYS_JSON="$DELETE_KEYS_JSON" python3 <<'PY'
 import json
 import os
 
 env_file = os.environ["ENV_FILE"]
 updates_list = json.loads(os.environ["UPDATES_JSON"])
+delete_keys = set(json.loads(os.environ.get("DELETE_KEYS_JSON", "[]")))
 updates: dict[str, str] = {}
 for item in updates_list:
     if not item or "=" not in item:
@@ -107,6 +131,8 @@ if os.path.isfile(env_file):
                 lines.append(raw if raw.endswith("\n") else raw + "\n")
                 continue
             key = raw.split("=", 1)[0].strip()
+            if key in delete_keys:
+                continue
             if key in updates:
                 lines.append(f"{key}={updates[key]}\n")
                 seen.add(key)
@@ -122,4 +148,4 @@ with open(env_file, "w", encoding="utf-8") as f:
 PY
 
 fix_env_permissions
-echo "Updated $ENV_FILE (${#UPDATES[@]} key(s))"
+echo "Updated $ENV_FILE (${#UPDATES[@]} key(s), removed ${#DELETE_KEYS[@]} obsolete)"

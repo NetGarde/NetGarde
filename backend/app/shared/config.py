@@ -7,8 +7,8 @@ class Settings(BaseSettings):
         "https://d2qp7beltc09b8.cloudfront.net,https://daemixzdg8jfd.cloudfront.net"
     )
 
-    # Service identity: detection-engine / network-flow ingest (historical name: DNS_INGEST_TOKEN)
-    DNS_INGEST_TOKEN: str = ""
+    # Service identity: Agent-API upsert, detection-engine, network-flow ingest
+    TRUSTEDGE_INGEST_TOKEN: str = ""
 
     REDIS_URL: str = "redis://redis:6379/0"
 

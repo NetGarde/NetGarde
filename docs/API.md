@@ -2,7 +2,7 @@
 
 TrustEdge exposes a FastAPI backend. Interactive docs: `http://127.0.0.1:8000/docs` locally, or your production API host `/docs`.
 
-Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token is configured. Service ingest uses `DNS_INGEST_TOKEN` (shared token name for flow/alert ingest). See [ENV_SETUP.md](ENV_SETUP.md).
+Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token is configured. Service ingest uses `TRUSTEDGE_INGEST_TOKEN` (Agent-API upsert, detection-engine, flow ingest). See [ENV_SETUP.md](ENV_SETUP.md).
 
 ---
 
@@ -29,7 +29,7 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `GET` | `/devices/{id}/network-attribution/summary` | Top apps with avg minutes/hour and total hours |
 | `GET` | `/network-attribution/map` | Device → app graph (`minutes`; `include_flows=true` adds L4 session nodes) |
 | **Network flows** | | |
-| `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`DNS_INGEST_TOKEN`) |
+| `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`TRUSTEDGE_INGEST_TOKEN`) |
 | `POST` | `/network-flows/dns-resolutions/bulk` | Ingest name → IP mappings for flow correlation |
 | `GET` | `/network-flows/live` | Recent L4 flows (admin token) |
 | **Endpoint agent** | | |
