@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,6 +16,12 @@ class SecurityAlert:
     event_type: str | None = None
     detail: str | None = None
 
+    def fingerprint(self) -> str:
+        """Stable identity so re-evaluating the same event chain does not duplicate alerts."""
+        anchor = self.event_id or self.timestamp
+        raw = f"{self.device_id}|{self.alert_type}|{anchor}"
+        return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
     def to_api(self) -> dict[str, Any]:
         out: dict[str, Any] = {
             "timestamp": self.timestamp,
@@ -22,6 +29,7 @@ class SecurityAlert:
             "alert_type": self.alert_type,
             "severity": self.severity,
             "message": self.message,
+            "fingerprint": self.fingerprint(),
         }
         if self.event_id:
             out["event_id"] = self.event_id

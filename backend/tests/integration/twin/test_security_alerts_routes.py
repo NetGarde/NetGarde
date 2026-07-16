@@ -28,6 +28,47 @@ def test_ingest_and_list_security_alerts(api_client, db_session, ingest_env):
     assert body["items"][0]["device_id"] == "dev_alert_test"
 
 
+def test_ingest_is_idempotent_by_fingerprint(api_client, db_session, ingest_env):
+    ts = datetime(2026, 7, 11, 12, 5, 0, tzinfo=timezone.utc).isoformat()
+    payload = [
+        {
+            "timestamp": ts,
+            "device_id": "dev_dupe",
+            "event_id": "evt_dupe",
+            "alert_type": "shell_spawns_downloader",
+            "severity": "high",
+            "message": "Shell spawned network downloader (curl)",
+        }
+    ]
+
+    first = api_client.post("/security/alerts/ingest", json=payload)
+    assert first.status_code == 200
+    assert first.json()["created"] == 1
+
+    # Same source event re-evaluated / replayed → no new row.
+    second = api_client.post("/security/alerts/ingest", json=payload)
+    assert second.status_code == 200
+    assert second.json()["created"] == 0
+
+    listed = api_client.get("/security/alerts?device_id=dev_dupe")
+    assert listed.json()["total"] == 1
+
+
+def test_ingest_dedupes_within_single_batch(api_client, db_session, ingest_env):
+    ts = datetime(2026, 7, 11, 12, 6, 0, tzinfo=timezone.utc).isoformat()
+    item = {
+        "timestamp": ts,
+        "device_id": "dev_batch_dupe",
+        "event_id": "evt_batch",
+        "alert_type": "temp_path_execution",
+        "severity": "high",
+        "message": "Process started from /tmp/x",
+    }
+    resp = api_client.post("/security/alerts/ingest", json=[item, item])
+    assert resp.status_code == 200
+    assert resp.json()["created"] == 1
+
+
 def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session, ingest_env):
     ts = datetime(2026, 7, 11, 12, 30, 0, tzinfo=timezone.utc).isoformat()
     ingest = api_client.post(

@@ -8,6 +8,7 @@ export type SecurityAlert = {
   severity: string;
   message?: string | null;
   detail?: string | null;
+  fingerprint?: string | null;
   created_at?: string | null;
 };
 

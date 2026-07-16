@@ -1,5 +1,7 @@
+import hashlib
 from typing import Optional
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.features.twin.repositories.security_alert_repository import SecurityAlertRepository
@@ -14,6 +16,15 @@ from app.shared.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+def _fingerprint(item: SecurityAlertCreate) -> str:
+    """Stable identity for an alert so re-evaluation / replay does not duplicate rows."""
+    if item.fingerprint:
+        return item.fingerprint
+    anchor = item.event_id or item.timestamp.isoformat()
+    raw = f"{item.device_id}|{item.alert_type}|{anchor}"
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
+
 class SecurityAlertService:
     def __init__(self, db: Session):
         self.db = db
@@ -21,23 +32,39 @@ class SecurityAlertService:
 
     def ingest(self, alerts: list[SecurityAlertCreate]) -> int:
         created = 0
+        skipped = 0
+        seen_in_batch: set[str] = set()
         for item in alerts:
-            self.repo.create(
-                timestamp=item.timestamp,
-                device_id=item.device_id,
-                event_id=item.event_id,
-                event_type=item.event_type,
-                alert_type=item.alert_type,
-                severity=item.severity,
-                message=item.message,
-                detail=item.detail,
-            )
+            fingerprint = _fingerprint(item)
+            if fingerprint in seen_in_batch or self.repo.exists_fingerprint(fingerprint):
+                skipped += 1
+                continue
+            try:
+                self.repo.create(
+                    timestamp=item.timestamp,
+                    device_id=item.device_id,
+                    event_id=item.event_id,
+                    event_type=item.event_type,
+                    alert_type=item.alert_type,
+                    severity=item.severity,
+                    message=item.message,
+                    detail=item.detail,
+                    fingerprint=fingerprint,
+                )
+                self.db.commit()
+            except IntegrityError:
+                # Concurrent ingest inserted the same fingerprint first.
+                self.db.rollback()
+                skipped += 1
+                continue
+            seen_in_batch.add(fingerprint)
             created += 1
-        if created:
-            self.db.commit()
+        if created or skipped:
             logger.warning(
                 "Security alerts ingested",
-                extra=structured_extra("security_alerts_ingested", count=created),
+                extra=structured_extra(
+                    "security_alerts_ingested", count=created, skipped=skipped
+                ),
             )
         return created
 

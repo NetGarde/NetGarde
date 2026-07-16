@@ -25,6 +25,11 @@ logging.getLogger("kafka").setLevel(logging.WARNING)
 
 _shutdown = False
 _state = StateStore()
+# Fingerprints already posted this process lifetime, to avoid re-emitting the
+# same alert while its source event stays inside the evaluation window.
+_seen_fingerprints: dict[str, float] = {}
+_SEEN_TTL_SECONDS = 30 * 60
+_SEEN_MAX = 10000
 
 
 def _handle_signal(signum: int, _frame: Any) -> None:
@@ -61,6 +66,23 @@ def _create_consumer() -> KafkaConsumer:
     )
 
 
+def _prune_seen(now: float) -> None:
+    if len(_seen_fingerprints) < _SEEN_MAX:
+        expired = [fp for fp, ts in _seen_fingerprints.items() if now - ts > _SEEN_TTL_SECONDS]
+    else:
+        expired = list(_seen_fingerprints.keys())
+    for fp in expired:
+        _seen_fingerprints.pop(fp, None)
+
+
+def _mark_seen(fingerprint: str, now: float) -> bool:
+    """Return True if this fingerprint is new (and record it); False if already seen."""
+    if fingerprint in _seen_fingerprints:
+        return False
+    _seen_fingerprints[fingerprint] = now
+    return True
+
+
 def _process_event(raw: str) -> None:
     try:
         payload = json.loads(raw)
@@ -82,8 +104,15 @@ def _process_event(raw: str) -> None:
     alerts = evaluate_event(payload, _state)
     if not alerts:
         return
-    api_alerts = [alert.to_api() for alert in alerts]
-    for alert in alerts:
+
+    now = time.time()
+    _prune_seen(now)
+    fresh = [alert for alert in alerts if _mark_seen(alert.fingerprint(), now)]
+    if not fresh:
+        return
+
+    api_alerts = [alert.to_api() for alert in fresh]
+    for alert in fresh:
         LOG.warning(
             "security alert raised",
             extra=structured_extra(
