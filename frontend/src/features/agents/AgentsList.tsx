@@ -61,6 +61,7 @@ export default function AgentsList() {
                 <TableCell>OS</TableCell>
                 <TableCell>Version</TableCell>
                 <TableCell>Presence</TableCell>
+                <TableCell>Installed</TableCell>
                 <TableCell>Last seen</TableCell>
               </TableRow>
             </TableHead>
@@ -85,6 +86,7 @@ export default function AgentsList() {
                         variant="outlined"
                       />
                     </TableCell>
+                    <TableCell>{formatShortDateTime(agent.first_seen_at)}</TableCell>
                     <TableCell>{formatShortDateTime(agent.last_seen_at)}</TableCell>
                   </TableRow>
                 );
