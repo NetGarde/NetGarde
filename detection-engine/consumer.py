@@ -114,12 +114,7 @@ def _process_event(raw: str) -> None:
 
     now = time.time()
     _prune_seen(now)
-    # Persist only high-severity findings; lower severities stay in logs if needed later.
-    fresh = [
-        alert
-        for alert in alerts
-        if alert.severity.strip().lower() == "high" and _mark_seen(alert.fingerprint(), now)
-    ]
+    fresh = [alert for alert in alerts if _mark_seen(alert.fingerprint(), now)]
     if not fresh:
         return
 
@@ -137,8 +132,11 @@ def _process_event(raw: str) -> None:
                 severity=alert.severity,
             ),
         )
-    if _post_alerts_to_backend() and api_alerts:
-        post_alerts(api_alerts)
+    # Optional Postgres ingest still stores high-severity only when enabled.
+    if _post_alerts_to_backend():
+        high = [a for a in api_alerts if (a.get("severity") or "").strip().lower() == "high"]
+        if high:
+            post_alerts(high)
 
 
 def run() -> int:
