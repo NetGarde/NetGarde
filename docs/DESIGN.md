@@ -147,7 +147,9 @@ Defined in `features/dashboard/components/MenuContent.tsx`:
 | Section | Items |
 |---------|-------|
 | **Home** | Dashboard (`/`) |
-| **Observability** | Agents |
+| **Endpoints** | Agents (`/agents`) |
+| **Detection** | Alerts (`/alerts`) |
+| **Settings** | General (`/settings`) |
 
 Routes are declared in `frontend/src/routes/index.tsx`. Pages in `pages/` are thin entry points; feature UI lives in `features/`.
 
