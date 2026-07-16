@@ -178,3 +178,38 @@ def test_temp_path_execution_alert():
     types = {a.alert_type for a in alerts}
     assert "temp_path_execution" in types
 
+
+def test_event_burst_fingerprint_shares_cooldown_bucket():
+    from rules.alerts import SecurityAlert, alert_fingerprint
+
+    a = SecurityAlert(
+        timestamp="2026-07-16T19:39:36Z",
+        device_id="dev_x",
+        alert_type="event_burst",
+        severity="low",
+        message="High event volume (36 events in 5 minutes)",
+        event_id="evt_a",
+    )
+    b = SecurityAlert(
+        timestamp="2026-07-16T19:39:56Z",
+        device_id="dev_x",
+        alert_type="event_burst",
+        severity="low",
+        message="High event volume (47 events in 5 minutes)",
+        event_id="evt_b",
+    )
+    assert a.fingerprint() == b.fingerprint()
+
+    # Point-in-time alerts still key on event_id.
+    assert alert_fingerprint(
+        device_id="dev_x",
+        alert_type="shell_spawns_downloader",
+        timestamp="2026-07-16T19:39:36Z",
+        event_id="evt_a",
+    ) != alert_fingerprint(
+        device_id="dev_x",
+        alert_type="shell_spawns_downloader",
+        timestamp="2026-07-16T19:39:36Z",
+        event_id="evt_b",
+    )
+

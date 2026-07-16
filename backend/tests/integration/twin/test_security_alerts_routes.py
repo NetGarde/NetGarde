@@ -69,6 +69,48 @@ def test_ingest_dedupes_within_single_batch(api_client, db_session, ingest_env):
     assert resp.json()["created"] == 1
 
 
+def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, ingest_env):
+    """Windowed rules share one fingerprint per cooldown bucket, not per event_id."""
+    base = datetime(2026, 7, 11, 12, 10, 0, tzinfo=timezone.utc)
+    first = api_client.post(
+        "/security/alerts/ingest",
+        json=[
+            {
+                "timestamp": base.isoformat(),
+                "device_id": "dev_burst",
+                "event_id": "evt_burst_1",
+                "event_type": "process_start",
+                "alert_type": "event_burst",
+                "severity": "low",
+                "message": "High event volume (36 events in 5 minutes)",
+            }
+        ],
+    )
+    assert first.status_code == 200
+    assert first.json()["created"] == 1
+
+    # Different event_id, still within the same 5-minute cooldown bucket.
+    second = api_client.post(
+        "/security/alerts/ingest",
+        json=[
+            {
+                "timestamp": (base.replace(second=30)).isoformat(),
+                "device_id": "dev_burst",
+                "event_id": "evt_burst_2",
+                "event_type": "process_exit",
+                "alert_type": "event_burst",
+                "severity": "low",
+                "message": "High event volume (47 events in 5 minutes)",
+            }
+        ],
+    )
+    assert second.status_code == 200
+    assert second.json()["created"] == 0
+
+    listed = api_client.get("/security/alerts?device_id=dev_burst&alert_type=event_burst")
+    assert listed.json()["total"] == 1
+
+
 def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session, ingest_env):
     ts = datetime(2026, 7, 11, 12, 30, 0, tzinfo=timezone.utc).isoformat()
     ingest = api_client.post(
