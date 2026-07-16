@@ -1,6 +1,7 @@
 import { getAdminAuthHeaders } from '../../../shared/utils/authHeaders';
 import { API_BASE_URL } from '../../../shared/config/apiBaseUrl';
 import { TwinAlertListParams, TwinAlertListResponse } from '../types/twinAlert';
+import { ConnectedAgentListResponse } from '../types/connectedAgent';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -32,4 +33,8 @@ function listAlertsQuery(params: TwinAlertListParams = {}): string {
 export const twinApi = {
   listAlerts: (params?: TwinAlertListParams) =>
     apiFetch<TwinAlertListResponse>(listAlertsQuery(params)),
+  listConnectedAgents: (connectedWithinSec = 300) =>
+    apiFetch<ConnectedAgentListResponse>(
+      `/security/agents?connected_within_sec=${encodeURIComponent(String(connectedWithinSec))}`
+    ),
 };
