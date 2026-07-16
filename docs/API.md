@@ -23,7 +23,7 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `GET` | `/devices/blocked-clients` | Devices with active quarantine |
 | `GET` | `/devices/{id}/behavior-profile` | Client behavior profile |
 | `GET` | `/devices/{id}/client-blocks` | Active per-device domain blocks (legacy) |
-| `POST` | `/devices/{id}/quarantine` | Full-network block (VPN iptables) |
+| `POST` | `/devices/{id}/quarantine` | Soft quarantine flag (agent isolation TBD) |
 | `DELETE` | `/devices/{id}/quarantine` | Release client from quarantine early |
 | `GET` | `/devices/{id}/network-attribution` | Hourly per-app usage rollups (`hours`, optional `app_slug`) |
 | `GET` | `/devices/{id}/network-attribution/summary` | Top apps with avg minutes/hour and total hours |
@@ -32,27 +32,9 @@ Admin endpoints require `Authorization: Bearer <ADMIN_API_TOKEN>` when the token
 | `POST` | `/network-flows/bulk` | Ingest conntrack flow samples (`DNS_INGEST_TOKEN`) |
 | `POST` | `/network-flows/dns-resolutions/bulk` | Ingest name → IP mappings for flow correlation |
 | `GET` | `/network-flows/live` | Recent L4 flows (admin token) |
-| **VPN** | | |
-| `GET` | `/v1/client-config` | Public client bootstrap (enroll token, API paths, defaults) |
-| `POST` | `/v1/enroll` | WireGuard device enrollment |
-| `POST` | `/v1/usage` | Report VPN usage samples |
+| **Endpoint agent** | | |
 | `POST` | `/v1/network-attribution` | Report foreground app intervals (device token) |
-| `GET` | `/vpn/topology` | VPN server and peer topology |
 | **Dashboard** | | |
 | `GET` | `/dashboard/network-overview` | Network overview and review summary |
 
-DNS query list/live-feed and policy dnsmasq sync APIs have been removed.
-
----
-
-## Host agent (EC2)
-
-The WireGuard host agent runs on the EC2 host, not inside Docker. See [host-agent/README.md](../host-agent/README.md).
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET` | `/health` | Liveness |
-| `GET` | `/v1/peers` | List WireGuard peers |
-| `POST` | `/v1/apply-peer` | Set peer `allowed-ips` after enroll |
-| `POST` | `/v1/block-client` | Drop forwarded VPN traffic for a client IP |
-| `POST` | `/v1/unblock-client` | Remove iptables drops |
+DNS query, WireGuard VPN enroll/usage, and policy dnsmasq sync APIs have been removed.

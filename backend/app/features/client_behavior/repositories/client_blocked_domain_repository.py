@@ -99,7 +99,7 @@ class ClientBlockedDomainRepository:
             self.db.query(ClientBlockedDomain)
             .join(Device, ClientBlockedDomain.device_id == Device.id)
             .options(
-                joinedload(ClientBlockedDomain.device).joinedload(Device.ip_lease),  # type: ignore[arg-type]
+                joinedload(ClientBlockedDomain.device),  # type: ignore[arg-type]
             )
             .filter(
                 ClientBlockedDomain.revoked_at.is_(None),

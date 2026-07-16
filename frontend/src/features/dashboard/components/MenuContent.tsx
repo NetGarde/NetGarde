@@ -16,7 +16,6 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import HubIcon from '@mui/icons-material/Hub';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
-import MapIcon from '@mui/icons-material/Map';
 import './MenuContent.css';
 
 const mainListItems = [
@@ -24,7 +23,6 @@ const mainListItems = [
 ];
 
 const digitalTwinItems = [
-  { text: 'Client map', icon: <MapIcon />, path: '/client-map', iconClass: 'clientMapIcon' },
   { text: 'Network map', icon: <HubIcon />, path: '/network-map', iconClass: 'networkMapIcon' },
 ];
 

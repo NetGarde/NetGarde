@@ -40,7 +40,6 @@ MAP_EDGE_TO_RELATION: dict[str, str] = {
 }
 
 INFRA_CHAIN: tuple[tuple[str, str, str], ...] = (
-    ("wireguard", "ec2_gateway", "terminates_at"),
     ("ec2_gateway", "dns_resolver", "terminates_at"),
 )
 
@@ -394,7 +393,6 @@ class TwinGraphBuilder:
 
     def _ingest_infra_topology(self) -> None:
         infra_labels = {
-            "wireguard": "WireGuard",
             "ec2_gateway": "EC2 Gateway",
             "dns_resolver": "TrustEdge DNS",
         }
@@ -413,19 +411,6 @@ class TwinGraphBuilder:
                 relation=relation,
                 source_id=infra_id(source_kind),
                 target_id=infra_id(target_kind),
-                layer="desired",
-            )
-
-        for node in self.state.nodes.values():
-            if node.entity_type != "device":
-                continue
-            # TrustTwin host agents are telemetry-only (no VPN path).
-            if node.properties.get("source") == "trusttwin":
-                continue
-            self._upsert_edge(
-                relation="routed_via",
-                source_id=node.id,
-                target_id=infra_id("wireguard"),
                 layer="desired",
             )
 

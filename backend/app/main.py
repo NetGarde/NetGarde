@@ -12,10 +12,6 @@ from app.shared.request_logging_middleware import RequestLoggingMiddleware
 from app.shared.utils.logging import setup_logging
 from app.shared.dependencies import get_db
 from app.features.devices.routes.device_route import router as device_router
-from app.features.vpn.routes.client_config_route import router as client_config_router
-from app.features.vpn.routes.enroll_route import router as vpn_router
-from app.features.vpn.routes.usage_route import router as usage_router
-from app.features.vpn.routes.topology_route import router as vpn_topology_router
 from app.features.dashboard.routes.dashboard_route import router as dashboard_router
 from app.features.network_attribution.routes.network_attribution_route import (
     router as network_attribution_router,
@@ -130,11 +126,7 @@ def health(db: Session = Depends(get_db)):
 
 # Include routers
 app.include_router(device_router)
-app.include_router(client_config_router)
-app.include_router(vpn_router)
-app.include_router(usage_router)
 app.include_router(network_attribution_router)
 app.include_router(twin_router)
 app.include_router(network_flow_router)
-app.include_router(vpn_topology_router)
 app.include_router(dashboard_router)

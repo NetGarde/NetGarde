@@ -7,7 +7,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.features.devices.models.device import Device
-from app.features.vpn.models.ip_lease import IpLease
 from app.features.network_attribution.models.device_network_context import DeviceNetworkContext
 from app.features.network_attribution.repositories.network_attribution_repository import (
     AppUsageRollupRepository,
@@ -25,7 +24,6 @@ from app.features.network_attribution.schemas.network_attribution import (
     NetworkMapResponse,
 )
 from app.features.network_attribution.services.app_catalog import normalize_app
-from app.features.vpn.models.vpn_peer import VpnPeer
 from app.shared.config import settings
 
 
@@ -114,12 +112,8 @@ class NetworkAttributionService:
         client_ip: str,
         observed_at,
     ) -> Optional[ResolvedAttribution]:
-        from app.features.devices.repositories.device_repository import DeviceRepository
-
-        device = DeviceRepository(self.db).get_by_client_ip(client_ip)
-        if device is None:
-            return None
-        return self.resolve_attribution(device.id, observed_at)
+        """No longer resolvable: client IP -> device mapping required VPN leases."""
+        return None
 
     def list_hourly(self, device_id: int, *, hours: int = 168, app_slug: Optional[str] = None) -> AppUsageHourlyListResponse:
         hours = max(1, min(hours, 24 * 30))
@@ -172,14 +166,9 @@ class NetworkAttributionService:
             .all()
         )
 
-        device_rows = (
-            self.db.query(Device.id, Device.hostname, IpLease.ip)
-            .join(IpLease, Device.ip_lease_id == IpLease.id)
-            .filter(IpLease.released_at.is_(None))
-            .all()
-        )
+        device_rows = self.db.query(Device.id, Device.hostname, Device.external_id).all()
         device_meta: dict[int, tuple[str, str]] = {
-            device_id: (hostname or ip, ip) for device_id, hostname, ip in device_rows
+            device_id: (hostname or external_id, "") for device_id, hostname, external_id in device_rows
         }
 
         nodes: dict[str, NetworkMapNode] = {}
@@ -244,16 +233,5 @@ class NetworkAttributionService:
         """No-op: DNS query enrichment removed with DNS product."""
 
     @staticmethod
-    def get_device_by_vpn_device_id(db: Session, vpn_device_id: str) -> Optional[Device]:
-        peer = db.query(VpnPeer).filter(VpnPeer.device_id == vpn_device_id.strip()).first()
-        if peer is None:
-            return None
-        lease = (
-            db.query(IpLease)
-            .filter(IpLease.peer_id == peer.id, IpLease.released_at.is_(None))
-            .order_by(IpLease.id.desc())
-            .first()
-        )
-        if lease is None:
-            return None
-        return db.query(Device).filter(Device.ip_lease_id == lease.id).first()
+    def get_device_by_external_id(db: Session, external_id: str) -> Optional[Device]:
+        return db.query(Device).filter(Device.external_id == external_id.strip()).first()

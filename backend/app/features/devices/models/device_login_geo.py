@@ -11,7 +11,6 @@ class DeviceLoginGeoObservation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True)
-    peer_id = Column(Integer, ForeignKey("vpn_peers.id", ondelete="SET NULL"), nullable=True, index=True)
 
     public_ip = Column(String(45), nullable=False)
     country_code = Column(String(8), nullable=True, index=True)

@@ -11,7 +11,6 @@ from app.features.devices.repositories.device_repository import DeviceRepository
 from app.features.policy.repositories.policy_repository import PolicyRepository
 from app.features.policy.schemas.policy import DevicePolicyAssignmentRead
 from app.features.policy.sensitivity import block_threshold_for_sensitivity
-from app.features.vpn.services.wireguard_agent_client import block_client_on_host, unblock_client_on_host
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
 
@@ -75,20 +74,18 @@ class PolicyService:
         device = self.device_repo.get_by_id(device_id)
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-        if not self._client_vpn_ip(device):
-            raise HTTPException(
-                status_code=400,
-                detail="Device has no active VPN IP lease; block requires an enrolled WireGuard client",
-            )
         self.repo.start_quarantine(device_id, score=None, hours=hours)
         self.db.commit()
-        self._apply_full_network_block(device)
+        logger.info(
+            "Device quarantine started (soft; no network enforcement)",
+            extra=structured_extra("device_quarantine_started", device_id=device_id, hours=hours),
+        )
         quarantine = self.repo.get_active_quarantine(device_id)
         return QuarantineActionResponse(
             device_id=device_id,
             in_quarantine=True,
             quarantine_expires_at=quarantine.expires_at if quarantine else None,
-            message=f"Client blocked for {hours} hour(s); VPN enforcement applied",
+            message=f"Device quarantined for {hours} hour(s) (soft flag; agent isolation not yet enforced)",
         )
 
     def end_device_quarantine(self, device_id: int) -> QuarantineActionResponse:
@@ -99,50 +96,13 @@ class PolicyService:
         if not ended:
             raise HTTPException(status_code=404, detail="No active quarantine for this device")
         self.db.commit()
-        self._release_full_network_block(device)
+        logger.info(
+            "Device quarantine ended",
+            extra=structured_extra("device_quarantine_ended", device_id=device_id),
+        )
         return QuarantineActionResponse(
             device_id=device_id,
             in_quarantine=False,
             quarantine_expires_at=None,
-            message="Client unblocked; VPN access restored",
+            message="Device released from quarantine",
         )
-
-    def _client_vpn_ip(self, device) -> Optional[str]:
-        lease = getattr(device, "ip_lease", None)
-        if lease is None or not lease.ip:
-            return None
-        return str(lease.ip).strip()
-
-    def _apply_full_network_block(self, device) -> None:
-        client_ip = self._client_vpn_ip(device)
-        if not client_ip:
-            return
-        try:
-            block_client_on_host(client_ip=client_ip)
-        except RuntimeError as exc:
-            logger.warning(
-                "VPN traffic block skipped",
-                extra=structured_extra(
-                    "admin_block_vpn_skipped",
-                    device_id=device.id,
-                    client_ip=client_ip,
-                    error=str(exc),
-                ),
-            )
-
-    def _release_full_network_block(self, device) -> None:
-        client_ip = self._client_vpn_ip(device)
-        if not client_ip:
-            return
-        try:
-            unblock_client_on_host(client_ip=client_ip)
-        except RuntimeError as exc:
-            logger.warning(
-                "VPN traffic unblock skipped",
-                extra=structured_extra(
-                    "admin_unblock_vpn_skipped",
-                    device_id=device.id,
-                    client_ip=client_ip,
-                    error=str(exc),
-                ),
-            )

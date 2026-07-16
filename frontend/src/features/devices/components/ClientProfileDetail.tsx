@@ -95,7 +95,7 @@ export default function ClientProfileDetail({
     }
   }, [loading, profile?.profile_ready, loadReview]);
 
-  const label = device.hostname || device.client_ip;
+  const label = device.hostname || device.external_id;
 
   return (
     <Paper variant="outlined" sx={{ p: 3, minHeight: 400 }}>
@@ -104,7 +104,7 @@ export default function ClientProfileDetail({
           <Box>
             <Typography variant="h5">{label}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {device.client_ip}
+              {device.external_id}
               {device.mac_address ? ` · ${device.mac_address}` : ''}
             </Typography>
             <Typography variant="caption" color="text.secondary">

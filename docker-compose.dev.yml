@@ -60,7 +60,6 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_SERVICE: backend
       ENVIRONMENT: development
-      USAGE_REDIS_ENABLED: "true"
     depends_on:
       postgres:
         condition: service_healthy

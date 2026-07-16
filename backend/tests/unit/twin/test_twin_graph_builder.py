@@ -34,7 +34,7 @@ def test_builder_includes_observed_layers(db_session):
 
     assert device_id(device.id) in graph.nodes
     assert app_id("zoom") in graph.nodes
-    assert infra_id("wireguard") in graph.nodes
+    assert infra_id("ec2_gateway") in graph.nodes
 
     layers = {node.layer for node in graph.nodes.values()}
     assert "observed" in layers

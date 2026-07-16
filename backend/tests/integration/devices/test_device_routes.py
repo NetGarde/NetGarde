@@ -10,19 +10,15 @@ def test_create_and_list_device(api_client, vpn_device):
     devices = response.json()
     assert len(devices) == 1
     assert devices[0]["id"] == vpn_device.id
-    assert devices[0]["client_ip"] == "10.0.0.10"
+    assert devices[0]["external_id"] == vpn_device.external_id
     assert devices[0]["hostname"] == "test-laptop"
 
 
 def test_create_device_via_api(api_client, db_session):
-    from tests.helpers.factories import create_ip_lease
-
-    lease = create_ip_lease(db_session, ip="10.0.0.20")
-
     response = api_client.post(
         "/devices",
         json={
-            "ip_lease_id": lease.id,
+            "external_id": "dev-api-created",
             "hostname": "api-created",
             "mac_address": "11:22:33:44:55:66",
             "source": "manual",
@@ -30,7 +26,7 @@ def test_create_device_via_api(api_client, db_session):
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["client_ip"] == "10.0.0.20"
+    assert body["external_id"] == "dev-api-created"
     assert body["hostname"] == "api-created"
 
 

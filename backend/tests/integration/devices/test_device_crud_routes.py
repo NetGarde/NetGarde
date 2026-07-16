@@ -11,7 +11,7 @@ def test_update_device(api_client, vpn_device):
 
 
 def test_delete_device(api_client, db_session):
-    device, _lease = create_vpn_device(db_session, ip="10.0.0.99")
+    device, _lease = create_vpn_device(db_session, device_id="dev-99")
     response = api_client.delete(f"/devices/{device.id}")
     assert response.status_code == 200
     assert response.json()["device_id"] == device.id
@@ -28,25 +28,6 @@ def test_get_policy_assignment(api_client, seed_policy, vpn_device):
     assert response.status_code == 200
     body = response.json()
     assert body["policy_profile_slug"] == "teen"
-
-
-def test_sync_dhcp_leases(api_client, dns_ingest_env, vpn_device):
-    response = api_client.post(
-        "/devices/sync-dhcp",
-        json={
-            "leases": [
-                {
-                    "client_ip": "10.0.0.10",
-                    "hostname": "dhcp-updated",
-                    "mac_address": "aa:bb:cc:dd:ee:ff",
-                }
-            ]
-        },
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["processed"] == 1
-    assert body["updated"] + body["created"] >= 1
 
 
 def test_countries_summary(api_client, vpn_device, db_session):

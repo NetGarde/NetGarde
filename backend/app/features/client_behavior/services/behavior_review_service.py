@@ -102,9 +102,7 @@ class BehaviorReviewService:
         ]
 
         blocks = self.block_repo.list_active_for_device(device_id)
-        lease = getattr(device, "ip_lease", None)
-        lease_ip = lease.ip if lease is not None else None
-        label = device.hostname or lease_ip or f"Device {device_id}"
+        label = device.hostname or device.external_id or f"Device {device_id}"
 
         return {
             "device_id": device_id,

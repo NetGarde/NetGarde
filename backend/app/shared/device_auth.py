@@ -9,8 +9,7 @@ from dataclasses import dataclass
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
-from app.features.vpn.repositories.vpn_peer_repository import VpnPeerRepository
-from app.shared.config import settings
+from app.features.devices.repositories.device_repository import DeviceRepository
 from app.shared.dependencies import get_db
 from app.shared.device_identity import DeviceTokenError, verify_device_token
 
@@ -18,7 +17,7 @@ from app.shared.device_identity import DeviceTokenError, verify_device_token
 @dataclass(frozen=True)
 class AuthenticatedDevice:
     device_id: str
-    public_key: str
+    device_pk: int
 
 
 def _extract_bearer(authorization: Optional[str]) -> str:
@@ -28,16 +27,6 @@ def _extract_bearer(authorization: Optional[str]) -> str:
     if not token:
         raise HTTPException(status_code=401, detail="Missing Bearer token")
     return token
-
-
-def verify_enroll_bootstrap(authorization: Optional[str] = Header(default=None)) -> None:
-    """Require shared bootstrap token for enroll when ENROLL_BOOTSTRAP_TOKEN is set."""
-    expected = settings.ENROLL_BOOTSTRAP_TOKEN.strip()
-    if not expected:
-        return
-    token = _extract_bearer(authorization)
-    if not hmac_compare(token, expected):
-        raise HTTPException(status_code=403, detail="Invalid enroll credentials")
 
 
 def hmac_compare(a: str, b: str) -> bool:
@@ -56,8 +45,8 @@ def get_authenticated_device(
     except DeviceTokenError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
-    peer = VpnPeerRepository(db).get_by_device_id(claims.device_id)
-    if peer is None or peer.public_key != claims.public_key:
-        raise HTTPException(status_code=401, detail="Device not registered or key mismatch")
+    device = DeviceRepository(db).get_by_external_id(claims.device_id)
+    if device is None:
+        raise HTTPException(status_code=401, detail="Device not registered")
 
-    return AuthenticatedDevice(device_id=peer.device_id, public_key=peer.public_key)
+    return AuthenticatedDevice(device_id=device.external_id, device_pk=device.id)

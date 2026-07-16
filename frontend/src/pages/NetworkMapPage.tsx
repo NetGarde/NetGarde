@@ -39,13 +39,9 @@ export default function NetworkMapPage() {
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
         <Typography variant="body2" color="text.secondary">
           Scan the destinations table for who talked to what. The path diagram stays minimal (egress summary)
-          until you click a row to inspect one destination. Blocked DNS is red. Filter by client or VPN vs
-          agents as needed.
+          until you click a row to inspect one destination. Blocked DNS is red.
         </Typography>
         <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
-          <Button component={RouterLink} to="/client-map" size="small" variant="outlined">
-            Geographic client map
-          </Button>
           <Button component={RouterLink} to="/client-profiles" size="small" variant="text">
             Client profiles
           </Button>

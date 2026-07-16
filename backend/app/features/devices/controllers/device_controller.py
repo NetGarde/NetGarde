@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.features.devices.schemas.device import DeviceCreate, DeviceUpdate, DhcpSyncRequest
+from app.features.devices.schemas.device import DeviceCreate, DeviceUpdate
 from app.features.devices.services.device_service_interface import IDeviceService
 from app.features.devices.errors.device import DeviceAlreadyExistsError, DeviceNotFoundError
 from app.shared.logging_context import structured_extra
@@ -60,14 +60,3 @@ def delete_device_controller(device_id: int, db: Session, service: IDeviceServic
             extra=structured_extra("device_delete_failed", device_id=device_id),
         )
         raise HTTPException(status_code=500, detail="Failed to delete device")
-
-
-def sync_dhcp_leases_controller(payload: DhcpSyncRequest, db: Session, service: IDeviceService):
-    try:
-        return service.sync_from_dhcp_leases(payload, db)
-    except Exception as e:
-        logger.exception(
-            "DHCP sync failed",
-            extra=structured_extra("dhcp_sync_failed"),
-        )
-        raise HTTPException(status_code=400, detail=str(e))

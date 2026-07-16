@@ -11,14 +11,14 @@ def test_graph_snapshot(api_client, seed_policy, vpn_device):
 
 def test_graph_traverse_from_infra(api_client, seed_policy, vpn_device):
     snapshot = api_client.get("/security/graph/snapshot", params={"minutes": 15}).json()
-    wireguard = next(
-        node for node in snapshot["nodes"] if node["id"] == "infra:wireguard"
+    gateway = next(
+        node for node in snapshot["nodes"] if node["id"] == "infra:ec2_gateway"
     )
     response = api_client.post(
         "/security/graph/traverse",
         params={"minutes": 15},
         json={
-            "seed_node_ids": [wireguard["id"]],
+            "seed_node_ids": [gateway["id"]],
             "direction": "both",
             "max_depth": 2,
             "layers": ["desired"],

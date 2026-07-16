@@ -16,8 +16,6 @@ import {
   AppUsageHourlyListResponse,
 } from '../types/device';
 import { DevicePolicyAssignment } from '../types/device';
-import { UsageHistoryResponse } from '../../dashboard/types/usageHistory';
-import { DeviceUsageLiveResponse } from '../../dashboard/types/usageLive';
 
 import { API_BASE_URL } from '../../../shared/config/apiBaseUrl';
 
@@ -39,12 +37,6 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const devicesApi = {
   list: () => apiFetch<Device[]>('/devices'),
-  listUsageLive: (maxAgeSec?: number) => {
-    const q = maxAgeSec != null ? `?max_age_sec=${maxAgeSec}` : '';
-    return apiFetch<DeviceUsageLiveResponse>(`/devices/usage/live${q}`);
-  },
-  listUsageHistory: (minutes = 60) =>
-    apiFetch<UsageHistoryResponse>(`/devices/usage/history?minutes=${minutes}`),
   listBlockedClients: () => apiFetch<BlockedClientsListResponse>('/devices/blocked-clients'),
   getPolicyAssignment: (deviceId: number) =>
     apiFetch<DevicePolicyAssignment>(`/devices/${deviceId}/policy-assignment`),

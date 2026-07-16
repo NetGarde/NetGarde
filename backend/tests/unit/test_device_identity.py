@@ -1,4 +1,3 @@
-import os
 import time
 
 import pytest
@@ -20,18 +19,14 @@ def device_token_secret(monkeypatch):
 
 
 def test_create_and_verify_device_token(device_token_secret):
-    token = create_device_token(
-        device_id="abc123device",
-        public_key="serverPubKeyBase64Example=",
-    )
+    token = create_device_token(device_id="abc123device")
     claims = verify_device_token(token)
     assert claims.device_id == "abc123device"
-    assert claims.public_key == "serverPubKeyBase64Example="
     assert claims.expires_at > int(time.time())
 
 
 def test_reject_tampered_token(device_token_secret):
-    token = create_device_token(device_id="d1", public_key="pk1")
+    token = create_device_token(device_id="d1")
     parts = token.split(".")
     parts[2] = "badsignature"
     with pytest.raises(DeviceTokenError, match="invalid signature"):

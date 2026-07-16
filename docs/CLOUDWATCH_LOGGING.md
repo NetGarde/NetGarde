@@ -11,9 +11,8 @@ Detection alerts and device state live in PostgreSQL / the dashboard — they ar
 | Log group | Source | Retention |
 |-----------|--------|-----------|
 | `/trustedge/prod/backend` | Docker `trustedge-api` | **30 days** |
-| `/trustedge/prod/wg-agent` | systemd `trustedge-wg-agent` | **14 days** |
 
-Legacy log groups for `dns-sync` / `log-watcher` may still exist in AWS but are unused after DNS removal.
+Legacy log groups for `wg-agent` / `dns-sync` / `log-watcher` may still exist in AWS but are unused after VPN/DNS removal.
 
 ## Backend environment
 

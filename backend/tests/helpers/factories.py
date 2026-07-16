@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 
 from app.features.client_behavior.models.client_blocked_domain import ClientBlockedDomain
 from app.features.devices.models.device import Device
 from app.features.policy.models.policy_profile import PolicyProfile
-from app.features.vpn.models.ip_lease import IpLease
-from app.features.vpn.models.ip_pool import IpPool
-from app.features.vpn.models.vpn_peer import VpnPeer
 
 
 def seed_policy_catalog(db_session) -> PolicyProfile:
@@ -56,72 +54,45 @@ def seed_country_presence(db_session, device: Device, *, country_code: str = "IL
     db_session.commit()
 
 
-def create_ip_lease(
+def create_device(
     db_session,
     *,
-    ip: str = "10.0.0.20",
-    device_id: str = "peer-lease-only",
-) -> IpLease:
-    pool = IpPool(
-        name=f"pool-{device_id}",
-        cidr="10.0.0.0/24",
-        gateway_ip="10.0.0.1",
-        dns_ip="10.0.0.1",
-        endpoint="vpn:51820",
-        server_public_key="server-pubkey-test",
+    external_id: str = "dev-test",
+    hostname: Optional[str] = "test-laptop",
+    mac_address: Optional[str] = "aa:bb:cc:dd:ee:ff",
+    source: str = "manual",
+) -> Device:
+    device = Device(
+        external_id=external_id,
+        hostname=hostname,
+        mac_address=mac_address,
+        source=source,
     )
-    db_session.add(pool)
-    db_session.flush()
-
-    peer = VpnPeer(device_id=device_id, public_key=f"pubkey-{device_id}", pool_id=pool.id)
-    db_session.add(peer)
-    db_session.flush()
-
-    lease = IpLease(pool_id=pool.id, peer_id=peer.id, ip=ip)
-    db_session.add(lease)
+    db_session.add(device)
     db_session.commit()
-    db_session.refresh(lease)
-    return lease
+    db_session.refresh(device)
+    return device
 
 
 def create_vpn_device(
     db_session,
     *,
-    ip: str = "10.0.0.10",
     hostname: str = "test-laptop",
-    mac_address: str = "aa:bb:cc:dd:ee:ff",
+    mac_address: Optional[str] = "aa:bb:cc:dd:ee:ff",
     device_id: str = "dev-test",
 ):
-    pool = IpPool(
-        name="pool-test",
-        cidr="10.0.0.0/24",
-        gateway_ip="10.0.0.1",
-        dns_ip="10.0.0.1",
-        endpoint="vpn:51820",
-        server_public_key="server-pubkey-test",
-    )
-    db_session.add(pool)
-    db_session.flush()
+    """Back-compat alias for pre-VPN-removal tests.
 
-    peer = VpnPeer(device_id=device_id, public_key=f"pubkey-{device_id}", pool_id=pool.id)
-    db_session.add(peer)
-    db_session.flush()
-
-    lease = IpLease(pool_id=pool.id, peer_id=peer.id, ip=ip)
-    db_session.add(lease)
-    db_session.flush()
-
-    device = Device(
-        ip_lease_id=lease.id,
+    VPN leases/peers are gone; devices are now identified by external_id only.
+    Returns a (device, None) tuple to preserve existing call-site unpacking.
+    """
+    device = create_device(
+        db_session,
+        external_id=device_id,
         hostname=hostname,
         mac_address=mac_address,
-        source="manual",
     )
-    db_session.add(device)
-    db_session.commit()
-    db_session.refresh(device)
-    db_session.refresh(lease)
-    return device, lease
+    return device, None
 
 
 def create_behavior_block(

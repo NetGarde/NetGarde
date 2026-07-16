@@ -9,8 +9,6 @@ TwinLayer = Literal["observed", "desired", "simulated"]
 
 TwinEntityType = Literal[
     "device",
-    "vpn_peer",
-    "ip_lease",
     "app",
     "domain",
     "ip_address",
@@ -27,8 +25,6 @@ TwinEntityType = Literal[
 ]
 
 TwinRelation = Literal[
-    "enrolled_as",
-    "leased_ip",
     "runs",
     "queries",
     "queries_direct",

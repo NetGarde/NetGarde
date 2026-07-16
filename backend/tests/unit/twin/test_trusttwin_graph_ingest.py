@@ -113,7 +113,7 @@ def test_builder_ingests_trusttwin_security_destinations(db_session, monkeypatch
         layers=["desired"],
     )
     assert routed_vpn == []
-    assert infra_id("wireguard") in graph.nodes
+    assert infra_id("ec2_gateway") in graph.nodes
 
     # Remote ports hang off Internet egress (not the client node).
     opens = graph.neighbors(

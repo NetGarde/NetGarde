@@ -312,62 +312,13 @@ jobs:
             # docker-compose.yml loads /etc/trustedge/backend.env — see scripts/ec2-sync-backend-env.sh
             chmod +x scripts/ec2-sync-backend-env.sh
 
-            # WireGuard enroll + host agent token (required by docker-compose.yml interpolation)
-            # Keep token on the host so it is stable across deploys.
-            sudo mkdir -p /etc/trustedge
-            if [ -f /etc/trustedge/wg-agent.token ]; then
-              WG_AGENT_TOKEN="$(sudo cat /etc/trustedge/wg-agent.token | tr -d '\r\n')"
-              echo "Loaded existing WG_AGENT_TOKEN from /etc/trustedge/wg-agent.token"
-            else
-              WG_AGENT_TOKEN="$(openssl rand -hex 32)"
-              echo "$WG_AGENT_TOKEN" | sudo tee /etc/trustedge/wg-agent.token >/dev/null
-              sudo chmod 600 /etc/trustedge/wg-agent.token
-              echo "Generated new WG_AGENT_TOKEN (stored in /etc/trustedge/wg-agent.token)"
-            fi
-
-            WG_AGENT_URL="${WG_AGENT_URL:-http://172.17.0.1:9109}"
-
-            # Try to discover WireGuard server public key + public endpoint from the host (best effort)
-            VPN_SERVER_PUBLIC_KEY=""
-            if command -v wg >/dev/null 2>&1; then
-              VPN_SERVER_PUBLIC_KEY="$(sudo wg show wg0 public-key 2>/dev/null | tr -d '\r\n' || true)"
-            fi
-            if [ -z "$VPN_SERVER_PUBLIC_KEY" ]; then
-              echo "WARNING: Could not read wg0 public key (wg missing or wg0 not up). VPN enroll may fail until VPN_SERVER_PUBLIC_KEY is set."
-            fi
-
-            VPN_ENDPOINT="${VPN_ENDPOINT:-}"
-            if [ -z "$VPN_ENDPOINT" ]; then
-              # Prefer IMDS public IPv4 if available; fall back to the SSH host from GitHub secrets is not accessible here.
-              META_IP="$(curl -fsS --max-time 1 http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null | tr -d '\r\n' || true)"
-              if [ -n "$META_IP" ]; then
-                VPN_ENDPOINT="${META_IP}:51820"
-              fi
-            fi
-            if [ -z "$VPN_ENDPOINT" ]; then
-              echo "WARNING: VPN_ENDPOINT could not be auto-detected. Set VPN_ENDPOINT explicitly on the host or in CI."
-            fi
-
             SYNC_ARGS=(
               "DB_URL=$DB_URL"
               "PYTHONUNBUFFERED=1"
-              "WG_AGENT_URL=$WG_AGENT_URL"
-              "WG_AGENT_TOKEN=$WG_AGENT_TOKEN"
             )
-            if [ -n "$VPN_SERVER_PUBLIC_KEY" ]; then
-              SYNC_ARGS+=("VPN_SERVER_PUBLIC_KEY=$VPN_SERVER_PUBLIC_KEY")
-            fi
-            if [ -n "$VPN_ENDPOINT" ]; then
-              SYNC_ARGS+=("VPN_ENDPOINT=$VPN_ENDPOINT")
-            fi
             bash scripts/ec2-sync-backend-env.sh "${SYNC_ARGS[@]}"
             echo "Synced /etc/trustedge/backend.env (manual keys preserved)"
 
-            # docker compose reads repo-root `.env` for ${VAR} substitution; keep it in sync for required keys
-            {
-              echo "WG_AGENT_URL=$WG_AGENT_URL"
-              echo "WG_AGENT_TOKEN=$WG_AGENT_TOKEN"
-            } > .env
             chmod +x scripts/ec2-sync-service-tokens.sh
             bash scripts/ec2-sync-service-tokens.sh
 
@@ -379,33 +330,9 @@ jobs:
               bash scripts/ec2-sync-agent-api.sh
             fi
             export TRUSTEDGE_AGENT_ENROLL_TOKEN="$(sudo cat /etc/trustedge/agent-enroll.token 2>/dev/null || sudo cat /etc/trustedge/trusttwin-enroll.token | tr -d '\r\n')"
-
-            export WG_AGENT_URL="$WG_AGENT_URL"
-            export WG_AGENT_TOKEN="$WG_AGENT_TOKEN"
-            if [ -n "$VPN_SERVER_PUBLIC_KEY" ]; then
-              export VPN_SERVER_PUBLIC_KEY="$VPN_SERVER_PUBLIC_KEY"
-            fi
-            if [ -n "$VPN_ENDPOINT" ]; then
-              export VPN_ENDPOINT="$VPN_ENDPOINT"
-            fi
             
             # Export DB_URL for docker compose
             export DB_URL="$DB_URL"
-            
-            # Install WireGuard host agent (applies wg set for /v1/enroll)
-            if command -v wg >/dev/null 2>&1; then
-              echo "Installing trustedge-wg-agent systemd service..."
-              sudo mkdir -p /opt/trustedge
-              sudo cp /home/ubuntu/trustedge/host-agent/trustedge-wg-agent.py /opt/trustedge/trustedge-wg-agent.py
-              sudo chmod 755 /opt/trustedge/trustedge-wg-agent.py
-              sudo cp /home/ubuntu/trustedge/host-agent/trustedge-wg-agent.service /etc/systemd/system/trustedge-wg-agent.service
-              # Inject token into unit file (avoid sed delimiter/special-char footguns)
-              sudo perl -pi -e 'BEGIN { $t = shift @ARGV } s/^Environment=TRUSTEDGE_WG_AGENT_TOKEN=.*/Environment=TRUSTEDGE_WG_AGENT_TOKEN=$t/m' "$WG_AGENT_TOKEN" /etc/systemd/system/trustedge-wg-agent.service || true
-              sudo systemctl daemon-reload
-              sudo systemctl enable --now trustedge-wg-agent
-            else
-              echo "WARNING: wg not found; skipping trustedge-wg-agent install"
-            fi
             
             # Handle image source based on branch
             echo "Logging into ECR..."
@@ -441,7 +368,6 @@ jobs:
             # Show status
             echo "Service status:"
             docker compose -f docker-compose.yml ps 
-            # Host WireGuard / iptables actions run via trustedge-wg-agent (not Docker).
 
             echo "AI review: template mode by default. For local Ollama after freeing disk:"
             echo "  sudo bash ~/trustedge/scripts/ec2-setup-ollama.sh"

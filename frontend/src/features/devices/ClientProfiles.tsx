@@ -93,7 +93,7 @@ export default function ClientProfiles() {
                       onClick={() => selectDevice(d.id)}
                     >
                       <ListItemText
-                        primary={d.hostname || d.client_ip}
+                        primary={d.hostname || d.external_id}
                         secondary={
                           loginGeoByDevice.get(d.id)?.country_code
                             ? `VPN: ${countryLabel(
@@ -105,7 +105,7 @@ export default function ClientProfiles() {
                                   countryByDevice.get(d.id)!.primary_country_code,
                                   countryByDevice.get(d.id)!.primary_country_name,
                                 )
-                              : d.mac_address || d.client_ip
+                              : d.mac_address || d.external_id
                         }
                         primaryTypographyProps={{ fontWeight: isSelected ? 600 : 400 }}
                       />

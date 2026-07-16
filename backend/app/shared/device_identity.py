@@ -8,7 +8,7 @@ import hmac
 import json
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 from app.shared.config import settings
 
@@ -20,7 +20,6 @@ class DeviceTokenError(Exception):
 @dataclass(frozen=True)
 class DeviceTokenClaims:
     device_id: str
-    public_key: str
     issued_at: int
     expires_at: int
 
@@ -39,7 +38,9 @@ def _sign(message: bytes, secret: str) -> str:
     return _b64url_encode(digest)
 
 
-def create_device_token(*, device_id: str, public_key: str) -> str:
+def create_device_token(*, device_id: str, public_key: Optional[str] = None) -> str:
+    """Issue a device token. public_key is accepted for compatibility but ignored."""
+    del public_key  # VPN-era claim; no longer used
     secret = settings.device_token_secret
     if not secret:
         raise DeviceTokenError("DEVICE_TOKEN_SECRET is not configured")
@@ -50,7 +51,6 @@ def create_device_token(*, device_id: str, public_key: str) -> str:
     payload = {
         "sub": "device",
         "device_id": device_id.strip(),
-        "public_key": public_key.strip(),
         "iat": now,
         "exp": now + ttl,
     }
@@ -85,8 +85,7 @@ def verify_device_token(token: str) -> DeviceTokenClaims:
         raise DeviceTokenError("invalid subject")
 
     device_id = str(payload_obj.get("device_id") or "").strip()
-    public_key = str(payload_obj.get("public_key") or "").strip()
-    if not device_id or not public_key:
+    if not device_id:
         raise DeviceTokenError("missing device claims")
 
     exp = int(payload_obj.get("exp") or 0)
@@ -95,7 +94,6 @@ def verify_device_token(token: str) -> DeviceTokenClaims:
 
     return DeviceTokenClaims(
         device_id=device_id,
-        public_key=public_key,
         issued_at=int(payload_obj.get("iat") or 0),
         expires_at=exp,
     )

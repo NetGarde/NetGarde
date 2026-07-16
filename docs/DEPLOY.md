@@ -2,7 +2,7 @@
 
 TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure layout and host services.
 
-**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [host-agent/README.md](../host-agent/README.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
+**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
 
 ---
 
@@ -10,11 +10,11 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 | AWS service | Role |
 |-------------|------|
-| **EC2** | WireGuard, iptables, Docker (backend, detection), host agent |
+| **EC2** | Docker (backend, detection-engine, agent-api) |
 | **RDS** | PostgreSQL — devices, alerts, behavior state |
 | **S3 + CloudFront** | React dashboard static hosting + HTTPS |
 | **ECR** | Backend Docker image registry |
-| **Redis** (on EC2) | Rolling window for live VPN throughput |
+| **Redis** (on EC2) | TrustEdge Agent live state / twin keys |
 
 ---
 
@@ -29,13 +29,6 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 ---
 
 ## EC2 host services
-
-Run alongside Docker on the instance:
-
-```bash
-sudo systemctl status trustedge-wg-agent      # peers + quarantine
-sudo systemctl status wg-quick@wg0
-```
 
 Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.md](ENV_SETUP.md).
 
