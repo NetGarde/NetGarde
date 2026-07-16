@@ -21,8 +21,7 @@ const mainListItems = [
   { text: 'Home', icon: <HomeRoundedIcon />, path: '/', iconClass: 'homeIcon' },
 ];
 
-const digitalTwinItems = [
-  { text: 'Network map', icon: <HubIcon />, path: '/network-map', iconClass: 'networkMapIcon' },
+const observabilityItems = [
   { text: 'Agents', icon: <DevicesOtherIcon />, path: '/agents', iconClass: 'clientProfilesIcon' },
 ];
 
@@ -35,15 +34,15 @@ interface MenuContentProps {
 export default function MenuContent({ open = true }: MenuContentProps) {
   const theme = useTheme();
   const location = useLocation();
-  const [digitalTwinOpen, setDigitalTwinOpen] = useState(true);
+  const [observabilityOpen, setObservabilityOpen] = useState(true);
   const navItemSx = sidebarNavItemSx(theme);
   const nestedNavItemSx = sidebarNavItemSx(theme, true);
   const sectionSx = sidebarSectionButtonSx(theme);
 
   useEffect(() => {
-    const hasSelectedChild = digitalTwinItems.some((item) => location.pathname === item.path);
+    const hasSelectedChild = observabilityItems.some((item) => location.pathname === item.path);
     if (hasSelectedChild) {
-      setDigitalTwinOpen(true);
+      setObservabilityOpen(true);
     }
   }, [location.pathname]);
 
@@ -92,7 +91,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
     );
   };
 
-  const renderSectionItems = (items: typeof digitalTwinItems, nested = true) =>
+  const renderSectionItems = (items: typeof observabilityItems, nested = true) =>
     items.map((item, index) => {
       const isSelected = location.pathname === item.path;
       const button = (
@@ -146,7 +145,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
         {open && (
           <>
             <ListItem disablePadding sx={{ display: 'block' }}>
-              <ListItemButton onClick={() => setDigitalTwinOpen(!digitalTwinOpen)} sx={sectionSx}>
+              <ListItemButton onClick={() => setObservabilityOpen(!observabilityOpen)} sx={sectionSx}>
                 <ListItemIcon className="menuIcon" sx={{ minWidth: 40, justifyContent: 'flex-start' }}>
                   <HubIcon />
                 </ListItemIcon>
@@ -155,18 +154,18 @@ export default function MenuContent({ open = true }: MenuContentProps) {
                   sx={{ color: 'text.secondary' }}
                   primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 400 }}
                 />
-                {digitalTwinOpen ? <ExpandLess /> : <ExpandMore />}
+                {observabilityOpen ? <ExpandLess /> : <ExpandMore />}
               </ListItemButton>
             </ListItem>
-            <Collapse in={digitalTwinOpen} timeout="auto" unmountOnExit>
+            <Collapse in={observabilityOpen} timeout="auto" unmountOnExit>
               <List component="div" disablePadding dense>
-                {renderSectionItems(digitalTwinItems)}
+                {renderSectionItems(observabilityItems)}
               </List>
             </Collapse>
           </>
         )}
 
-        {!open && renderSectionItems(digitalTwinItems, false)}
+        {!open && renderSectionItems(observabilityItems, false)}
       </List>
       <List dense sx={{ px: 0 }}>
         {secondaryListItems.map((item, index) => renderNavItem(item, index))}

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 
-def test_ingest_flows_and_map(api_client, ingest_env, monkeypatch):
+def test_ingest_flows_and_live(api_client, ingest_env, monkeypatch):
     monkeypatch.setattr("app.shared.config.settings.NETWORK_FLOWS_ENABLED", True)
 
     now = datetime.now(timezone.utc).isoformat()
@@ -42,8 +42,3 @@ def test_ingest_flows_and_map(api_client, ingest_env, monkeypatch):
     live = api_client.get("/network-flows/live")
     assert live.status_code == 200
     assert len(live.json()["items"]) >= 1
-
-    map_resp = api_client.get("/network-flows/map")
-    assert map_resp.status_code == 200
-    body = map_resp.json()
-    assert any(n["type"] == "flow" for n in body["nodes"])

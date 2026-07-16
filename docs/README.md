@@ -10,7 +10,6 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 |---|----------|----------|----------|
 | <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | [DESIGN.md](DESIGN.md) | Engineers | Domain model, topology, frontend/backend patterns |
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Engineers | Architecture diagram, data flows, trust boundaries |
-| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [GRAPH_ENGINE.md](GRAPH_ENGINE.md) | Engineers | Observability graph model and projections |
 | <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [DEPLOY.md](DEPLOY.md) | Operators | AWS layout, CI/CD, EC2 host services |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [ENV_SETUP.md](ENV_SETUP.md) | Operators | Environment variables and troubleshooting |
 | <img src="assets/icons/api.svg" width="18" height="18" align="absmiddle" alt="" /> | [API.md](API.md) | Integrators | REST and WebSocket reference |

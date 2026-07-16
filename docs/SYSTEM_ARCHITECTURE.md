@@ -21,7 +21,7 @@ Component topology and data flows for the TrustEdge **security observability pla
 | **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
 | **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, alerts, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
-| **Redis** | TrustEdge Agent live state (EC2) | Endpoint agent mirror for observability graph |
+| **Redis** | Optional live agent keys (EC2) | Connected-agent APIs / overview helpers |
 | **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
 
 ---
@@ -31,17 +31,15 @@ Component topology and data flows for the TrustEdge **security observability pla
 ### Endpoint telemetry path
 
 ```
-TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
+TrustEdge Agent → POST /v1/events → trustedge-agent-api → Kafka (trustedge.agent.events)
                  → detection-engine → POST /security/alerts/ingest → Backend
-                 → observability graph + dashboard alerts
+                 → Agent-API upsert → Postgres agents registry → dashboard Agents
 ```
 
-### Network map path
+### L4 flow ingest (optional)
 
 ```
-Foreground app reports (POST /v1/network-attribution)
-  + optional L4 flow samples (POST /network-flows/bulk)
-  → Backend → GET /network-attribution/map → Dashboard
+Host conntrack watcher → POST /network-flows/bulk → Backend Redis window → GET /network-flows/live
 ```
 
 ---
