@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("DB_URL", "sqlite:///:memory:")
 
 from app.shared.database import Base
+from app.features.agents.models.agent import Agent  # noqa: F401
 
 
 @pytest.fixture(autouse=True)
