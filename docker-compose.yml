@@ -118,6 +118,9 @@ services:
       TRUSTEDGE_AGENT_DATA_DIR: /data
       TRUSTEDGE_AGENT_ENROLL_TOKEN: ${TRUSTEDGE_AGENT_ENROLL_TOKEN:-}
       TRUSTEDGE_AGENT_PRODUCTION: ${TRUSTEDGE_AGENT_PRODUCTION:-1}
+      # Upsert agents into TrustEdge Postgres (fail-open if backend unreachable)
+      TRUSTEDGE_BACKEND_URL: ${TRUSTEDGE_BACKEND_URL:-http://backend:8000}
+      DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
@@ -127,6 +130,8 @@ services:
       redis:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     restart: always
     healthcheck:
