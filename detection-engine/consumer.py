@@ -107,7 +107,12 @@ def _process_event(raw: str) -> None:
 
     now = time.time()
     _prune_seen(now)
-    fresh = [alert for alert in alerts if _mark_seen(alert.fingerprint(), now)]
+    # Persist only high-severity findings; lower severities stay in logs if needed later.
+    fresh = [
+        alert
+        for alert in alerts
+        if alert.severity.strip().lower() == "high" and _mark_seen(alert.fingerprint(), now)
+    ]
     if not fresh:
         return
 

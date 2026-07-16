@@ -11,9 +11,9 @@ def test_ingest_and_list_security_alerts(api_client, db_session, ingest_env):
                 "device_id": "dev_alert_test",
                 "event_id": "evt_1",
                 "event_type": "network_summary",
-                "alert_type": "network_type_change",
-                "severity": "medium",
-                "message": "Network type changed from wifi to ethernet",
+                "alert_type": "new_public_ip",
+                "severity": "high",
+                "message": "Public IP changed from 1.1.1.1 to 2.2.2.2",
             }
         ],
     )
@@ -24,8 +24,37 @@ def test_ingest_and_list_security_alerts(api_client, db_session, ingest_env):
     assert listed.status_code == 200
     body = listed.json()
     assert body["total"] >= 1
-    assert body["items"][0]["alert_type"] == "network_type_change"
+    assert body["items"][0]["alert_type"] == "new_public_ip"
     assert body["items"][0]["device_id"] == "dev_alert_test"
+
+
+def test_ingest_skips_non_high_severity(api_client, db_session, ingest_env):
+    ts = datetime(2026, 7, 11, 12, 2, 0, tzinfo=timezone.utc).isoformat()
+    ingest = api_client.post(
+        "/security/alerts/ingest",
+        json=[
+            {
+                "timestamp": ts,
+                "device_id": "dev_low",
+                "event_id": "evt_low",
+                "alert_type": "event_burst",
+                "severity": "low",
+                "message": "High event volume (36 events in 5 minutes)",
+            },
+            {
+                "timestamp": ts,
+                "device_id": "dev_low",
+                "event_id": "evt_med",
+                "alert_type": "network_type_change",
+                "severity": "medium",
+                "message": "Network type changed",
+            },
+        ],
+    )
+    assert ingest.status_code == 200
+    assert ingest.json()["created"] == 0
+    listed = api_client.get("/security/alerts?device_id=dev_low")
+    assert listed.json()["total"] == 0
 
 
 def test_ingest_is_idempotent_by_fingerprint(api_client, db_session, ingest_env):
@@ -81,7 +110,7 @@ def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, inge
                 "event_id": "evt_burst_1",
                 "event_type": "process_start",
                 "alert_type": "event_burst",
-                "severity": "low",
+                "severity": "high",
                 "message": "High event volume (36 events in 5 minutes)",
             }
         ],
@@ -99,7 +128,7 @@ def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, inge
                 "event_id": "evt_burst_2",
                 "event_type": "process_exit",
                 "alert_type": "event_burst",
-                "severity": "low",
+                "severity": "high",
                 "message": "High event volume (47 events in 5 minutes)",
             }
         ],

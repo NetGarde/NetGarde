@@ -65,6 +65,9 @@ class SecurityAlertService:
         skipped = 0
         seen_in_batch: set[str] = set()
         for item in alerts:
+            if (item.severity or "").strip().lower() != "high":
+                skipped += 1
+                continue
             fingerprint = _fingerprint(item)
             if fingerprint in seen_in_batch or self.repo.exists_fingerprint(fingerprint):
                 skipped += 1
