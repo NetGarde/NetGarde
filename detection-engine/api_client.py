@@ -31,13 +31,13 @@ def post_alerts(alerts: list[dict[str, Any]]) -> bool:
             payload = json.loads(resp.read().decode("utf-8"))
             LOG.info(
                 "alerts ingested",
-                extra=structured_extra("twin_alerts_posted", created=payload.get("created", 0)),
+                extra=structured_extra("alerts_posted", created=payload.get("created", 0)),
             )
             return True
     except urllib.error.HTTPError as exc:
         LOG.error(
             "alert ingest failed",
-            extra=structured_extra("twin_alerts_post_failed", status=exc.code, body=exc.read()[:500]),
+            extra=structured_extra("alerts_post_failed", status=exc.code, body=exc.read()[:500]),
         )
         return False
     except Exception as exc:

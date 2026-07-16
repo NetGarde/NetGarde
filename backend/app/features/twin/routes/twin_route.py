@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.features.twin.schemas.connected_agent import ConnectedAgentListResponse
-from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
+from app.features.twin.schemas.security_alert import SecurityAlertCreate, SecurityAlertListResponse
 from app.features.twin.services.connected_agent_service import ConnectedAgentService
-from app.features.twin.services.twin_alert_service import TwinAlertService
+from app.features.twin.services.security_alert_service import SecurityAlertService
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
 from app.shared.service_auth import verify_ingest_service
@@ -14,23 +14,23 @@ from app.shared.service_auth import verify_ingest_service
 router = APIRouter(prefix="/security", tags=["Security Observability"])
 
 
-def get_twin_alert_service(db: Session = Depends(get_db)) -> TwinAlertService:
-    return TwinAlertService(db)
+def get_security_alert_service(db: Session = Depends(get_db)) -> SecurityAlertService:
+    return SecurityAlertService(db)
 
 
 def get_connected_agent_service() -> ConnectedAgentService:
     return ConnectedAgentService()
 
 
-@router.get("/alerts", response_model=TwinAlertListResponse)
-def list_twin_alerts(
+@router.get("/alerts", response_model=SecurityAlertListResponse)
+def list_security_alerts(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     alert_type: Optional[str] = Query(default=None),
     device_id: Optional[str] = Query(default=None),
     severity: Optional[str] = Query(default=None),
     _: None = Depends(verify_admin_api_token),
-    service: TwinAlertService = Depends(get_twin_alert_service),
+    service: SecurityAlertService = Depends(get_security_alert_service),
 ):
     """List TrustEdge Agent detection alerts."""
     return service.list_alerts(
@@ -43,10 +43,10 @@ def list_twin_alerts(
 
 
 @router.post("/alerts/ingest")
-def ingest_twin_alerts(
-    body: list[TwinAlertCreate],
+def ingest_security_alerts(
+    body: list[SecurityAlertCreate],
     _: None = Depends(verify_ingest_service),
-    service: TwinAlertService = Depends(get_twin_alert_service),
+    service: SecurityAlertService = Depends(get_security_alert_service),
 ):
     """Ingest alerts from detection-engine (service token)."""
     if not body:

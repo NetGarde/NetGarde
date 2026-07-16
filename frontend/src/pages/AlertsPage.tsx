@@ -14,8 +14,8 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useMemo, useState } from 'react';
-import { useTwinAlerts } from '../features/twin/hooks/useTwinAlerts';
-import { TwinAlert } from '../features/twin/types/twinAlert';
+import { useSecurityAlerts } from '../features/twin/hooks/useSecurityAlerts';
+import { SecurityAlert } from '../features/twin/types/securityAlert';
 import { formatShortDateTime } from '../shared/utils/dateUtils';
 
 const SEVERITY_COLOR: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -44,7 +44,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 
-function AlertRow({ alert }: { alert: TwinAlert }) {
+function AlertRow({ alert }: { alert: SecurityAlert }) {
   const label = TYPE_LABEL[alert.alert_type] || alert.alert_type.replace(/_/g, ' ');
   const severity = SEVERITY_COLOR[alert.severity] || 'default';
 
@@ -83,7 +83,7 @@ function AlertRow({ alert }: { alert: TwinAlert }) {
 export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const severityParam = severityFilter === 'all' ? undefined : severityFilter;
-  const { items, total, loading, refetch } = useTwinAlerts({
+  const { items, total, loading, refetch } = useSecurityAlerts({
     pageSize: 100,
     severity: severityParam,
   });

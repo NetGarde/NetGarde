@@ -1,4 +1,4 @@
-export type TwinAlert = {
+export type SecurityAlert = {
   id: number;
   timestamp: string;
   device_id: string;
@@ -11,15 +11,15 @@ export type TwinAlert = {
   created_at?: string | null;
 };
 
-export type TwinAlertListResponse = {
-  items: TwinAlert[];
+export type SecurityAlertListResponse = {
+  items: SecurityAlert[];
   total: number;
   page: number;
   page_size: number;
   pages: number;
 };
 
-export type TwinAlertListParams = {
+export type SecurityAlertListParams = {
   page?: number;
   page_size?: number;
   severity?: string;

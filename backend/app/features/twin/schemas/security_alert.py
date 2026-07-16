@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import AliasChoices, BaseModel, Field
 
 
-class TwinAlertCreate(BaseModel):
+class SecurityAlertCreate(BaseModel):
     timestamp: datetime
     device_id: str = Field(
         min_length=1,
@@ -19,7 +19,7 @@ class TwinAlertCreate(BaseModel):
     detail: Optional[str] = None
 
 
-class TwinAlertResponse(BaseModel):
+class SecurityAlertResponse(BaseModel):
     id: int
     timestamp: datetime
     device_id: str
@@ -35,8 +35,8 @@ class TwinAlertResponse(BaseModel):
         from_attributes = True
 
 
-class TwinAlertListResponse(BaseModel):
-    items: List[TwinAlertResponse]
+class SecurityAlertListResponse(BaseModel):
+    items: List[SecurityAlertResponse]
     total: int
     page: int
     page_size: int

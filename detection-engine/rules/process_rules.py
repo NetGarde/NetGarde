@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from rules.alerts import TwinAlert
+from rules.alerts import SecurityAlert
 from rules.chain import (
     TYPE_PROCESS_START,
     ChainEvent,
@@ -28,8 +28,8 @@ def _alert(
     severity: str,
     message: str,
     detail: dict | None = None,
-) -> TwinAlert:
-    return TwinAlert(
+) -> SecurityAlert:
+    return SecurityAlert(
         timestamp=ts_iso(source.ts),
         device_id=chain.device_id,
         event_id=source.event_id,
@@ -60,7 +60,7 @@ def _pid_map(chain: DeviceChain, window: timedelta | None = None) -> dict[int, C
     return out
 
 
-def rule_temp_path_execution(chain: DeviceChain) -> list[TwinAlert]:
+def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
     """Process started from /tmp, /var/tmp, or Downloads."""
     latest = chain.latest(TYPE_PROCESS_START)
     if not latest:
@@ -82,7 +82,7 @@ def rule_temp_path_execution(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_shell_spawns_downloader(chain: DeviceChain) -> list[TwinAlert]:
+def rule_shell_spawns_downloader(chain: DeviceChain) -> list[SecurityAlert]:
     """Shell parent process spawned curl/wget."""
     window = timedelta(minutes=5)
     parents = _pid_map(chain, window)
@@ -113,7 +113,7 @@ def rule_shell_spawns_downloader(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_script_spawns_shell(chain: DeviceChain) -> list[TwinAlert]:
+def rule_script_spawns_shell(chain: DeviceChain) -> list[SecurityAlert]:
     """Script interpreter spawned a shell (common phishing / automation chain)."""
     window = timedelta(minutes=5)
     parents = _pid_map(chain, window)
@@ -141,7 +141,7 @@ def rule_script_spawns_shell(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_process_burst(chain: DeviceChain) -> list[TwinAlert]:
+def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
     """Many new processes in a short window (possible malware sweep or unpacker)."""
     window = timedelta(minutes=2)
     starts = chain.of_type(TYPE_PROCESS_START, window)
@@ -159,7 +159,7 @@ def rule_process_burst(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[TwinAlert]:
+def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[SecurityAlert]:
     """Comm looks like a system tool but path is outside /usr or /System."""
     latest = chain.latest(TYPE_PROCESS_START)
     if not latest:

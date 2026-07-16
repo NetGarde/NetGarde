@@ -4,10 +4,10 @@ from typing import List, Optional
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.features.twin.models.twin_alert import TwinAlert
+from app.features.twin.models.security_alert import SecurityAlert
 
 
-class TwinAlertRepository:
+class SecurityAlertRepository:
     def __init__(self, db: Session):
         self.db = db
 
@@ -22,8 +22,8 @@ class TwinAlertRepository:
         event_type: Optional[str] = None,
         message: Optional[str] = None,
         detail: Optional[str] = None,
-    ) -> TwinAlert:
-        alert = TwinAlert(
+    ) -> SecurityAlert:
+        alert = SecurityAlert(
             timestamp=timestamp,
             device_id=device_id,
             event_id=event_id,
@@ -46,19 +46,19 @@ class TwinAlertRepository:
         device_id: Optional[str] = None,
         severity: Optional[str] = None,
         days: int = 90,
-    ) -> tuple[List[TwinAlert], int]:
+    ) -> tuple[List[SecurityAlert], int]:
         cutoff = datetime.now(timezone.utc) - timedelta(days=days)
-        query = self.db.query(TwinAlert).filter(TwinAlert.timestamp >= cutoff)
+        query = self.db.query(SecurityAlert).filter(SecurityAlert.timestamp >= cutoff)
         if alert_type:
-            query = query.filter(TwinAlert.alert_type == alert_type)
+            query = query.filter(SecurityAlert.alert_type == alert_type)
         if device_id:
-            query = query.filter(TwinAlert.device_id == device_id)
+            query = query.filter(SecurityAlert.device_id == device_id)
         if severity:
-            query = query.filter(TwinAlert.severity == severity)
+            query = query.filter(SecurityAlert.severity == severity)
         total = query.count()
         offset = (page - 1) * page_size
         items = (
-            query.order_by(desc(TwinAlert.timestamp))
+            query.order_by(desc(SecurityAlert.timestamp))
             .offset(offset)
             .limit(page_size)
             .all()

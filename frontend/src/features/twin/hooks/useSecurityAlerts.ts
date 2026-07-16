@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { twinApi } from '../config/api';
-import { TwinAlert } from '../types/twinAlert';
+import { SecurityAlert } from '../types/securityAlert';
 
-export function useTwinAlerts(options?: {
+export function useSecurityAlerts(options?: {
   pageSize?: number;
   severity?: string;
   alertType?: string;
@@ -10,7 +10,7 @@ export function useTwinAlerts(options?: {
   const pageSize = options?.pageSize ?? 50;
   const severity = options?.severity;
   const alertType = options?.alertType;
-  const [items, setItems] = useState<TwinAlert[]>([]);
+  const [items, setItems] = useState<SecurityAlert[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +26,7 @@ export function useTwinAlerts(options?: {
       setItems(data.items);
       setTotal(data.total);
     } catch (error) {
-      console.error('Failed to fetch attack alerts:', error);
+      console.error('Failed to fetch security alerts:', error);
       setItems([]);
       setTotal(0);
     } finally {

@@ -5,8 +5,8 @@ from sqlalchemy import Column, DateTime, Index, Integer, String, Text
 from app.shared.database import Base
 
 
-class TwinAlert(Base):
-    __tablename__ = "twin_alerts"
+class SecurityAlert(Base):
+    __tablename__ = "security_alerts"
 
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -20,6 +20,6 @@ class TwinAlert(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        Index("ix_twin_alerts_type_ts", "alert_type", "timestamp"),
-        Index("ix_twin_alerts_device_ts", "device_id", "timestamp"),
+        Index("ix_security_alerts_type_ts", "alert_type", "timestamp"),
+        Index("ix_security_alerts_device_ts", "device_id", "timestamp"),
     )
