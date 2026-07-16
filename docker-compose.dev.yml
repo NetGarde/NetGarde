@@ -142,6 +142,7 @@ services:
       TRUSTEDGE_AGENT_PRODUCTION: "0"
       TRUSTEDGE_BACKEND_URL: ${TRUSTEDGE_BACKEND_URL:-http://backend:8000}
       DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
+      TRUSTEDGE_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
       REDIS_URL: redis://redis:6379/0
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
