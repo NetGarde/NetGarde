@@ -11,14 +11,6 @@ from app.shared.database import Base
 # Import all models so Alembic can detect them
 from app.features.devices.models.device import Device  # noqa: F401
 from app.features.twin.models.twin_alert import TwinAlert  # noqa: F401
-from app.features.policy.models.policy_profile import PolicyProfile  # noqa: F401
-from app.features.policy.models.device_quarantine import DeviceQuarantine  # noqa: F401
-from app.features.network_attribution.models.device_app_usage_rollup import (  # noqa: F401
-    DeviceAppUsageRollup,
-)
-from app.features.network_attribution.models.device_network_context import (  # noqa: F401
-    DeviceNetworkContext,
-)
 
 
 config = context.config

@@ -8,15 +8,13 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 ## <img src="assets/icons/collection.svg" width="22" height="22" align="absmiddle" alt="" /> Product goals
 
-TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + behavior baselines + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
+TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
 1. **Live observability** — TrustEdge Agent streams process, app, and network posture into the network map and detection alerts.
 2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
-3. **Behavior-aware drift** — Per-device baselines and abnormal scores surface drift; rules-based scoring, not LLM judgment.
-4. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview and per-device behavior for operators; falls back to templates when AI is off or unavailable.
-5. **Soft quarantine** — Operators can flag devices; agent-side network isolation is a follow-on.
+3. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview for operators; falls back to templates when AI is off or unavailable.
 
-DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
+DNS policy packs, soft quarantine, network-attribution rollups, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
 
 ---
 
@@ -24,10 +22,9 @@ DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll a
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
-| Application | Foreground app reports (TrustEdge Agent) | Network map |
-| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, detection alerts |
-| Drift | Behavior baselines vs live scoring | Client profiles |
-| Detection | TrustEdge Agent events → detection-engine rules | Security alerts, network map |
+| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Network map, connected agents |
+| Detection | TrustEdge Agent events → detection-engine rules | Security alerts (`twin_alerts`) |
+| L4 flows | Host conntrack watcher | Network map / twin graph |
 
 ---
 
@@ -83,7 +80,6 @@ DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll a
 ### Devices & clients
 
 - **Device** — An endpoint identified by `external_id` (agent device id), optional hostname/MAC.
-- **Quarantine** — Soft flag in the API/dashboard; agent-side network isolation is not yet enforced.
 
 ### Alerts
 
@@ -92,24 +88,13 @@ DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll a
 
 ---
 
-## Quarantine pipeline
-
-```
-Dashboard action (quarantine)
-    → Backend writes soft quarantine state in DB
-```
-
-Agent-enforced network isolation is a follow-on (no WireGuard host agent).
-
----
-
 ## Security model
 
 | Token | Used by | Protects |
 |-------|---------|----------|
-| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management, quarantine |
+| `ADMIN_API_TOKEN` | Dashboard, admin scripts | Device management |
 | `DNS_INGEST_TOKEN` | Flow watcher, detection-engine ingest | Service-to-service ingest (shared token name) |
-| `DEVICE_TOKEN_SECRET` | Device-authenticated APIs | HMAC device tokens (e.g. network attribution) |
+| `DEVICE_TOKEN_SECRET` | Device-authenticated APIs | HMAC device tokens |
 
 - Admin auth is **disabled when `ADMIN_API_TOKEN` is empty** — always set this in production.
 - CloudFront terminates HTTPS for the dashboard and proxies API requests to the backend.
@@ -221,9 +206,7 @@ backend/app/
     ├── devices/
     ├── twin/               # Detection alerts (twin_alerts) + agent twin
     ├── dashboard/
-    ├── network_attribution/
-    ├── network_flows/
-    └── policy/             # Policy profiles + soft quarantine
+    └── network_flows/
 ```
 
 ### Layered architecture (pragmatic)
@@ -239,8 +222,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 | Pattern | Features | Notes |
 |---------|----------|-------|
 | Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
-| Thin routes | `dashboard`, `twin` | Route calls service directly |
-| Mixed | `devices` (extended routes) | Policy assignment / quarantine inline |
+| Thin routes | `dashboard`, `twin`, `network_flows` | Route calls service directly |
 
 **Reference implementation:** `devices` — route → controller/service → repository.
 
@@ -272,8 +254,7 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 No global event bus. Services import peer services explicitly:
 
 - Twin alert ingest feeds dashboard attack views
-- `device_route.py` aggregates devices, policy assignment, and quarantine
-- Network attribution builds maps from endpoint context (+ optional flows)
+- Network map is built from L4 flows (+ live twin state)
 
 ---
 

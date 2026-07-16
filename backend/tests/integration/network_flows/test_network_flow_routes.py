@@ -43,7 +43,7 @@ def test_ingest_flows_and_map(api_client, dns_ingest_env, monkeypatch):
     assert live.status_code == 200
     assert len(live.json()["items"]) >= 1
 
-    map_resp = api_client.get("/network-attribution/map", params={"include_flows": True})
+    map_resp = api_client.get("/network-flows/map")
     assert map_resp.status_code == 200
     body = map_resp.json()
     assert any(n["type"] == "flow" for n in body["nodes"])

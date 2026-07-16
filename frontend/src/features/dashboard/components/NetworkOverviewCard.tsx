@@ -98,7 +98,6 @@ export default function NetworkOverviewCard() {
             color={stats.alerts_total > 0 ? 'warning' : 'default'}
             variant="outlined"
           />
-          <Chip size="small" label={`${stats.enabled_policy_packs} packs`} variant="outlined" />
         </Stack>
       )}
 

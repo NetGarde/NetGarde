@@ -8,14 +8,10 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("DB_URL", "sqlite:///:memory:")
 
 from app.shared.database import Base
-from tests.helpers.factories import create_device, seed_policy_catalog
+from tests.helpers.factories import create_device
 
 # Register all models on Base.metadata (required for create_all FK resolution)
 from app.features.devices.models.device import Device  # noqa: F401
-from app.features.policy.models.policy_profile import PolicyProfile  # noqa: F401
-from app.features.policy.models.device_quarantine import DeviceQuarantine  # noqa: F401
-from app.features.network_attribution.models.device_app_usage_rollup import DeviceAppUsageRollup  # noqa: F401
-from app.features.network_attribution.models.device_network_context import DeviceNetworkContext  # noqa: F401
 from app.features.twin.models.twin_alert import TwinAlert  # noqa: F401
 
 
@@ -41,11 +37,6 @@ def db_session():
     finally:
         session.close()
         Base.metadata.drop_all(bind=engine)
-
-
-@pytest.fixture
-def seed_policy(db_session):
-    return seed_policy_catalog(db_session)
 
 
 @pytest.fixture

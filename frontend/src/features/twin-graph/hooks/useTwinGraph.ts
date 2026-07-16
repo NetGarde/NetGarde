@@ -31,7 +31,7 @@ export function useTwinGraph(
     setError(null);
     try {
       await loadDeviceIndex();
-      const response = await fetchTwinGraphSnapshot(minutes, includeFlows, true);
+      const response = await fetchTwinGraphSnapshot(minutes, includeFlows);
       setSnapshot(response);
       setAttribution(projectAttributionGraph(response));
     } catch (e) {

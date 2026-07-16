@@ -8,13 +8,9 @@ export type TwinEntityType =
   | 'l4_service'
   | 'flow_session'
   | 'dns_query'
-  | 'policy_profile'
-  | 'policy_pack'
-  | 'policy_rule'
   | 'infra_component'
   | 'geo_country'
-  | 'behavior_signal'
-  | 'quarantine';
+  | 'behavior_signal';
 
 export type TwinRelation =
   | 'runs'
@@ -34,7 +30,6 @@ export type TwinRelation =
   | 'blocks'
   | 'allows'
   | 'enforces'
-  | 'quarantined'
   | 'observed_in'
   | 'scored_by'
   | 'simulated_block';

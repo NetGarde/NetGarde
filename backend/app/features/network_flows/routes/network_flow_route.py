@@ -10,7 +10,9 @@ from app.features.network_flows.schemas.network_flow import (
     NetworkFlowIngestResponse,
     NetworkFlowLiveResponse,
 )
+from app.features.network_flows.schemas.network_map import NetworkMapResponse
 from app.features.network_flows.services.flow_ingest_service import NetworkFlowIngestService
+from app.features.network_flows.services.flow_map_service import build_flow_map
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.dependencies import get_db
 from app.shared.service_auth import verify_dns_ingest_service
@@ -50,3 +52,12 @@ def list_live_network_flows(
 ):
     """Recent L4 flows from the rolling Redis window."""
     return service.list_live(max_age_sec=max_age_sec)
+
+
+@router.get("/map", response_model=NetworkMapResponse)
+def get_network_flow_map(
+    minutes: int = Query(default=15, ge=1, le=24 * 60),
+    _: None = Depends(verify_admin_api_token),
+):
+    """Flow-derived network map (replaces legacy attribution map)."""
+    return build_flow_map(minutes=minutes)

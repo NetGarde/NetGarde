@@ -6,15 +6,11 @@ from typing import Dict, Optional, Set
 
 from sqlalchemy.orm import Session
 
-from app.features.network_attribution.schemas.network_attribution import (
-    NetworkMapEdge,
-    NetworkMapNode,
-    NetworkMapResponse,
+from app.features.network_flows.schemas.network_map import NetworkMapResponse
+from app.features.network_flows.services.flow_map_service import (
+    empty_network_map,
+    merge_flows_into_map,
 )
-from app.features.network_attribution.services.network_attribution_service import (
-    NetworkAttributionService,
-)
-from app.features.network_flows.services.flow_map_service import merge_flows_into_map
 from app.features.network_flows.services.flow_store import StoredFlow, list_recent_flows
 from app.features.twin.graph.ids import (
     app_id,
@@ -49,11 +45,10 @@ class _BuilderState:
     nodes: Dict[str, TwinNode] = field(default_factory=dict)
     edges: Dict[str, TwinEdge] = field(default_factory=dict)
     observed_domains: Set[str] = field(default_factory=set)
-    device_profiles: Dict[int, int] = field(default_factory=dict)
 
 
 class TwinGraphBuilder:
-    """Assemble canonical twin graph from attribution, flows, and policy state."""
+    """Assemble canonical twin graph from flows and live agent twin state."""
 
     def __init__(self, db: Session):
         self.db = db
@@ -64,11 +59,9 @@ class TwinGraphBuilder:
         *,
         minutes: int = 1,
         include_flows: bool = True,
-        include_policy: bool = True,
         include_trusttwin: bool = True,
     ) -> TwinGraphSnapshot:
-        attribution = NetworkAttributionService(self.db)
-        base_map = attribution.build_map(minutes=minutes)
+        base_map: NetworkMapResponse = empty_network_map(minutes=minutes)
         if include_flows and settings.NETWORK_FLOWS_ENABLED:
             base_map = merge_flows_into_map(base_map, minutes=minutes)
 
@@ -79,8 +72,6 @@ class TwinGraphBuilder:
         if include_trusttwin:
             trusttwin_count = self._ingest_trusttwin()
         self._ingest_infra_topology()
-        if include_policy:
-            self._ingest_policy_layer()
 
         graph = TwinGraph()
         for node in self.state.nodes.values():
@@ -97,7 +88,6 @@ class TwinGraphBuilder:
             window_minutes=minutes,
             meta={
                 "include_flows": include_flows and settings.NETWORK_FLOWS_ENABLED,
-                "include_policy": include_policy,
                 "include_trusttwin": include_trusttwin,
                 "trusttwin_devices": trusttwin_count,
                 "node_count": len(self.state.nodes),
@@ -742,6 +732,3 @@ class TwinGraphBuilder:
                     properties={"source": "trusttwin"},
                 )
         return len(devices)
-
-    def _ingest_policy_layer(self) -> None:
-        return

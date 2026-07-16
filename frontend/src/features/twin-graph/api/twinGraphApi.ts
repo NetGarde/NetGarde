@@ -12,11 +12,9 @@ export const DEFAULT_TWIN_GRAPH_POLL_SEC = 10;
 export async function fetchTwinGraphSnapshot(
   minutes = DEFAULT_TWIN_GRAPH_MINUTES,
   includeFlows = false,
-  includePolicy = true,
 ): Promise<TwinGraphSnapshot> {
   const params = new URLSearchParams({
     minutes: String(minutes),
-    include_policy: String(includePolicy),
     include_trusttwin: 'true',
   });
   if (includeFlows) {
@@ -39,11 +37,9 @@ export async function traverseTwinGraph(
   body: TraverseRequest,
   minutes = DEFAULT_TWIN_GRAPH_MINUTES,
   includeFlows = false,
-  includePolicy = true,
 ): Promise<TraverseResponse> {
   const params = new URLSearchParams({
     minutes: String(minutes),
-    include_policy: String(includePolicy),
   });
   if (includeFlows) {
     params.set('include_flows', 'true');

@@ -3,7 +3,6 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
 import { Device } from '../types/device';
-import NetworkAttributionSection from './NetworkAttributionSection';
 
 interface ClientProfileDetailProps {
   device: Device;
@@ -25,8 +24,6 @@ export default function ClientProfileDetail({ device }: ClientProfileDetailProps
             Source: {device.source}
           </Typography>
         </Box>
-
-        <NetworkAttributionSection deviceId={device.id} />
       </Stack>
     </Paper>
   );

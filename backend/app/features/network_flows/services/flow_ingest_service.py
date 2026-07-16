@@ -4,12 +4,10 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.features.network_attribution.services.network_attribution_service import NetworkAttributionService
 from app.features.network_flows.schemas.network_flow import (
     DnsResolutionBulkCreate,
     DnsResolutionIngestResponse,
     NetworkFlowBulkCreate,
-    NetworkFlowCreate,
     NetworkFlowIngestResponse,
     NetworkFlowLiveResponse,
 )
@@ -21,7 +19,6 @@ from app.shared.config import settings
 class NetworkFlowIngestService:
     def __init__(self, db: Session):
         self.db = db
-        self.attribution = NetworkAttributionService(db)
 
     def ingest_resolutions(self, payload: DnsResolutionBulkCreate) -> DnsResolutionIngestResponse:
         if not settings.NETWORK_FLOWS_ENABLED:
@@ -40,14 +37,7 @@ class NetworkFlowIngestService:
             dedupe = flow_dedupe_key(flow)
             correlated[dedupe] = flow_store.lookup_domain(flow.client_ip, flow.dest_ip)
             if flow.client_ip not in attribution:
-                resolved = self.attribution.resolve_attribution_for_client_ip(
-                    flow.client_ip,
-                    flow.observed_at,
-                )
-                if resolved is None:
-                    attribution[flow.client_ip] = (None, None)
-                else:
-                    attribution[flow.client_ip] = (resolved.app_slug, resolved.app_display_name)
+                attribution[flow.client_ip] = (None, None)
 
         stored = flow_store.record_flows(
             payload.flows,

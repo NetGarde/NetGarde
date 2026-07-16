@@ -7,13 +7,10 @@ export const DEFAULT_NETWORK_MAP_POLL_SEC = 10;
 
 export async function fetchNetworkAttributionMap(
   minutes = DEFAULT_NETWORK_MAP_MINUTES,
-  includeFlows = false,
+  _includeFlows = true,
 ): Promise<NetworkMapResponse> {
   const params = new URLSearchParams({ minutes: String(minutes) });
-  if (includeFlows) {
-    params.set('include_flows', 'true');
-  }
-  const res = await fetch(`${API_BASE_URL}/network-attribution/map?${params}`, {
+  const res = await fetch(`${API_BASE_URL}/network-flows/map?${params}`, {
     headers: {
       Accept: 'application/json',
       ...getAdminAuthHeaders(),
