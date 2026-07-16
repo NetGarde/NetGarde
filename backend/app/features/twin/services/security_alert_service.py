@@ -1,4 +1,5 @@
 import hashlib
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.exc import IntegrityError
@@ -15,12 +16,41 @@ from app.shared.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Keep in sync with detection-engine/rules/alerts.py COOLDOWN_SECONDS.
+COOLDOWN_SECONDS: dict[str, int] = {
+    "event_burst": 5 * 60,
+    "process_burst": 2 * 60,
+    "rapid_public_ip_changes": 15 * 60,
+    "double_ip_change_10m": 10 * 60,
+    "network_type_flapping": 10 * 60,
+    "network_flap_5m": 5 * 60,
+    "repeated_network_summary": 10 * 60,
+    "established_count_spike": 15 * 60,
+    "listening_port_spike": 15 * 60,
+    "foreground_connections_spike": 15 * 60,
+    "high_listening_while_active": 5 * 60,
+    "network_change_while_active": 5 * 60,
+    "ip_change_while_idle": 5 * 60,
+    "active_ip_churn": 30 * 60,
+    "stale_client_details": 20 * 60,
+    "missing_network_telemetry": 30 * 60,
+    "idle_with_network_activity": 15 * 60,
+}
+
 
 def _fingerprint(item: SecurityAlertCreate) -> str:
     """Stable identity for an alert so re-evaluation / replay does not duplicate rows."""
     if item.fingerprint:
         return item.fingerprint
-    anchor = item.event_id or item.timestamp.isoformat()
+    cooldown = COOLDOWN_SECONDS.get(item.alert_type)
+    if cooldown:
+        ts = item.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        bucket = int(ts.timestamp()) // cooldown
+        anchor = f"bucket:{bucket}"
+    else:
+        anchor = item.event_id or item.timestamp.isoformat()
     raw = f"{item.device_id}|{item.alert_type}|{anchor}"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
