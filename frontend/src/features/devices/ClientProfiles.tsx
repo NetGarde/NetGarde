@@ -49,7 +49,7 @@ export default function ClientProfiles() {
       </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 3 }}>
         <Typography variant="body2" color="text.secondary">
-          Per-device identity and network attribution.
+          Per-device identity for enrolled TrustEdge agents.
         </Typography>
         <Button size="small" onClick={refresh} disabled={loading}>
           Refresh list

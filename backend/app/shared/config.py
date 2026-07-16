@@ -12,20 +12,12 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # Device identity tokens (HMAC) for device-authenticated APIs such as network attribution
+    # Device identity tokens (HMAC) for device-authenticated APIs
     DEVICE_TOKEN_SECRET: str = ""
     DEVICE_TOKEN_TTL_DAYS: int = 365
 
     # Admin identity: dashboard APIs
     ADMIN_API_TOKEN: str = ""
-
-    # Endpoint network attribution (foreground app → network context)
-    NETWORK_ATTRIBUTION_ENABLED: bool = True
-    NETWORK_ATTRIBUTION_MAX_AGE_SEC: int = 120
-    NETWORK_ATTRIBUTION_RETENTION_DAYS: int = 30
-    CLIENT_ATTRIBUTION_PATH: str = "/v1/network-attribution"
-    CLIENT_ATTRIBUTION_POLL_SEC: float = 30.0
-    CLIENT_ATTRIBUTION_REPORT_SEC: float = 60.0
 
     # L4 flow twin (conntrack ingest on EC2 host)
     NETWORK_FLOWS_ENABLED: bool = True

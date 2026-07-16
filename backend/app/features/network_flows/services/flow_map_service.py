@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Optional
 
-from app.features.network_attribution.schemas.network_attribution import (
+from app.features.network_flows.schemas.network_map import (
     NetworkMapEdge,
     NetworkMapNode,
     NetworkMapResponse,
@@ -10,6 +11,19 @@ from app.features.network_attribution.schemas.network_attribution import (
 from app.features.network_flows.services.flow_store import StoredFlow, list_recent_flows
 from app.shared.config import settings
 from app.shared.domain_utils import extract_root_domain
+
+
+def empty_network_map(*, minutes: int) -> NetworkMapResponse:
+    return NetworkMapResponse(
+        generated_at=datetime.now(timezone.utc),
+        minutes=max(1, minutes),
+        nodes=[],
+        edges=[],
+    )
+
+
+def build_flow_map(*, minutes: int) -> NetworkMapResponse:
+    return merge_flows_into_map(empty_network_map(minutes=minutes), minutes=minutes)
 
 
 def _flow_node_id(protocol: str, dest_ip: str, dest_port: Optional[int]) -> str:

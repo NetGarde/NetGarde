@@ -143,10 +143,6 @@ function mapTrustTwinNode(node: TwinNode): NetworkMapNode | null {
   return null;
 }
 
-function twinPolicyProfileToMap(node: TwinNode): NetworkMapNode {
-  return { id: node.id, type: 'policy', label: node.label };
-}
-
 function twinFlowSessionToMap(node: TwinNode, destinationLabel: string): NetworkMapNode {
   const processName = String(node.properties.app_name ?? '').trim() || null;
   const appSlug = String(node.properties.app_slug ?? '').trim() || null;
@@ -183,25 +179,6 @@ function upsertMapEdge(map: Map<string, NetworkMapEdge>, edge: NetworkMapEdge): 
     query_count: existing.query_count + edge.query_count,
     blocked_count: existing.blocked_count + edge.blocked_count,
   });
-}
-
-function policyProfileForSource(index: TwinGraphIndex, sourceId: string): string | null {
-  let deviceId = sourceId;
-  if (sourceId.startsWith('app:')) {
-    const runEdge = [...index.edges.values()].find(
-      (edge) => edge.relation === 'runs' && edge.target_id === sourceId,
-    );
-    deviceId = runEdge?.source_id ?? sourceId;
-  }
-  if (!deviceId.startsWith('device:')) {
-    return null;
-  }
-  const assigned = index.neighbors(deviceId, {
-    direction: 'out',
-    relations: new Set(['assigned']),
-    layers: new Set(['desired']),
-  })[0];
-  return assigned?.target_id ?? null;
 }
 
 /** Project canonical twin graph to attribution view (device → app → domain). */
@@ -253,12 +230,11 @@ export function projectAttributionGraph(
   };
 }
 
-/** Project twin graph to path view using infra + policy nodes from the canonical graph. */
+/** Project twin graph to path view using infra nodes from the canonical graph. */
 export function projectPathGraph(
   snapshot: TwinGraphSnapshot,
   attribution: NetworkMapResponse,
 ): NetworkMapResponse {
-  const index = new TwinGraphIndex(snapshot);
   const nodeMap = new Map<string, NetworkMapNode>();
   const edgeMap = new Map<string, NetworkMapEdge>();
 
@@ -272,9 +248,6 @@ export function projectPathGraph(
       if (mapped) {
         nodeMap.set(mapped.id, mapped);
       }
-    }
-    if (node.entity_type === 'policy_profile') {
-      nodeMap.set(node.id, twinPolicyProfileToMap(node));
     }
   }
 
@@ -290,9 +263,6 @@ export function projectPathGraph(
       continue;
     }
     hasDnsFlow = true;
-    const policyId =
-      policyProfileForSource(index, edge.source) ??
-      [...nodeMap.values()].find((n) => n.type === 'policy')?.id;
     upsertMapEdge(edgeMap, {
       source: edge.source,
       target: EC2_GATEWAY_ID,
@@ -300,15 +270,6 @@ export function projectPathGraph(
       query_count: edge.query_count,
       blocked_count: 0,
     });
-    if (policyId) {
-      upsertMapEdge(edgeMap, {
-        source: policyId,
-        target: edge.target,
-        kind: 'path_forward',
-        query_count: edge.query_count,
-        blocked_count: edge.blocked_count,
-      });
-    }
   }
 
   if (hasDnsFlow && nodeMap.has(EC2_GATEWAY_ID) && nodeMap.has(DNS_RESOLVER_ID)) {
@@ -319,16 +280,6 @@ export function projectPathGraph(
       query_count: 0,
       blocked_count: 0,
     });
-    const policyNode = [...nodeMap.values()].find((n) => n.type === 'policy');
-    if (policyNode) {
-      upsertMapEdge(edgeMap, {
-        source: DNS_RESOLVER_ID,
-        target: policyNode.id,
-        kind: 'path_resolve',
-        query_count: 0,
-        blocked_count: 0,
-      });
-    }
   }
 
   return {

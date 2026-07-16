@@ -25,18 +25,6 @@ def flow_session_id(protocol: str, dest_ip: str, dest_port: int, client_ip: str)
     return f"flow:{protocol.lower()}:{dest_ip}:{dest_port}:{client_ip}"
 
 
-def policy_profile_id(profile_pk: int) -> str:
-    return f"policy_profile:{profile_pk}"
-
-
-def policy_pack_id(slug: str) -> str:
-    return f"policy_pack:{slug.lower()}"
-
-
-def policy_rule_id(profile_pk: int, domain: str) -> str:
-    return f"policy_rule:{profile_pk}:{domain.lower().rstrip('.')}"
-
-
 def infra_id(kind: str) -> str:
     return f"infra:{kind.lower()}"
 

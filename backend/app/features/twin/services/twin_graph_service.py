@@ -25,13 +25,11 @@ class TwinGraphService:
         *,
         minutes: int = 1,
         include_flows: bool = True,
-        include_policy: bool = True,
         include_trusttwin: bool = True,
     ) -> TwinGraphSnapshot:
         return TwinGraphBuilder(self.db).build(
             minutes=minutes,
             include_flows=include_flows,
-            include_policy=include_policy,
             include_trusttwin=include_trusttwin,
         )
 
@@ -41,13 +39,11 @@ class TwinGraphService:
         *,
         minutes: int = 1,
         include_flows: bool = True,
-        include_policy: bool = True,
         include_trusttwin: bool = True,
     ) -> TraverseResponse:
         snapshot = self.build_snapshot(
             minutes=minutes,
             include_flows=include_flows,
-            include_policy=include_policy,
             include_trusttwin=include_trusttwin,
         )
         graph = TwinGraph.from_snapshot(snapshot)
@@ -62,13 +58,11 @@ class TwinGraphService:
         layers: Optional[List[TwinLayer]] = None,
         minutes: int = 1,
         include_flows: bool = True,
-        include_policy: bool = True,
         include_trusttwin: bool = True,
     ) -> TraverseResponse:
         snapshot = self.build_snapshot(
             minutes=minutes,
             include_flows=include_flows,
-            include_policy=include_policy,
             include_trusttwin=include_trusttwin,
         )
         graph = TwinGraph.from_snapshot(snapshot)

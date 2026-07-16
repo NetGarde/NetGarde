@@ -11,9 +11,6 @@ class NetworkOverviewStats(BaseModel):
     live_total_mib_per_sec: float = Field(ge=0)
     peak_mib_per_sec: float = Field(ge=0)
     alerts_total: int = Field(ge=0)
-    blocked_queries: int = Field(ge=0)
-    enabled_policy_packs: int = Field(ge=0)
-    elevated_behavior_clients: int = Field(ge=0)
 
 
 class NetworkOverviewRead(BaseModel):

@@ -2,8 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.features.network_attribution.schemas.network_attribution import (
-    NetworkMapEdge,
+from app.features.network_flows.schemas.network_map import (
     NetworkMapNode,
     NetworkMapResponse,
 )

@@ -39,9 +39,6 @@ class NetworkOverviewService:
             live_total_mib_per_sec=0.0,
             peak_mib_per_sec=0.0,
             alerts_total=int(snapshot["alerts"]["total"]),
-            blocked_queries=0,
-            enabled_policy_packs=0,
-            elevated_behavior_clients=0,
         )
 
         overview = NetworkOverviewRead(
@@ -87,9 +84,6 @@ class NetworkOverviewService:
             "live": {"reporting": reporting, "total_mib_per_sec": 0.0},
             "history": {"peak_mib_per_sec": 0.0},
             "alerts": {"total": alerts_total, "by_type": alerts_by_type},
-            "blocked": {"count": 0, "top_domains": []},
-            "policy": {"enabled_pack_names": []},
-            "behavior": {"elevated_count": 0, "threshold": 0},
         }
 
     def _resolve_review(

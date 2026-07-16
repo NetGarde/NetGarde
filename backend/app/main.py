@@ -13,9 +13,6 @@ from app.shared.utils.logging import setup_logging
 from app.shared.dependencies import get_db
 from app.features.devices.routes.device_route import router as device_router
 from app.features.dashboard.routes.dashboard_route import router as dashboard_router
-from app.features.network_attribution.routes.network_attribution_route import (
-    router as network_attribution_router,
-)
 from app.features.network_flows.routes.network_flow_route import router as network_flow_router
 from app.features.twin.routes.twin_route import router as twin_router
 from app.shared.redis_client import close_redis
@@ -126,7 +123,6 @@ def health(db: Session = Depends(get_db)):
 
 # Include routers
 app.include_router(device_router)
-app.include_router(network_attribution_router)
 app.include_router(twin_router)
 app.include_router(network_flow_router)
 app.include_router(dashboard_router)

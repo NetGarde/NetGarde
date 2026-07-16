@@ -6,15 +6,11 @@ from app.features.twin.graph.ids import (
     domain_id,
     edge_id,
     infra_id,
-    policy_pack_id,
-    policy_profile_id,
-    policy_rule_id,
 )
 from app.features.twin.graph.model import TwinGraph
 from app.features.twin.graph.schemas import (
     TraverseRequest,
     TwinEdge,
-    TwinGraphSnapshot,
     TwinNode,
 )
 
@@ -46,35 +42,6 @@ def _build_sample_graph() -> TwinGraph:
             layer="observed",
             label="example.com",
             properties={"blocked": False},
-            last_seen_at=now,
-        ),
-        TwinNode(
-            id=policy_profile_id(1),
-            entity_type="policy_profile",
-            layer="desired",
-            label="Default",
-            properties={"enabled_pack_slugs": ["social-media"]},
-        ),
-        TwinNode(
-            id=policy_pack_id("social-media"),
-            entity_type="policy_pack",
-            layer="desired",
-            label="Social Media",
-            properties={"slug": "social-media"},
-        ),
-        TwinNode(
-            id=policy_rule_id(1, "tiktok.com"),
-            entity_type="policy_rule",
-            layer="desired",
-            label="block tiktok.com",
-            properties={"action": "block", "domain": "tiktok.com"},
-        ),
-        TwinNode(
-            id=domain_id("tiktok.com"),
-            entity_type="domain",
-            layer="observed",
-            label="tiktok.com",
-            properties={"blocked": True},
             last_seen_at=now,
         ),
         TwinNode(
@@ -111,38 +78,6 @@ def _build_sample_graph() -> TwinGraph:
             relation="queries",
             layer="observed",
             weight=5,
-        ),
-        TwinEdge(
-            id=edge_id("assigned", device_id(1), policy_profile_id(1)),
-            source_id=device_id(1),
-            target_id=policy_profile_id(1),
-            relation="assigned",
-            layer="desired",
-            weight=1,
-        ),
-        TwinEdge(
-            id=edge_id("includes", policy_profile_id(1), policy_pack_id("social-media")),
-            source_id=policy_profile_id(1),
-            target_id=policy_pack_id("social-media"),
-            relation="includes",
-            layer="desired",
-            weight=1,
-        ),
-        TwinEdge(
-            id=edge_id("defines", policy_pack_id("social-media"), policy_rule_id(1, "tiktok.com")),
-            source_id=policy_pack_id("social-media"),
-            target_id=policy_rule_id(1, "tiktok.com"),
-            relation="defines",
-            layer="desired",
-            weight=1,
-        ),
-        TwinEdge(
-            id=edge_id("blocks", policy_rule_id(1, "tiktok.com"), domain_id("tiktok.com")),
-            source_id=policy_rule_id(1, "tiktok.com"),
-            target_id=domain_id("tiktok.com"),
-            relation="blocks",
-            layer="desired",
-            weight=1,
         ),
         TwinEdge(
             id=edge_id("routed_via", device_id(1), infra_id("ec2_gateway")),
@@ -190,25 +125,7 @@ def test_traverse_forward_from_device():
     node_ids = {node.id for node in result.nodes}
     assert app_id("com.google.chrome") in node_ids
     assert domain_id("example.com") in node_ids
-    assert policy_profile_id(1) in node_ids
-
-
-def test_traverse_reverse_rca_from_blocked_domain():
-    graph = _build_sample_graph()
-    result = graph.traverse(
-        TraverseRequest(
-            seed_node_ids=[domain_id("tiktok.com")],
-            direction="in",
-            relations=["blocks", "defines", "includes", "assigned"],
-            max_depth=6,
-            layers=["desired"],
-        )
-    )
-    node_ids = {node.id for node in result.nodes}
-    assert policy_rule_id(1, "tiktok.com") in node_ids
-    assert policy_pack_id("social-media") in node_ids
-    assert policy_profile_id(1) in node_ids
-    assert device_id(1) in node_ids
+    assert infra_id("ec2_gateway") in node_ids
 
 
 def test_neighbors_bidirectional_filter():
@@ -218,10 +135,5 @@ def test_neighbors_bidirectional_filter():
     assert "runs" in relations
     assert "queries" not in relations
 
-
-def test_subgraph_expands_from_policy_pack():
-    graph = _build_sample_graph()
-    result = graph.subgraph([policy_pack_id("social-media")], depth=3, direction="both")
-    node_ids = {node.id for node in result.nodes}
-    assert domain_id("tiktok.com") in node_ids
-    assert device_id(1) in node_ids
+    both = graph.neighbors(infra_id("ec2_gateway"), direction="both", layers=["desired"])
+    assert any(edge.relation == "terminates_at" for edge in both)

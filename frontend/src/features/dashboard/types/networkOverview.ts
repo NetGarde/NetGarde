@@ -3,11 +3,6 @@ export interface NetworkOverviewStats {
   live_total_mib_per_sec: number;
   peak_mib_per_sec: number;
   alerts_total: number;
-  enabled_policy_packs: number;
-  /** @deprecated retained for older API payloads; omit or zero when unused */
-  blocked_queries?: number;
-  /** @deprecated retained for older API payloads; omit or zero when unused */
-  elevated_behavior_clients?: number;
 }
 
 export type NetworkOverviewSource = 'template' | 'llm';

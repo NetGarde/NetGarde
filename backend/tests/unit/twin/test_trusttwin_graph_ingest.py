@@ -10,7 +10,6 @@ from app.shared.config import settings
 
 def test_builder_ingests_trusttwin_security_destinations(db_session, monkeypatch):
     """Security map: client identity + egress path + port destinations (not host posture)."""
-    monkeypatch.setattr(settings, "NETWORK_ATTRIBUTION_ENABLED", True)
     monkeypatch.setattr(settings, "NETWORK_FLOWS_ENABLED", False)
 
     rec = TwinDeviceLatest(
@@ -60,7 +59,6 @@ def test_builder_ingests_trusttwin_security_destinations(db_session, monkeypatch
         snapshot = TwinGraphBuilder(db_session).build(
             minutes=1,
             include_flows=False,
-            include_policy=False,
             include_trusttwin=True,
         )
 

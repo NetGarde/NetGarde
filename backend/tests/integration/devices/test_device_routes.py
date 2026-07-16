@@ -28,15 +28,3 @@ def test_create_device_via_api(api_client, db_session):
     body = response.json()
     assert body["external_id"] == "dev-api-created"
     assert body["hostname"] == "api-created"
-
-
-def test_assign_policy_profile_to_device(api_client, seed_policy, sample_device):
-    response = api_client.put(
-        f"/devices/{sample_device.id}/policy-assignment",
-        json={"policy_profile_slug": "teen"},
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["device_id"] == sample_device.id
-    assert body["policy_profile_slug"] == "teen"
-    assert body["in_quarantine"] is False

@@ -1,4 +1,4 @@
-def test_graph_snapshot(api_client, seed_policy, sample_device):
+def test_graph_snapshot(api_client, sample_device):
     response = api_client.get("/security/graph/snapshot", params={"minutes": 15})
     assert response.status_code == 200
     body = response.json()
@@ -9,7 +9,7 @@ def test_graph_snapshot(api_client, seed_policy, sample_device):
     assert "infra_component" in entity_types
 
 
-def test_graph_traverse_from_infra(api_client, seed_policy, sample_device):
+def test_graph_traverse_from_infra(api_client, sample_device):
     snapshot = api_client.get("/security/graph/snapshot", params={"minutes": 15}).json()
     gateway = next(
         node for node in snapshot["nodes"] if node["id"] == "infra:ec2_gateway"
@@ -30,7 +30,7 @@ def test_graph_traverse_from_infra(api_client, seed_policy, sample_device):
     assert len(body["paths"]) >= 1
 
 
-def test_graph_neighbors(api_client, seed_policy, sample_device):
+def test_graph_neighbors(api_client, sample_device):
     response = api_client.get(
         "/security/graph/neighbors",
         params={"node_id": "infra:dns_resolver", "direction": "both", "minutes": 15},

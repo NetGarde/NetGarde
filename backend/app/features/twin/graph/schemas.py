@@ -15,13 +15,9 @@ TwinEntityType = Literal[
     "l4_service",
     "flow_session",
     "dns_query",
-    "policy_profile",
-    "policy_pack",
-    "policy_rule",
     "infra_component",
     "geo_country",
     "behavior_signal",
-    "quarantine",
 ]
 
 TwinRelation = Literal[
@@ -42,7 +38,6 @@ TwinRelation = Literal[
     "blocks",
     "allows",
     "enforces",
-    "quarantined",
     "observed_in",
     "scored_by",
     "simulated_block",

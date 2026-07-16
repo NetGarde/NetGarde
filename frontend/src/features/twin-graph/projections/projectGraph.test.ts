@@ -49,13 +49,6 @@ function sampleSnapshot(): TwinGraphSnapshot {
         properties: { kind: 'dns_resolver' },
       },
       {
-        id: 'policy_profile:1',
-        entity_type: 'policy_profile',
-        layer: 'desired',
-        label: 'Teen',
-        properties: { slug: 'teen' },
-      },
-      {
         id: 'l4:tcp:443',
         entity_type: 'l4_service',
         layer: 'observed',
@@ -95,15 +88,6 @@ function sampleSnapshot(): TwinGraphSnapshot {
         layer: 'observed',
         weight: 3,
         properties: { blocked_count: 0 },
-      },
-      {
-        id: 'assigned:device:1->policy_profile:1',
-        source_id: 'device:1',
-        target_id: 'policy_profile:1',
-        relation: 'assigned',
-        layer: 'desired',
-        weight: 1,
-        properties: {},
       },
       {
         id: 'opens:app:zoom->flow:tcp:93.184.216.34:443:10.0.0.12',
@@ -146,14 +130,14 @@ describe('projectAttributionGraph', () => {
 });
 
 describe('projectPathGraph', () => {
-  it('includes infra and policy nodes from twin graph', () => {
+  it('includes infra nodes from twin graph', () => {
     const attribution = projectAttributionGraph(sampleSnapshot());
     const result = projectPathGraph(sampleSnapshot(), attribution);
     const types = new Set(result.nodes.map((n) => n.type));
     expect(types.has('tunnel')).toBe(true);
     expect(types.has('gateway')).toBe(true);
-    expect(types.has('policy')).toBe(true);
-    expect(result.edges.some((e) => e.kind === 'path_forward')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'path_egress')).toBe(true);
+    expect(result.edges.some((e) => e.kind === 'path_tunnel')).toBe(true);
   });
 });
 
@@ -411,7 +395,7 @@ describe('projectTwinGraph', () => {
 });
 
 describe('TwinGraphIndex', () => {
-  it('traverses reverse from domain to device via policy', () => {
+  it('traverses reverse from domain to device', () => {
     const index = new TwinGraphIndex(sampleSnapshot());
     const result = index.traverse({
       seed_node_ids: ['domain:zoom.us'],
