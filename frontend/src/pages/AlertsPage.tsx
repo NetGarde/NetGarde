@@ -196,16 +196,42 @@ function DetailFields({ detail }: { detail: AlertDetail }) {
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
         Related evidence
       </Typography>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: 'grid',
+          gridTemplateColumns: 'max-content 1fr',
+          columnGap: 1.5,
+          rowGap: 0.5,
+        }}
+      >
         {entries.map(([key, value]) => (
-          <Chip
-            key={key}
-            size="small"
-            variant="outlined"
-            label={`${DETAIL_LABELS[key] || key.replace(/_/g, ' ')}: ${formatDetailValue(value)}`}
-          />
+          <Box key={key} sx={{ display: 'contents' }}>
+            <Typography
+              component="dt"
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontWeight: 600 }}
+            >
+              {DETAIL_LABELS[key] || key.replace(/_/g, ' ')}
+            </Typography>
+            <Typography
+              component="dd"
+              variant="body2"
+              sx={{
+                m: 0,
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                fontSize: '0.75rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+              }}
+            >
+              {formatDetailValue(value)}
+            </Typography>
+          </Box>
         ))}
-      </Stack>
+      </Box>
     </Stack>
   );
 }
