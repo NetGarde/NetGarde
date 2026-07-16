@@ -4,7 +4,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Paper from '@mui/material/Paper';
 import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
@@ -12,7 +12,11 @@ import Tooltip from '@mui/material/Tooltip';
 import CircularProgress from '@mui/material/CircularProgress';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Collapse from '@mui/material/Collapse';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useMemo, useState } from 'react';
 import { useSecurityAlerts } from '../features/twin/hooks/useSecurityAlerts';
 import { SecurityAlert } from '../features/twin/types/securityAlert';
@@ -42,46 +46,172 @@ const TYPE_LABEL: Record<string, string> = {
   active_ip_churn: 'Active IP churn',
 };
 
-type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
+const DETAIL_LABELS: Record<string, string> = {
+  parent_comm: 'Parent',
+  child_comm: 'Child',
+  parent_pid: 'Parent PID',
+  child_pid: 'Child PID',
+  executable: 'Executable',
+  comm: 'Process',
+  pid: 'PID',
+  from: 'From',
+  to: 'To',
+  from_ip: 'From IP',
+  to_ip: 'To IP',
+  from_type: 'From type',
+  to_type: 'To type',
+  ips: 'IPs',
+  changes: 'Changes',
+  count: 'Count',
+  window_minutes: 'Window (min)',
+  presence: 'Presence',
+  listening_count: 'Listening ports',
+  network_events: 'Network events',
+};
 
-function AlertRow({ alert }: { alert: SecurityAlert }) {
-  const label = TYPE_LABEL[alert.alert_type] || alert.alert_type.replace(/_/g, ' ');
-  const severity = SEVERITY_COLOR[alert.severity] || 'default';
+type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
+type AlertDetail = Record<string, unknown>;
+
+function parseDetail(raw?: string | null): AlertDetail | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as AlertDetail;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function formatDetailValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(String).join(', ');
+  if (value == null) return '';
+  return String(value);
+}
+
+function ProcessChainView({ detail }: { detail: AlertDetail }) {
+  const parent = detail.parent_comm != null ? String(detail.parent_comm) : null;
+  const child = detail.child_comm != null ? String(detail.child_comm) : null;
+  if (!parent || !child) return null;
 
   return (
-    <ListItem sx={{ py: 1, px: 2 }}>
-      <ListItemText
-        primary={
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Chip label={label} size="small" color={severity} variant="outlined" />
-            <Chip label={alert.severity} size="small" color={severity} />
-            <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 160 }}>
-              {alert.message || label}
-            </Typography>
-          </Stack>
-        }
-        secondary={
-          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              {formatShortDateTime(alert.timestamp)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-              {alert.device_id}
-            </Typography>
-            {alert.event_type && (
-              <Typography variant="caption" color="text.secondary">
-                {alert.event_type}
+    <Stack spacing={1}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Process chain
+      </Typography>
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Chip
+          label={`${parent}${detail.parent_pid != null ? ` (pid ${detail.parent_pid})` : ''}`}
+          size="small"
+          variant="outlined"
+        />
+        <ArrowForwardIcon fontSize="small" color="action" />
+        <Chip
+          label={`${child}${detail.child_pid != null ? ` (pid ${detail.child_pid})` : ''}`}
+          size="small"
+          color="warning"
+          variant="outlined"
+        />
+      </Stack>
+    </Stack>
+  );
+}
+
+function DetailFields({ detail }: { detail: AlertDetail }) {
+  const chainKeys = new Set(['parent_comm', 'child_comm', 'parent_pid', 'child_pid']);
+  const entries = Object.entries(detail).filter(([key]) => !chainKeys.has(key));
+  if (entries.length === 0) return null;
+
+  return (
+    <Stack spacing={0.75}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Related evidence
+      </Typography>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {entries.map(([key, value]) => (
+          <Chip
+            key={key}
+            size="small"
+            variant="outlined"
+            label={`${DETAIL_LABELS[key] || key.replace(/_/g, ' ')}: ${formatDetailValue(value)}`}
+          />
+        ))}
+      </Stack>
+    </Stack>
+  );
+}
+
+function AlertRow({
+  alert,
+  expanded,
+  onToggle,
+}: {
+  alert: SecurityAlert;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const label = TYPE_LABEL[alert.alert_type] || alert.alert_type.replace(/_/g, ' ');
+  const severity = SEVERITY_COLOR[alert.severity] || 'default';
+  const detail = parseDetail(alert.detail);
+  const hasDetail = detail != null;
+
+  return (
+    <Box>
+      <ListItemButton onClick={hasDetail ? onToggle : undefined} sx={{ py: 1, px: 2, alignItems: 'flex-start' }}>
+        <ListItemText
+          primary={
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Chip label={label} size="small" color={severity} variant="outlined" />
+              <Chip label={alert.severity} size="small" color={severity} />
+              <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 160 }}>
+                {alert.message || label}
               </Typography>
-            )}
-          </Stack>
-        }
-      />
-    </ListItem>
+              {hasDetail && (expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />)}
+            </Stack>
+          }
+          secondary={
+            <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                {formatShortDateTime(alert.timestamp)}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                {alert.device_id}
+              </Typography>
+              {alert.event_type && (
+                <Typography variant="caption" color="text.secondary">
+                  {alert.event_type}
+                </Typography>
+              )}
+              {alert.event_id && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                  {alert.event_id}
+                </Typography>
+              )}
+            </Stack>
+          }
+        />
+      </ListItemButton>
+      {hasDetail && (
+        <Collapse in={expanded} timeout="auto" unmountOnExit>
+          <Box sx={{ px: 2, pb: 1.5, pt: 0.5 }}>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+              <Stack spacing={1.5}>
+                <ProcessChainView detail={detail} />
+                <DetailFields detail={detail} />
+              </Stack>
+            </Paper>
+          </Box>
+        </Collapse>
+      )}
+    </Box>
   );
 }
 
 export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const severityParam = severityFilter === 'all' ? undefined : severityFilter;
   const { items, total, loading, refetch } = useSecurityAlerts({
     pageSize: 100,
@@ -109,7 +239,7 @@ export default function AlertsPage() {
             Alerts
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Detection findings from the rules engine.
+            Detection findings from the rules engine. Expand an alert to see linked process or network evidence.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
@@ -150,7 +280,11 @@ export default function AlertsPage() {
           <List dense disablePadding>
             {items.map((alert, index) => (
               <Box key={alert.id}>
-                <AlertRow alert={alert} />
+                <AlertRow
+                  alert={alert}
+                  expanded={expandedId === alert.id}
+                  onToggle={() => setExpandedId((current) => (current === alert.id ? null : alert.id))}
+                />
                 {index < items.length - 1 && <Divider component="li" />}
               </Box>
             ))}
