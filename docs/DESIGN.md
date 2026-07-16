@@ -83,13 +83,12 @@ DNS policy packs, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll a
 ### Devices & clients
 
 - **Device** — An endpoint identified by `external_id` (agent device id), optional hostname/MAC.
-- **Behavior profile** — Rolling baseline of activity; abnormal scores surface drift.
 - **Quarantine** — Soft flag in the API/dashboard; agent-side network isolation is not yet enforced.
 
 ### Alerts
 
 - Detection-engine posts to `POST /security/alerts/ingest`.
-- Dashboard shows attack alerts; the `dns_alerts` table remains as the store for alert rows via `app.features.alerts`.
+- Dashboard shows attack alerts; rows live in `twin_alerts` via `app.features.twin`.
 
 ---
 
@@ -219,16 +218,13 @@ backend/app/
 ├── main.py                 # App factory, middleware, router registration
 ├── shared/                 # DB, config, auth, errors, logging, Redis, WebSocket
 └── features/               # Vertical domain modules
-    ├── alerts/             # Alert model (dns_alerts table) + repository
     ├── devices/
-    ├── twin/
+    ├── twin/               # Detection alerts (twin_alerts) + agent twin
     ├── dashboard/
     ├── network_attribution/
     ├── network_flows/
-    └── client_behavior/    # Used by devices routes
+    └── policy/             # Policy profiles + soft quarantine
 ```
-
-Legacy `policy/` code may still exist in the tree but is **not mounted** in `main.py`.
 
 ### Layered architecture (pragmatic)
 
@@ -244,7 +240,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 |---------|----------|-------|
 | Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
 | Thin routes | `dashboard`, `twin` | Route calls service directly |
-| Mixed | `devices` (extended routes) | Behavior/quarantine endpoints inline |
+| Mixed | `devices` (extended routes) | Policy assignment / quarantine inline |
 
 **Reference implementation:** `devices` — route → controller/service → repository.
 
@@ -275,8 +271,8 @@ Shared base: `shared/errors/` (`DomainError`, `NotFoundError`, `ConflictError`, 
 
 No global event bus. Services import peer services explicitly:
 
-- Alert ingest feeds dashboard attack views
-- `device_route.py` aggregates devices, behavior, and policy endpoints
+- Twin alert ingest feeds dashboard attack views
+- `device_route.py` aggregates devices, policy assignment, and quarantine
 - Network attribution builds maps from endpoint context (+ optional flows)
 
 ---
@@ -286,7 +282,7 @@ No global event bus. Services import peer services explicitly:
 | Data | Store | Notes |
 |------|-------|-------|
 | Devices | PostgreSQL (RDS) | Identity via `external_id` |
-| Alerts | PostgreSQL (`dns_alerts` table via `alerts` module) | Detection + behavior alerts |
+| Alerts | PostgreSQL (`twin_alerts` via `twin` module) | Detection-engine alerts |
 | Agent live state | Redis | Twin / connected agents |
 | Agent events | Kafka / Redis (Agent API) | Upstream of detection-engine |
 

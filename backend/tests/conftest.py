@@ -11,14 +11,7 @@ from app.shared.database import Base
 from tests.helpers.factories import create_device, seed_policy_catalog
 
 # Register all models on Base.metadata (required for create_all FK resolution)
-from app.features.alerts.models.alert import Alert  # noqa: F401
 from app.features.devices.models.device import Device  # noqa: F401
-from app.features.devices.models.device_country_presence import DeviceCountryPresence  # noqa: F401
-from app.features.devices.models.device_login_geo import DeviceLoginGeoObservation  # noqa: F401
-from app.features.client_behavior.models.client_behavior_rollup import ClientBehaviorRollup  # noqa: F401
-from app.features.client_behavior.models.client_behavior_profile import ClientBehaviorProfile  # noqa: F401
-from app.features.client_behavior.models.client_blocked_domain import ClientBlockedDomain  # noqa: F401
-from app.features.client_behavior.models.device_security_policy import DeviceSecurityPolicy  # noqa: F401
 from app.features.policy.models.policy_profile import PolicyProfile  # noqa: F401
 from app.features.policy.models.device_quarantine import DeviceQuarantine  # noqa: F401
 from app.features.network_attribution.models.device_app_usage_rollup import DeviceAppUsageRollup  # noqa: F401
@@ -57,7 +50,6 @@ def seed_policy(db_session):
 
 @pytest.fixture
 def sample_device(db_session):
-    """Return a Device with a default external_id."""
     return create_device(db_session)
 
 
@@ -70,8 +62,3 @@ def dns_ingest_env(monkeypatch):
 @pytest.fixture
 def dashboard_env(monkeypatch):
     monkeypatch.setattr("app.shared.config.settings.NETWORK_REVIEW_MODE", "template")
-
-
-@pytest.fixture
-def behavior_env(monkeypatch):
-    monkeypatch.setattr("app.shared.config.settings.BEHAVIOR_REVIEW_MODE", "template")

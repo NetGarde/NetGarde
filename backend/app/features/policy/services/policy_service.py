@@ -3,14 +3,12 @@ from typing import Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.features.client_behavior.repositories.device_security_policy_repository import (
-    DeviceSecurityPolicyRepository,
-)
-from app.features.client_behavior.schemas.behavior import QuarantineActionResponse
 from app.features.devices.repositories.device_repository import DeviceRepository
 from app.features.policy.repositories.policy_repository import PolicyRepository
-from app.features.policy.schemas.policy import DevicePolicyAssignmentRead
-from app.features.policy.sensitivity import block_threshold_for_sensitivity
+from app.features.policy.schemas.policy import (
+    DevicePolicyAssignmentRead,
+    QuarantineActionResponse,
+)
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
 
@@ -22,7 +20,6 @@ class PolicyService:
         self.db = db
         self.repo = PolicyRepository(db)
         self.device_repo = DeviceRepository(db)
-        self.security_repo = DeviceSecurityPolicyRepository(db)
 
     def get_device_policy(self, device_id: int) -> DevicePolicyAssignmentRead:
         device = self.device_repo.get_by_id(device_id)
@@ -48,7 +45,6 @@ class PolicyService:
         device = self.repo.assign_profile_to_device(device_id, profile.id)
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-        self._sync_security_policy_from_profile(device_id, profile.behavior_sensitivity)
         self.db.commit()
         return self.get_device_policy(device_id)
 
@@ -60,15 +56,6 @@ class PolicyService:
         if not profile:
             return
         self.repo.assign_profile_to_device(device_id, profile.id)
-        self._sync_security_policy_from_profile(device_id, profile.behavior_sensitivity)
-
-    def _sync_security_policy_from_profile(self, device_id: int, sensitivity: str) -> None:
-        policy = self.security_repo.get_or_create(device_id)
-        from app.shared.config import settings
-
-        policy.auto_block_enabled = True
-        policy.auto_block_threshold = block_threshold_for_sensitivity(sensitivity)
-        policy.max_blocks_per_day = settings.BEHAVIOR_MAX_BLOCKS_PER_DAY
 
     def start_device_quarantine(self, device_id: int, *, hours: int = 4) -> QuarantineActionResponse:
         device = self.device_repo.get_by_id(device_id)

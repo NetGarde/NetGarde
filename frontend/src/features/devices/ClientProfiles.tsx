@@ -12,16 +12,11 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import { useDevices } from './hooks/useDevices';
-import { useDeviceCountrySummaries } from './hooks/useDeviceCountrySummaries';
-import { useDeviceLoginGeoSummaries } from './hooks/useDeviceLoginGeoSummaries';
-import { countryLabel } from './utils/countryDisplay';
 import ClientProfileDetail from './components/ClientProfileDetail';
 import { clientProfilePath, parseDeviceIdParam } from './clientProfilePaths';
 
 export default function ClientProfiles() {
   const { devices, loading, error, refresh } = useDevices();
-  const { byDeviceId: countryByDevice } = useDeviceCountrySummaries();
-  const { byDeviceId: loginGeoByDevice } = useDeviceLoginGeoSummaries();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -54,7 +49,7 @@ export default function ClientProfiles() {
       </Typography>
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 3 }}>
         <Typography variant="body2" color="text.secondary">
-          Per-device DNS behavior baselines, scores, and policy controls.
+          Per-device identity and network attribution.
         </Typography>
         <Button size="small" onClick={refresh} disabled={loading}>
           Refresh list
@@ -74,8 +69,7 @@ export default function ClientProfiles() {
 
       {!loading && devices.length === 0 && (
         <Alert severity="info" variant="outlined">
-          No clients registered yet. Devices appear after DHCP sync or when DNS traffic is observed
-          from a known lease.
+          No clients registered yet. Devices appear when the TrustEdge Agent enrolls or reports.
         </Alert>
       )}
 
@@ -94,19 +88,7 @@ export default function ClientProfiles() {
                     >
                       <ListItemText
                         primary={d.hostname || d.external_id}
-                        secondary={
-                          loginGeoByDevice.get(d.id)?.country_code
-                            ? `Login: ${countryLabel(
-                                loginGeoByDevice.get(d.id)!.country_code,
-                                loginGeoByDevice.get(d.id)!.country_name,
-                              )}`
-                            : countryByDevice.get(d.id)?.primary_country_code
-                              ? countryLabel(
-                                  countryByDevice.get(d.id)!.primary_country_code,
-                                  countryByDevice.get(d.id)!.primary_country_name,
-                                )
-                              : d.mac_address || d.external_id
-                        }
+                        secondary={d.mac_address || d.external_id}
                         primaryTypographyProps={{ fontWeight: isSelected ? 600 : 400 }}
                       />
                     </ListItemButton>
@@ -116,12 +98,7 @@ export default function ClientProfiles() {
             </Paper>
           </Grid>
           <Grid size={{ xs: 12, md: 8, lg: 9 }}>
-            <ClientProfileDetail
-              key={selected.id}
-              device={selected}
-              countrySummary={countryByDevice.get(selected.id) ?? null}
-              loginGeoSummary={loginGeoByDevice.get(selected.id) ?? null}
-            />
+            <ClientProfileDetail key={selected.id} device={selected} />
           </Grid>
         </Grid>
       )}
