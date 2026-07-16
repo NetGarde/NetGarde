@@ -7,6 +7,7 @@ import Copyright from '../internals/components/Copyright';
 import LiveClientsView from './LiveClientsView';
 import LiveNetworkGraph from './LiveNetworkGraph';
 import AttackAlertsView from './AttackAlertsView';
+import ConnectedAgentsView from './ConnectedAgentsView';
 import NetworkOverviewCard from './NetworkOverviewCard';
 import { Link as RouterLink } from 'react-router-dom';
 import Button from '@mui/material/Button';
@@ -87,8 +88,11 @@ export default function MainGrid() {
         Security signals
       </Typography>
       <Grid container spacing={2} columns={12}>
-        <Grid size={{ xs: 12 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <AttackAlertsView />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <ConnectedAgentsView />
         </Grid>
       </Grid>
 

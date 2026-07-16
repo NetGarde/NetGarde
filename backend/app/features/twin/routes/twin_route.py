@@ -12,8 +12,9 @@ from app.features.twin.graph.schemas import (
     TwinRelation,
 )
 from app.features.twin.schemas.simulation_command import SimulationCommandRequest, SimulationCommandResponse
+from app.features.twin.schemas.connected_agent import ConnectedAgentListResponse
 from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
-from app.features.twin.schemas.twin_alert import TwinAlertCreate, TwinAlertListResponse
+from app.features.twin.services.connected_agent_service import ConnectedAgentService
 from app.features.twin.services.simulation_command_service import SimulationCommandService
 from app.features.twin.services.twin_alert_service import TwinAlertService
 from app.features.twin.services.twin_graph_service import TwinGraphService
@@ -30,6 +31,10 @@ def get_twin_graph_service(db: Session = Depends(get_db)) -> TwinGraphService:
 
 def get_twin_alert_service(db: Session = Depends(get_db)) -> TwinAlertService:
     return TwinAlertService(db)
+
+
+def get_connected_agent_service() -> ConnectedAgentService:
+    return ConnectedAgentService()
 
 
 @router.get("/alerts", response_model=TwinAlertListResponse)
@@ -63,6 +68,16 @@ def ingest_twin_alerts(
         return {"created": 0}
     created = service.ingest(body)
     return {"created": created}
+
+
+@router.get("/agents", response_model=ConnectedAgentListResponse)
+def list_connected_agents(
+    connected_within_sec: int = Query(default=300, ge=30, le=86400),
+    _: None = Depends(verify_admin_api_token),
+    service: ConnectedAgentService = Depends(get_connected_agent_service),
+):
+    """List connected TrustEdge agents from live Redis state."""
+    return service.list_connected_agents(connected_within_sec=connected_within_sec)
 
 
 @router.get("/graph/snapshot", response_model=TwinGraphSnapshot)
