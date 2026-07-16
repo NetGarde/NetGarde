@@ -146,27 +146,32 @@ by_layer:   layer → node_id[]
 | `entity_type` | ID pattern | Source | Key properties |
 |---------------|------------|--------|----------------|
 | `device` | `device:{id}` | `devices` | `client_ip`, `hostname`, `mac`, `quarantined` |
-| `vpn_peer` | `vpn_peer:{pubkey_hash}` | WireGuard | `public_key`, `allowed_ips` |
-| `ip_lease` | `lease:{ip}` | DHCP | `ip`, `mac`, `hostname` |
 | `app` | `app:{slug}` | App catalog | `slug`, `display_name`, `bundle_id` |
-| `domain` | `domain:{root}` | DNS ingest | `fqdn`, `root_domain`, `blocked` |
-| `ip_address` | `ip:{addr}` | DNS resolution / flows | `addr`, `version` (4/6) |
+| `domain` | `domain:{root}` | Historical (DNS removed) | `fqdn`, `root_domain`, `blocked` |
+| `ip_address` | `ip:{addr}` | Flow / remote endpoints | `addr`, `version` (4/6) |
 | `l4_service` | `l4:{proto}:{port}` | Flow aggregation | `protocol`, `port` |
-| `flow_session` | `flow:{proto}:{dest_ip}:{dest_port}:{client_ip}` | conntrack | `state`, `bytes_sent`, `bytes_recv` |
-| `dns_query` | `dnsq:{uuid}` | Optional event node | `domain`, `blocked`, `query_type` |
-| `policy_profile` | `policy_profile:{id}` | RDS | `name`, `enabled_pack_slugs` |
-| `policy_pack` | `policy_pack:{slug}` | RDS | `slug`, `name`, `enabled_globally` |
-| `policy_rule` | `policy_rule:{profile_id}:{domain}` | Derived at sync | `action` (`block`\|`allow`), `source` (`pack`\|`extra`\|`quarantine`) |
-| `infra_component` | `infra:{kind}` | Static topology | `kind`: `wireguard`, `dns_resolver`, `firewall`, `nat`, `ec2_gateway` |
+| `flow_session` | `flow:{proto}:{dest_ip}:{dest_port}:{client_ip}` | Agent / flow ingest | `state`, `bytes_sent`, `bytes_recv` |
+| `dns_query` | `dnsq:{uuid}` | Historical (DNS removed) | `domain`, `blocked`, `query_type` |
+| `policy_profile` | `policy_profile:{id}` | Historical (policy packs removed) | `name`, `enabled_pack_slugs` |
+| `policy_pack` | `policy_pack:{slug}` | Historical | `slug`, `name`, `enabled_globally` |
+| `policy_rule` | `policy_rule:{profile_id}:{domain}` | Historical | `action` (`block`\|`allow`), `source` |
+| `infra_component` | `infra:{kind}` | Static topology | `kind`: `dns_resolver`, `firewall`, `nat`, `ec2_gateway` (legacy: `wireguard` removed) |
 | `geo_country` | `geo:{iso_code}` | Geo ingest | `iso_code`, `name` |
 | `behavior_signal` | `behavior:{device_id}` | Behavior service | `score`, `threshold`, `auto_block_enabled` |
 | `quarantine` | `quarantine:{device_id}` | RDS | `active`, `started_at`, `expires_at` |
 
+**Removed / historical (VPN era — do not emit in current builders):**
+
+| `entity_type` | Former ID pattern | Notes |
+|---------------|-------------------|-------|
+| `vpn_peer` | `vpn_peer:{pubkey_hash}` | WireGuard peers removed with VPN |
+| `ip_lease` | `lease:{ip}` | VPN IP pool leases removed |
+
 **Notes:**
 
-- `dns_query` as a node is optional. Phase 1 can aggregate into edge weights on `queries` edges; promote to event nodes when RCA needs exact timestamps.
-- `infra_component` nodes are **desired-layer topology** (always present), not inferred from telemetry.
-- `policy_rule` nodes materialize effective block/allow decisions per device profile for simulation and RCA.
+- `dns_query` as a node is optional/historical. Current builders prioritize device → app attribution and optional L4 flows.
+- `infra_component` nodes are **desired-layer topology** (always present), not inferred from telemetry. The former `infra:wireguard` hop is removed.
+- `policy_rule` nodes previously materialized DNS block/allow decisions; policy-pack graph layers are out of product scope.
 
 ---
 
@@ -174,12 +179,10 @@ by_layer:   layer → node_id[]
 
 | `relation` | Typical `source → target` | Layer | Bidirectional |
 |------------|---------------------------|-------|---------------|
-| `enrolled_as` | `device → vpn_peer` | desired | no |
-| `leased_ip` | `device → ip_lease` | desired | no |
 | `runs` | `device → app` | observed | no |
-| `queries` | `app → domain` | observed | no |
-| `queries_direct` | `device → domain` | observed | no |
-| `resolves_to` | `domain → ip_address` | observed | no |
+| `queries` | `app → domain` | observed (historical DNS) | no |
+| `queries_direct` | `device → domain` | observed (historical DNS) | no |
+| `resolves_to` | `domain → ip_address` | observed (historical DNS) | no |
 | `opens` | `app → flow_session` | observed | no |
 | `opens_direct` | `device → flow_session` | observed | no |
 | `uses_service` | `flow_session → l4_service` | observed | no |
@@ -187,26 +190,29 @@ by_layer:   layer → node_id[]
 | `correlates` | `domain → flow_session` | observed | yes |
 | `routed_via` | `device → infra_component` | desired | no |
 | `terminates_at` | `infra_component → infra_component` | desired | no |
-| `assigned` | `device → policy_profile` | desired | no |
-| `includes` | `policy_profile → policy_pack` | desired | no |
-| `defines` | `policy_pack → policy_rule` | desired | no |
-| `blocks` | `policy_rule → domain` | desired | no |
-| `allows` | `policy_rule → domain` | desired | no |
-| `enforces` | `infra_component → policy_profile` | desired | no |
+| `assigned` | `device → policy_profile` | desired (historical) | no |
+| `includes` | `policy_profile → policy_pack` | desired (historical) | no |
+| `defines` | `policy_pack → policy_rule` | desired (historical) | no |
+| `blocks` | `policy_rule → domain` | desired (historical) | no |
+| `allows` | `policy_rule → domain` | desired (historical) | no |
+| `enforces` | `infra_component → policy_profile` | desired (historical) | no |
 | `quarantined` | `device → quarantine` | desired | no |
 | `observed_in` | `device → geo_country` | observed | no |
 | `scored_by` | `device → behavior_signal` | observed | no |
 | `simulated_block` | `policy_rule → domain` | simulated | no |
 
+**Removed / historical relations (VPN era):** `enrolled_as` (`device → vpn_peer`), `leased_ip` (`device → ip_lease`).
+
 **Infra chain (desired layer):**
 
 ```text
-device ─routed_via→ infra:wireguard ─terminates_at→ infra:ec2_gateway
-       ─terminates_at→ infra:dns_resolver ─enforces→ policy_profile:{id}
-domain ←path← (reverse of queries + resolves_to + policy evaluation)
+device ─routed_via→ infra:ec2_gateway
+       (optional) ─terminates_at→ infra:dns_resolver / firewall / nat
 ```
 
-Path view is a **projection** that selects this chain plus observed DNS/flow edges — not a separate graph.
+Former path `device → infra:wireguard → infra:ec2_gateway` was removed with WireGuard VPN.
+
+Path view is a **projection** that selects this chain plus observed app/flow edges — not a separate graph.
 
 ---
 
@@ -231,7 +237,6 @@ flow:tcp:93.184.216.34:443:10.0.0.12
 policy_profile:3
 policy_pack:social-media
 policy_rule:3:example.com
-infra:wireguard
 infra:dns_resolver
 infra:ec2_gateway
 ```

@@ -60,7 +60,8 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -s
 
 echo "Applying log group retention policies..."
-for spec in "/trustedge/prod/backend:30" "/trustedge/prod/dns-sync:14" "/trustedge/prod/detection-engine:14" "/trustedge/prod/log-watcher:14" "/trustedge/prod/wg-agent:14"; do
+# Legacy groups (dns-sync, log-watcher, wg-agent) may still exist in AWS after VPN/DNS removal.
+for spec in "/trustedge/prod/backend:30" "/trustedge/prod/detection-engine:14"; do
   group="${spec%%:*}"
   days="${spec##*:}"
   aws logs create-log-group --log-group-name "$group" --region "$AWS_REGION" 2>/dev/null || true
@@ -71,5 +72,5 @@ echo "Recreating backend to pick up LOG_JSON (if running)..."
 docker compose -f docker-compose.yml up -d --force-recreate backend 2>/dev/null || true
 
 echo "CloudWatch logging enabled."
-echo "  Log groups: /trustedge/prod/backend (30d), dns-sync (14d), detection-engine (14d), log-watcher (14d), wg-agent (14d)"
+echo "  Log groups: /trustedge/prod/backend (30d), detection-engine (14d)"
 echo "  Example query (Logs Insights): fields @timestamp, level, event, message | filter level = \"ERROR\""

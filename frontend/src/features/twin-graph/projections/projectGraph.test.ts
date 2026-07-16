@@ -35,11 +35,11 @@ function sampleSnapshot(): TwinGraphSnapshot {
         properties: { blocked: false },
       },
       {
-        id: 'infra:wireguard',
+        id: 'infra:ec2_gateway',
         entity_type: 'infra_component',
         layer: 'desired',
-        label: 'WireGuard',
-        properties: { kind: 'wireguard' },
+        label: 'EC2 Gateway',
+        properties: { kind: 'ec2_gateway' },
       },
       {
         id: 'infra:dns_resolver',

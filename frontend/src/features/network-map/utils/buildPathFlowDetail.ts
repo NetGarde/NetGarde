@@ -62,8 +62,8 @@ export function buildPathFlowDetail(
     {
       title: deviceNode?.label ?? 'Endpoint',
       detail: deviceNode?.client_ip
-        ? `DNS query from ${deviceNode.client_ip} via VPN client`
-        : 'DNS query leaves endpoint through TrustEdge VPN',
+        ? `DNS query from ${deviceNode.client_ip}`
+        : 'DNS query leaves endpoint toward TrustEdge',
       status: 'neutral',
     },
   ];
@@ -84,13 +84,13 @@ export function buildPathFlowDetail(
 
   steps.push(
     {
-      title: 'WireGuard tunnel',
-      detail: 'Encrypted egress from endpoint to TrustEdge gateway',
+      title: 'EC2 Gateway',
+      detail: 'Egress terminates at the TrustEdge EC2 gateway',
       status: 'ok',
     },
     {
       title: 'TrustEdge DNS (dnsmasq)',
-      detail: 'Query received on EC2 gateway resolver',
+      detail: 'Query received on EC2 DNS resolver',
       status: 'ok',
     },
     {

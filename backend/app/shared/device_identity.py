@@ -40,7 +40,7 @@ def _sign(message: bytes, secret: str) -> str:
 
 def create_device_token(*, device_id: str, public_key: Optional[str] = None) -> str:
     """Issue a device token. public_key is accepted for compatibility but ignored."""
-    del public_key  # VPN-era claim; no longer used
+    del public_key  # Legacy claim accepted for compatibility; ignored
     secret = settings.device_token_secret
     if not secret:
         raise DeviceTokenError("DEVICE_TOKEN_SECRET is not configured")

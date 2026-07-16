@@ -222,7 +222,6 @@ backend/app/
     ├── alerts/             # Alert model (dns_alerts table) + repository
     ├── devices/
     ├── twin/
-    ├── vpn/
     ├── dashboard/
     ├── network_attribution/
     ├── network_flows/
@@ -244,7 +243,7 @@ Route (FastAPI endpoint, Depends auth + DB)
 | Pattern | Features | Notes |
 |---------|----------|-------|
 | Full stack | `devices` (CRUD) | Controller + `Protocol` interface |
-| Thin routes | `vpn`, `dashboard`, `twin` | Route calls service directly |
+| Thin routes | `dashboard`, `twin` | Route calls service directly |
 | Mixed | `devices` (extended routes) | Behavior/quarantine endpoints inline |
 
 **Reference implementation:** `devices` — route → controller/service → repository.

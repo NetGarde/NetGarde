@@ -2,12 +2,12 @@ import { NetworkMapEdge, NetworkMapNode, NetworkMapResponse } from '../types/net
 import { parsePortLabel } from './flowLabels';
 
 const PUBLIC_NETWORK_ID = 'infra:public_network';
-const WIREGUARD_ID = 'infra:wireguard';
+const EC2_GATEWAY_ID = 'infra:ec2_gateway';
 const DNS_RESOLVER_ID = 'infra:dns_resolver';
 
 export type DestinationAction = 'allow' | 'block';
 export type DestinationKind = 'domain' | 'port' | 'session';
-export type DestinationSource = 'vpn' | 'trusttwin';
+export type DestinationSource = 'endpoint' | 'trusttwin';
 
 export interface DestinationRow {
   id: string;
@@ -26,7 +26,7 @@ export interface DestinationRow {
 }
 
 function clientSource(deviceId: string): DestinationSource {
-  return deviceId.startsWith('device:twin:') ? 'trusttwin' : 'vpn';
+  return deviceId.startsWith('device:twin:') ? 'trusttwin' : 'endpoint';
 }
 
 function resolveDeviceForNode(
@@ -278,8 +278,8 @@ function subgraphFromIds(
  * Minimal path for the inspector:
  * - TrustTwin default: Client → LAN → Internet (no port fan-out)
  * - TrustTwin + selected port/session row: spine + that port + session only
- * - VPN default: Client → apps → domains + WireGuard/EC2 (no session pins)
- * - VPN + selected row: path for that destination only
+ * - Endpoint default: Client → apps → domains + EC2 DNS spine (no session pins)
+ * - Endpoint + selected row: path for that destination only
  */
 export function focusPathGraph(
   graph: NetworkMapResponse,
@@ -294,14 +294,14 @@ export function focusPathGraph(
   const isTwin = clientId.startsWith('device:twin:');
   const keep = new Set<string>([clientId]);
 
-  // Egress / VPN spine.
+  // Egress / infra spine.
   for (const node of scoped.nodes) {
     if (node.type === 'tunnel' || node.type === 'gateway') {
       keep.add(node.id);
     }
   }
   // Shared infra ids may use fixed names.
-  for (const id of [PUBLIC_NETWORK_ID, WIREGUARD_ID, DNS_RESOLVER_ID]) {
+  for (const id of [PUBLIC_NETWORK_ID, EC2_GATEWAY_ID, DNS_RESOLVER_ID]) {
     if (scoped.nodes.some((n) => n.id === id)) {
       keep.add(id);
     }
@@ -338,7 +338,7 @@ export function focusPathGraph(
     return subgraphFromIds(scoped, keep);
   }
 
-  // VPN clients.
+  // Non-twin endpoints (attribution devices).
   if (row) {
     if (row.appId) {
       keep.add(row.appId);
@@ -361,7 +361,7 @@ export function focusPathGraph(
     return subgraphFromIds(scoped, keep);
   }
 
-  // VPN default: destinations as domains/apps, not every L4 session pin.
+  // Endpoint default: destinations as domains/apps, not every L4 session pin.
   for (const node of scoped.nodes) {
     if (node.type === 'app' || node.type === 'domain') {
       keep.add(node.id);

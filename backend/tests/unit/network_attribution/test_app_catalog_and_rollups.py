@@ -31,11 +31,11 @@ def test_normalize_app_unknown_name():
     assert app.app_display_name == "My Custom Tool"
 
 
-def test_rollup_splits_hour_boundary(db_session, vpn_device):
+def test_rollup_splits_hour_boundary(db_session, sample_device):
     repo = AppUsageRollupRepository(db_session)
     started = datetime(2026, 6, 22, 14, 50, 0, tzinfo=timezone.utc)
     repo.add_active_seconds(
-        vpn_device.id,
+        sample_device.id,
         app_slug="slack",
         app_display_name="Slack",
         started_at=started,
@@ -47,7 +47,7 @@ def test_rollup_splits_hour_boundary(db_session, vpn_device):
 
     rows = (
         db_session.query(DeviceAppUsageRollup)
-        .filter(DeviceAppUsageRollup.device_id == vpn_device.id)
+        .filter(DeviceAppUsageRollup.device_id == sample_device.id)
         .order_by(DeviceAppUsageRollup.window_start.asc())
         .all()
     )
@@ -56,11 +56,11 @@ def test_rollup_splits_hour_boundary(db_session, vpn_device):
     assert rows[1].active_seconds == 300
 
 
-def test_resolve_attribution_handles_naive_observed_at(db_session, vpn_device):
+def test_resolve_attribution_handles_naive_observed_at(db_session, sample_device):
     repo = NetworkContextRepository(db_session)
     observed = datetime.now(timezone.utc)
     repo.upsert(
-        vpn_device.id,
+        sample_device.id,
         app_slug="zoom",
         app_display_name="Zoom",
         bundle_id="us.zoom.xos",
@@ -69,7 +69,7 @@ def test_resolve_attribution_handles_naive_observed_at(db_session, vpn_device):
     db_session.commit()
 
     service = NetworkAttributionService(db_session)
-    resolved = service.resolve_attribution(vpn_device.id, datetime.now(timezone.utc))
+    resolved = service.resolve_attribution(sample_device.id, datetime.now(timezone.utc))
     assert resolved is not None
     assert resolved.app_slug == "zoom"
 

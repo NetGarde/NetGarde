@@ -149,7 +149,7 @@ export default function BlockedClients() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Client</TableCell>
-                    <TableCell>VPN IP</TableCell>
+                    <TableCell>Client IP</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Expires / latest</TableCell>
                     <TableCell>Score</TableCell>

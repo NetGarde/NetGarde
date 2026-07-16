@@ -1,12 +1,14 @@
 import { NetworkMapEdge, NetworkMapNode } from '../types/networkMap';
 import { edgeKey } from './whatIfSimulation';
 
-export const INFRA_TUNNEL_ID = 'infra:wireguard';
-export const INFRA_GATEWAY_ID = 'infra:gateway';
+export const INFRA_EC2_ID = 'infra:ec2_gateway';
+/** @deprecated Use INFRA_EC2_ID — kept for call-site compatibility during rename. */
+export const INFRA_TUNNEL_ID = INFRA_EC2_ID;
+export const INFRA_GATEWAY_ID = 'infra:dns_resolver';
 export const INFRA_POLICY_ID = 'infra:policy';
 
 const INFRA_NODES: NetworkMapNode[] = [
-  { id: INFRA_TUNNEL_ID, type: 'tunnel', label: 'WireGuard' },
+  { id: INFRA_EC2_ID, type: 'tunnel', label: 'EC2 Gateway' },
   { id: INFRA_GATEWAY_ID, type: 'gateway', label: 'TrustEdge DNS' },
   { id: INFRA_POLICY_ID, type: 'policy', label: 'Policy gate' },
 ];
@@ -36,7 +38,7 @@ export interface ExpandedPathGraph {
   edges: NetworkMapEdge[];
 }
 
-/** Expand attribution graph with WireGuard → dnsmasq → policy hops (observability path). */
+/** Expand attribution graph with EC2 gateway → dnsmasq → policy hops (observability path). */
 export function expandToPathView(nodes: NetworkMapNode[], edges: NetworkMapEdge[]): ExpandedPathGraph {
   const nodeMap = new Map<string, NetworkMapNode>();
   for (const node of nodes) {
@@ -63,7 +65,7 @@ export function expandToPathView(nodes: NetworkMapNode[], edges: NetworkMapEdge[
     const egressSource = edge.kind === 'dns' ? edge.source : edge.source;
     upsertEdge(edgeMap, {
       source: egressSource,
-      target: INFRA_TUNNEL_ID,
+      target: INFRA_EC2_ID,
       kind: 'path_egress',
       query_count: edge.query_count,
       blocked_count: 0,
@@ -79,7 +81,7 @@ export function expandToPathView(nodes: NetworkMapNode[], edges: NetworkMapEdge[
 
   if (hasDnsFlow) {
     upsertEdge(edgeMap, {
-      source: INFRA_TUNNEL_ID,
+      source: INFRA_EC2_ID,
       target: INFRA_GATEWAY_ID,
       kind: 'path_tunnel',
       query_count: 0,

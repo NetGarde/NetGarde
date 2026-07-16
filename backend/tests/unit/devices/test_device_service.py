@@ -3,7 +3,7 @@ import pytest
 from app.features.devices.errors.device import DeviceAlreadyExistsError, DeviceNotFoundError
 from app.features.devices.schemas.device import DeviceCreate, DeviceUpdate
 from app.features.devices.services.device_service import DeviceService
-from tests.helpers.factories import create_device, create_vpn_device
+from tests.helpers.factories import create_device
 
 
 def test_create_device(db_session):
@@ -35,7 +35,7 @@ def test_get_devices(db_session):
 
 
 def test_update_device(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-33")
+    device = create_device(db_session, external_id="dev-33")
     svc = DeviceService()
     updated = svc.update_device(device.id, DeviceUpdate(hostname="renamed"), db_session)
     assert updated.hostname == "renamed"
@@ -48,7 +48,7 @@ def test_update_device_not_found(db_session):
 
 
 def test_delete_device(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-34")
+    device = create_device(db_session, external_id="dev-34")
     svc = DeviceService()
     result = svc.delete_device(device.id, db_session)
     assert result["device_id"] == device.id

@@ -7,7 +7,7 @@ class Device(Base):
     __tablename__ = "devices"
 
     id = Column(Integer, primary_key=True, index=True)
-    # Agent / endpoint identity (was VpnPeer.device_id before VPN removal)
+    # Agent / endpoint identity string
     external_id = Column(String(128), nullable=False, unique=True, index=True)
     hostname = Column(String(255), nullable=True, index=True)
     mac_address = Column(String(17), nullable=True, unique=True, index=True)  # AA:BB:CC:DD:EE:FF

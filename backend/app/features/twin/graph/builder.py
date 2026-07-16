@@ -441,7 +441,7 @@ class TwinGraphBuilder:
     def _ingest_trusttwin(self) -> int:
         """Merge TrustTwin agents for security map: who talked to what.
 
-        Graph (no VPN DNS/remote IPs — TrustTwin privacy contract):
+        Graph (no DNS/remote IPs — TrustTwin privacy contract):
           client → LAN → Internet → remote ports → session aggregates
 
         Ports hang off Internet (egress), not the client node.

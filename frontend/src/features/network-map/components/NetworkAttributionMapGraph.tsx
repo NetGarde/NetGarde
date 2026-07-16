@@ -160,7 +160,7 @@ function MapNodeGlyph({
           : node.type === 'tunnel'
             ? isLanTunnel
               ? `${node.label} · local network link`
-              : `${node.label} · VPN tunnel`
+              : `${node.label} · EC2 gateway`
               : `${node.label}${node.client_ip ? ` · ${node.client_ip}` : ''}`,
   ];
   if (whatIfMode && node.type === 'app') {
@@ -169,11 +169,11 @@ function MapNodeGlyph({
   if (whatIfMode && node.type === 'port') {
     tooltipParts.push(portDisabled ? 'Click to unblock in what-if' : 'Click to simulate blocking this port');
   }
-  if (whatIfMode && node.type === 'tunnel') {
-    tooltipParts.push(infraDisabled ? 'Click to restore tunnel in what-if' : 'Click to simulate tunnel down');
+  if (whatIfMode && node.type === 'tunnel' && !isLanTunnel) {
+    tooltipParts.push(infraDisabled ? 'Click to restore gateway in what-if' : 'Click to simulate EC2 gateway down');
   }
   if (whatIfMode && node.type === 'gateway') {
-    tooltipParts.push(infraDisabled ? 'Click to restore gateway in what-if' : 'Click to simulate EC2 DNS failure');
+    tooltipParts.push(infraDisabled ? 'Click to restore DNS in what-if' : 'Click to simulate EC2 DNS failure');
   }
   if (node.type === 'domain') {
     tooltipParts.push('Click to inspect DNS path');
@@ -181,7 +181,7 @@ function MapNodeGlyph({
 
   const selectableApp = whatIfMode && node.type === 'app';
   const selectablePort = whatIfMode && node.type === 'port';
-  const selectableTunnel = whatIfMode && node.type === 'tunnel';
+  const selectableTunnel = whatIfMode && node.type === 'tunnel' && !isLanTunnel;
   const selectableGateway = whatIfMode && node.type === 'gateway';
   const selectableDomain = node.type === 'domain';
   const expandableAggregate = node.type === 'flow_summary' || node.type === 'flow_more';
@@ -323,10 +323,10 @@ function edgeTooltip(
     return `${source} → ${target} (foreground app)`;
   }
   if (edge.kind === 'path_egress') {
-    return `${source} → ${target} · DNS leaves endpoint via VPN (${edge.query_count} quer${edge.query_count === 1 ? 'y' : 'ies'})`;
+    return `${source} → ${target} · DNS leaves endpoint via EC2 gateway (${edge.query_count} quer${edge.query_count === 1 ? 'y' : 'ies'})`;
   }
   if (edge.kind === 'path_tunnel') {
-    return `${source} → ${target} · encrypted tunnel transit`;
+    return `${source} → ${target} · gateway transit`;
   }
   if (edge.kind === 'path_resolve') {
     return `${source} → ${target} · query received by dnsmasq`;
@@ -435,7 +435,7 @@ export default function NetworkAttributionMapGraph({
   const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | 'all'>('all');
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'vpn' | 'trusttwin'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'endpoint' | 'trusttwin'>('all');
 
   const layoutMode = 'unified' as const;
 
@@ -581,8 +581,6 @@ export default function NetworkAttributionMapGraph({
       response.action === 'enable_what_if' ||
       response.action === 'block_port' ||
       response.action === 'unblock_port' ||
-      response.action === 'block_tunnel' ||
-      response.action === 'unblock_tunnel' ||
       response.action === 'block_gateway' ||
       response.action === 'unblock_gateway';
     if (enablesWhatIf) {
@@ -604,12 +602,6 @@ export default function NetworkAttributionMapGraph({
         next.delete(response.port!);
         return next;
       });
-    }
-    if (response.action === 'block_tunnel') {
-      setTunnelBlocked(true);
-    }
-    if (response.action === 'unblock_tunnel') {
-      setTunnelBlocked(false);
     }
     if (response.action === 'block_gateway') {
       setGatewayBlocked(true);
@@ -748,10 +740,10 @@ export default function NetworkAttributionMapGraph({
               labelId="network-map-source-label"
               label="Source"
               value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as 'all' | 'vpn' | 'trusttwin')}
+              onChange={(e) => setSourceFilter(e.target.value as 'all' | 'endpoint' | 'trusttwin')}
             >
               <MenuItem value="all">All</MenuItem>
-              <MenuItem value="vpn">VPN</MenuItem>
+              <MenuItem value="endpoint">Endpoint</MenuItem>
               <MenuItem value="trusttwin">Agents</MenuItem>
             </Select>
           </FormControl>
@@ -839,13 +831,13 @@ export default function NetworkAttributionMapGraph({
       />
 
       <Alert severity="info" sx={{ mb: 1.5 }} icon={<HubIcon fontSize="small" />}>
-        Observability graph: device → process → WireGuard → EC2 DNS → port → DNS name or session IP.
+        Observability graph: device → process → EC2 Gateway → EC2 DNS → port → DNS name or session IP.
         Many sessions aggregate per port (click hub to expand). Policy gates are hidden.
       </Alert>
 
       {whatIfMode && (tunnelBlocked || gatewayBlocked) && (
         <Alert severity="warning" sx={{ mb: 1.5 }} icon={<ScienceIcon fontSize="small" />}>
-          {tunnelBlocked && <>Simulating WireGuard tunnel down</>}
+          {tunnelBlocked && <>Simulating EC2 gateway down</>}
           {tunnelBlocked && gatewayBlocked && ' · '}
           {gatewayBlocked && <>Simulating EC2 DNS gateway failure</>}
           {' · '}
@@ -1098,7 +1090,7 @@ export default function NetworkAttributionMapGraph({
         {!loading && layout && layout.nodes.length === 0 && (
           <Box sx={{ p: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              No destinations in the last {data?.minutes ?? minutes} minutes. VPN clients appear after DNS
+              No destinations in the last {data?.minutes ?? minutes} minutes. Endpoints appear after DNS
               queries or L4 flows; TrustTwin agents need shared Redis (<code>REDIS_URL</code>) and a
               network_summary with remote ports.
             </Typography>
@@ -1115,7 +1107,7 @@ export default function NetworkAttributionMapGraph({
           <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mt: 1.5 }}>
             <Chip size="small" variant="outlined" label="Teal = device" />
             <Chip size="small" variant="outlined" label="Center = process" />
-            <Chip size="small" variant="outlined" label="Purple = WireGuard" sx={{ borderColor: 'secondary.main', color: 'secondary.main' }} />
+            <Chip size="small" variant="outlined" label="Purple = EC2 Gateway" sx={{ borderColor: 'secondary.main', color: 'secondary.main' }} />
             <Chip size="small" variant="outlined" label="Blue = EC2 DNS" sx={{ borderColor: 'info.main', color: 'info.main' }} />
             <Chip size="small" variant="outlined" label="Purple = port hub" sx={{ borderColor: 'secondary.main', color: 'secondary.main' }} />
             <Chip size="small" variant="outlined" label="DNS name / session IP" />

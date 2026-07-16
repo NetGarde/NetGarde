@@ -74,27 +74,6 @@ def create_device(
     return device
 
 
-def create_vpn_device(
-    db_session,
-    *,
-    hostname: str = "test-laptop",
-    mac_address: Optional[str] = "aa:bb:cc:dd:ee:ff",
-    device_id: str = "dev-test",
-):
-    """Back-compat alias for pre-VPN-removal tests.
-
-    VPN leases/peers are gone; devices are now identified by external_id only.
-    Returns a (device, None) tuple to preserve existing call-site unpacking.
-    """
-    device = create_device(
-        db_session,
-        external_id=device_id,
-        hostname=hostname,
-        mac_address=mac_address,
-    )
-    return device, None
-
-
 def create_behavior_block(
     db_session,
     device: Device,

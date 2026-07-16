@@ -56,5 +56,4 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Screenshot assets | [images/README.md](images/README.md) |
 | Endpoint agent | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) |
 | Agent API | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
-| VPN enroll client | [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) |
 | Organization | [TrustEdgeOrg](https://github.com/TrustEdgeOrg) |

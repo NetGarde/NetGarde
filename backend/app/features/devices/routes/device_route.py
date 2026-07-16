@@ -123,7 +123,7 @@ def list_device_login_locations_summary_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: DeviceLoginGeoService = Depends(get_device_login_geo_service),
 ):
-    """Latest VPN login location per device (GeoIP from public IP at enroll)."""
+    """Latest login location per device (GeoIP from public IP at check-in)."""
     return service.list_summaries()
 
 
@@ -133,7 +133,7 @@ def get_device_login_location_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: DeviceLoginGeoService = Depends(get_device_login_geo_service),
 ):
-    """Physical location at last VPN enroll(s) for this device."""
+    """Physical location at last login check-in(s) for this device."""
     return service.get_device_login_geo(device_id)
 
 
@@ -262,7 +262,7 @@ def start_device_quarantine_endpoint(
     _: None = Depends(verify_admin_api_token),
     service: PolicyService = Depends(get_policy_service),
 ):
-    """Block all client network access (VPN iptables drop) for the given duration."""
+    """Flag the device as quarantined for the given duration (soft quarantine)."""
     return service.start_device_quarantine(device_id, hours=body.hours)
 
 

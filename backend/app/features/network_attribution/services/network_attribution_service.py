@@ -112,7 +112,7 @@ class NetworkAttributionService:
         client_ip: str,
         observed_at,
     ) -> Optional[ResolvedAttribution]:
-        """No longer resolvable: client IP -> device mapping required VPN leases."""
+        """No longer resolvable: client IP → device mapping was removed with IP leases."""
         return None
 
     def list_hourly(self, device_id: int, *, hours: int = 168, app_slug: Optional[str] = None) -> AppUsageHourlyListResponse:

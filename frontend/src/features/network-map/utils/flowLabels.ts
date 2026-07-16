@@ -131,7 +131,7 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max - 1)}…`;
 }
 
-/** One hub per port number for the whole VPN (TCP + UDP merged). */
+/** One hub per port number for the whole network (TCP + UDP merged). */
 export function globalPortNodeId(_protocol: string, port: number): string {
   return `port:${port}`;
 }

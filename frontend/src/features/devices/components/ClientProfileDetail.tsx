@@ -112,7 +112,7 @@ export default function ClientProfileDetail({
             </Typography>
             {loginGeoSummary?.country_code && (
               <Typography variant="caption" color="text.secondary" display="block">
-                Last VPN login from:{' '}
+                Last login from:{' '}
                 {countryLabel(loginGeoSummary.country_code, loginGeoSummary.country_name)}
               </Typography>
             )}

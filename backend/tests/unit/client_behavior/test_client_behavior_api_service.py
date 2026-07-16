@@ -6,11 +6,11 @@ from app.features.client_behavior.schemas.behavior import (
 )
 from app.features.client_behavior.services.client_behavior_api_service import ClientBehaviorApiService
 from app.features.alerts.models.alert import Alert
-from tests.helpers.factories import create_behavior_block, create_vpn_device
+from tests.helpers.factories import create_behavior_block, create_device
 
 
 def test_list_blocked_clients(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-50")
+    device = create_device(db_session, external_id="dev-50")
     create_behavior_block(db_session, device, domain="evil.test")
     svc = ClientBehaviorApiService(db_session)
     result = svc.list_blocked_clients()
@@ -19,7 +19,7 @@ def test_list_blocked_clients(db_session):
 
 
 def test_get_behavior_profile(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-51")
+    device = create_device(db_session, external_id="dev-51")
     svc = ClientBehaviorApiService(db_session)
     profile = svc.get_behavior_profile(device.id)
     assert profile.device_id == device.id
@@ -27,7 +27,7 @@ def test_get_behavior_profile(db_session):
 
 
 def test_security_policy_update(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-52")
+    device = create_device(db_session, external_id="dev-52")
     svc = ClientBehaviorApiService(db_session)
     updated = svc.update_security_policy(
         device.id,
@@ -37,7 +37,7 @@ def test_security_policy_update(db_session):
 
 
 def test_create_client_block_manual(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-55")
+    device = create_device(db_session, external_id="dev-55")
     svc = ClientBehaviorApiService(db_session)
     created = svc.create_client_block(
         device.id,
@@ -48,7 +48,7 @@ def test_create_client_block_manual(db_session):
 
 
 def test_revoke_client_block(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-53")
+    device = create_device(db_session, external_id="dev-53")
     block = create_behavior_block(db_session, device, domain="revoke.test")
     svc = ClientBehaviorApiService(db_session)
     result = svc.revoke_client_block(device.id, block.id)
@@ -56,7 +56,7 @@ def test_revoke_client_block(db_session):
 
 
 def test_get_behavior_events(db_session):
-    device, _ = create_vpn_device(db_session, device_id="dev-54")
+    device = create_device(db_session, external_id="dev-54")
     db_session.add(
         Alert(
             timestamp=datetime.now(timezone.utc),

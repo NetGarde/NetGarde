@@ -2,7 +2,7 @@
 # Usage: ./scripts/dev-up.sh
 #        docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
 #
-# Local/dev compose. WireGuard host agents run on the EC2 host outside Docker.
+# Local/dev compose for API, Postgres, Redis, and agent ingest.
 # Frontend runs on the host: cd frontend && npm start
 # TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent repo (see TrustEdgeOrg/TrustEdge-Agent).
 

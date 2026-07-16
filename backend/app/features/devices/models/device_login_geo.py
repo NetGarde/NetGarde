@@ -5,7 +5,7 @@ from app.shared.database import Base
 
 
 class DeviceLoginGeoObservation(Base):
-    """Physical location inferred from the client's public IP at VPN enroll."""
+    """Physical location inferred from the client's public IP at check-in."""
 
     __tablename__ = "device_login_geo_observations"
 

@@ -38,7 +38,6 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 
 | Path | Purpose |
 |------|---------|
-| `/etc/wireguard/wg0.conf` | WireGuard server |
 | `/etc/trustedge/backend.env` | Backend secrets and config |
 
 ---
@@ -50,5 +49,4 @@ Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.m
 | Frontend | React 19, TypeScript, MUI 7 |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
 | Data | PostgreSQL 16, Redis 7 |
-| Network | WireGuard, iptables |
 | Ops | Docker Compose, CloudWatch structured logs |

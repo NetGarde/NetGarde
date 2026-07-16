@@ -12,7 +12,7 @@ import AppsIcon from '@mui/icons-material/Apps';
 import DnsIcon from '@mui/icons-material/Dns';
 import ComputerIcon from '@mui/icons-material/Computer';
 import BlockIcon from '@mui/icons-material/Block';
-import VpnLockIcon from '@mui/icons-material/VpnLock';
+import CloudIcon from '@mui/icons-material/Cloud';
 import RouterIcon from '@mui/icons-material/Router';
 import GavelIcon from '@mui/icons-material/Gavel';
 import SettingsEthernetIcon from '@mui/icons-material/SettingsEthernet';
@@ -93,7 +93,7 @@ export function getInfraIconStyle(
       label != null &&
       /wi-?fi|ethernet|cellular|network/i.test(label);
     return {
-      icon: isLan ? <WifiIcon fontSize="small" /> : <VpnLockIcon fontSize="small" />,
+      icon: isLan ? <WifiIcon fontSize="small" /> : <CloudIcon fontSize="small" />,
       color: STEEL,
       bg: STEEL_BG,
     };

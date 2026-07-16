@@ -33,7 +33,7 @@ class TwinDeviceLatest:
 
 
 def twin_device_node_id(device_id: str) -> str:
-    """Graph node id for a TrustTwin agent (avoids collision with VPN device:{pk})."""
+    """Graph node id for a TrustTwin agent (avoids collision with device:{pk})."""
     return f"device:twin:{device_id}"
 
 

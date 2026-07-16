@@ -56,8 +56,8 @@ def seed_policy(db_session):
 
 
 @pytest.fixture
-def vpn_device(db_session):
-    """Back-compat fixture name; returns a Device with external_id."""
+def sample_device(db_session):
+    """Return a Device with a default external_id."""
     return create_device(db_session)
 
 

@@ -1,4 +1,4 @@
-"""GeoIP lookup for client public IPs at VPN enroll."""
+"""GeoIP lookup for client public IPs at device check-in."""
 
 from __future__ import annotations
 

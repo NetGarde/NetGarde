@@ -96,7 +96,7 @@ export default function ClientProfiles() {
                         primary={d.hostname || d.external_id}
                         secondary={
                           loginGeoByDevice.get(d.id)?.country_code
-                            ? `VPN: ${countryLabel(
+                            ? `Login: ${countryLabel(
                                 loginGeoByDevice.get(d.id)!.country_code,
                                 loginGeoByDevice.get(d.id)!.country_name,
                               )}`
