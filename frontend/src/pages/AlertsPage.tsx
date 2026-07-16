@@ -51,6 +51,9 @@ const DETAIL_LABELS: Record<string, string> = {
   child_comm: 'Child',
   parent_pid: 'Parent PID',
   child_pid: 'Child PID',
+  parent_cmdline: 'Parent command',
+  child_cmdline: 'Child command',
+  cmdline: 'Command',
   executable: 'Executable',
   comm: 'Process',
   pid: 'PID',
@@ -91,37 +94,84 @@ function formatDetailValue(value: unknown): string {
   return String(value);
 }
 
+function CmdlineBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        component="pre"
+        sx={{
+          m: 0,
+          mt: 0.25,
+          p: 1,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+          fontSize: '0.75rem',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          border: 1,
+          borderColor: 'divider',
+        }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
 function ProcessChainView({ detail }: { detail: AlertDetail }) {
   const parent = detail.parent_comm != null ? String(detail.parent_comm) : null;
   const child = detail.child_comm != null ? String(detail.child_comm) : null;
-  if (!parent || !child) return null;
+  const parentCmd = detail.parent_cmdline != null ? String(detail.parent_cmdline).trim() : '';
+  const childCmd = detail.child_cmdline != null ? String(detail.child_cmdline).trim() : '';
+  const singleCmd = detail.cmdline != null ? String(detail.cmdline).trim() : '';
+  if (!parent && !child && !singleCmd) return null;
 
   return (
     <Stack spacing={1}>
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-        Process chain
-      </Typography>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Chip
-          label={`${parent}${detail.parent_pid != null ? ` (pid ${detail.parent_pid})` : ''}`}
-          size="small"
-          variant="outlined"
-        />
-        <ArrowForwardIcon fontSize="small" color="action" />
-        <Chip
-          label={`${child}${detail.child_pid != null ? ` (pid ${detail.child_pid})` : ''}`}
-          size="small"
-          color="warning"
-          variant="outlined"
-        />
-      </Stack>
+      {parent && child && (
+        <>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            Process chain
+          </Typography>
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Chip
+              label={`${parent}${detail.parent_pid != null ? ` (pid ${detail.parent_pid})` : ''}`}
+              size="small"
+              variant="outlined"
+            />
+            <ArrowForwardIcon fontSize="small" color="action" />
+            <Chip
+              label={`${child}${detail.child_pid != null ? ` (pid ${detail.child_pid})` : ''}`}
+              size="small"
+              color="warning"
+              variant="outlined"
+            />
+          </Stack>
+        </>
+      )}
+      {parentCmd ? <CmdlineBlock label="Parent command" value={parentCmd} /> : null}
+      {childCmd ? <CmdlineBlock label="Child command" value={childCmd} /> : null}
+      {!parentCmd && !childCmd && singleCmd ? <CmdlineBlock label="Command" value={singleCmd} /> : null}
     </Stack>
   );
 }
 
 function DetailFields({ detail }: { detail: AlertDetail }) {
-  const chainKeys = new Set(['parent_comm', 'child_comm', 'parent_pid', 'child_pid']);
-  const entries = Object.entries(detail).filter(([key]) => !chainKeys.has(key));
+  const chainKeys = new Set([
+    'parent_comm',
+    'child_comm',
+    'parent_pid',
+    'child_pid',
+    'parent_cmdline',
+    'child_cmdline',
+    'cmdline',
+  ]);
+  const entries = Object.entries(detail).filter(([key, value]) => !chainKeys.has(key) && value != null);
   if (entries.length === 0) return null;
 
   return (

@@ -50,6 +50,20 @@ def _executable(ev: ChainEvent) -> str:
     return payload_str(ev.payload.get("executable") or ev.payload.get("comm")).lower()
 
 
+def _cmdline(ev: ChainEvent) -> str:
+    return payload_str(ev.payload.get("cmdline"))
+
+
+def _with_cmdlines(detail: dict, *events: tuple[str, ChainEvent]) -> dict:
+    """Attach non-empty cmdline fields from process events."""
+    out = dict(detail)
+    for key, ev in events:
+        cmd = _cmdline(ev)
+        if cmd:
+            out[key] = cmd
+    return out
+
+
 def _pid_map(chain: DeviceChain, window: timedelta | None = None) -> dict[int, ChainEvent]:
     events = chain.of_type(TYPE_PROCESS_START, window) if window else chain.of_type(TYPE_PROCESS_START)
     out: dict[int, ChainEvent] = {}
@@ -76,7 +90,10 @@ def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
                 alert_type="temp_path_execution",
                 severity="high",
                 message=f"Process started from suspicious path: {exe}",
-                detail={"executable": exe, "pid": payload_int(latest.payload.get("pid"))},
+                detail=_with_cmdlines(
+                    {"executable": exe, "pid": payload_int(latest.payload.get("pid"))},
+                    ("cmdline", latest),
+                ),
             )
         ]
     return []
@@ -102,12 +119,16 @@ def rule_shell_spawns_downloader(chain: DeviceChain) -> list[SecurityAlert]:
                     alert_type="shell_spawns_downloader",
                     severity="high",
                     message=f"Shell spawned network downloader ({comm})",
-                    detail={
-                        "child_comm": comm,
-                        "parent_comm": _comm(parent),
-                        "child_pid": payload_int(child.payload.get("pid")),
-                        "parent_pid": ppid,
-                    },
+                    detail=_with_cmdlines(
+                        {
+                            "child_comm": comm,
+                            "parent_comm": _comm(parent),
+                            "child_pid": payload_int(child.payload.get("pid")),
+                            "parent_pid": ppid,
+                        },
+                        ("parent_cmdline", parent),
+                        ("child_cmdline", child),
+                    ),
                 )
             ]
     return []
@@ -132,10 +153,16 @@ def rule_script_spawns_shell(chain: DeviceChain) -> list[SecurityAlert]:
                     alert_type="script_spawns_shell",
                     severity="medium",
                     message=f"{_comm(parent)} spawned shell ({_comm(child)})",
-                    detail={
-                        "parent_comm": _comm(parent),
-                        "child_comm": _comm(child),
-                    },
+                    detail=_with_cmdlines(
+                        {
+                            "parent_comm": _comm(parent),
+                            "child_comm": _comm(child),
+                            "parent_pid": ppid,
+                            "child_pid": payload_int(child.payload.get("pid")),
+                        },
+                        ("parent_cmdline", parent),
+                        ("child_cmdline", child),
+                    ),
                 )
             ]
     return []
@@ -180,7 +207,10 @@ def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[Securi
             alert_type="binary_path_mismatch",
             severity="medium",
             message=f"Process name {comm} running outside system paths ({exe})",
-            detail={"comm": comm, "executable": exe},
+            detail=_with_cmdlines(
+                {"comm": comm, "executable": exe},
+                ("cmdline", latest),
+            ),
         )
     ]
 

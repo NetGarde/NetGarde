@@ -133,31 +133,66 @@ def test_established_count_spike():
     assert "established_count_spike" in types
 
 
-def _process_event(device_id: str, pid: int, ppid: int, comm: str, executable: str, ts: str):
+def _process_event(
+    device_id: str,
+    pid: int,
+    ppid: int,
+    comm: str,
+    executable: str,
+    ts: str,
+    cmdline=None,
+):
+    payload = {
+        "pid": pid,
+        "ppid": ppid,
+        "user": "tester",
+        "comm": comm,
+        "executable": executable,
+    }
+    if cmdline is not None:
+        payload["cmdline"] = cmdline
     return {
         "event_id": f"evt_proc_{pid}_{ts}",
         "device_id": device_id,
         "type": "process_start",
         "ts": ts,
-        "payload": {
-            "pid": pid,
-            "ppid": ppid,
-            "user": "tester",
-            "comm": comm,
-            "executable": executable,
-        },
+        "payload": payload,
     }
 
 
 def test_shell_spawns_downloader_alert():
     store = StateStore()
     device = "dev_edr"
-    evaluate_event(_process_event(device, 100, 1, "bash", "bash", "2026-07-11T12:00:00Z"), store)
+    evaluate_event(
+        _process_event(
+            device,
+            100,
+            1,
+            "bash",
+            "/bin/bash",
+            "2026-07-11T12:00:00Z",
+            cmdline="bash -c 'curl --limit-rate 1B https://example.com'",
+        ),
+        store,
+    )
     alerts = evaluate_event(
-        _process_event(device, 200, 100, "curl", "curl", "2026-07-11T12:00:05Z"), store
+        _process_event(
+            device,
+            200,
+            100,
+            "curl",
+            "/usr/bin/curl",
+            "2026-07-11T12:00:05Z",
+            cmdline="curl --limit-rate 1B https://example.com",
+        ),
+        store,
     )
     types = {a.alert_type for a in alerts}
     assert "shell_spawns_downloader" in types
+    alert = next(a for a in alerts if a.alert_type == "shell_spawns_downloader")
+    assert alert.detail is not None
+    assert "bash -c" in alert.detail
+    assert "curl --limit-rate" in alert.detail
 
 
 def test_temp_path_execution_alert():
