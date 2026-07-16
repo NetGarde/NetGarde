@@ -8,7 +8,8 @@ from alembic import context
 from app.shared.config import settings
 from app.shared.database import Base
 
-# No ORM domain models remain; Base.metadata stays empty intentionally.
+# Import all models so Alembic can detect them
+from app.features.agents.models.agent import Agent  # noqa: F401
 
 
 config = context.config
