@@ -2,11 +2,11 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.features.twin.repositories.twin_alert_repository import TwinAlertRepository
-from app.features.twin.schemas.twin_alert import (
-    TwinAlertCreate,
-    TwinAlertListResponse,
-    TwinAlertResponse,
+from app.features.twin.repositories.security_alert_repository import SecurityAlertRepository
+from app.features.twin.schemas.security_alert import (
+    SecurityAlertCreate,
+    SecurityAlertListResponse,
+    SecurityAlertResponse,
 )
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
@@ -14,12 +14,12 @@ from app.shared.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class TwinAlertService:
+class SecurityAlertService:
     def __init__(self, db: Session):
         self.db = db
-        self.repo = TwinAlertRepository(db)
+        self.repo = SecurityAlertRepository(db)
 
-    def ingest(self, alerts: list[TwinAlertCreate]) -> int:
+    def ingest(self, alerts: list[SecurityAlertCreate]) -> int:
         created = 0
         for item in alerts:
             self.repo.create(
@@ -37,7 +37,7 @@ class TwinAlertService:
             self.db.commit()
             logger.warning(
                 "Security alerts ingested",
-                extra=structured_extra("twin_alerts_ingested", count=created),
+                extra=structured_extra("security_alerts_ingested", count=created),
             )
         return created
 
@@ -49,7 +49,7 @@ class TwinAlertService:
         alert_type: Optional[str] = None,
         device_id: Optional[str] = None,
         severity: Optional[str] = None,
-    ) -> TwinAlertListResponse:
+    ) -> SecurityAlertListResponse:
         items, total = self.repo.get_recent(
             page=page,
             page_size=page_size,
@@ -57,8 +57,8 @@ class TwinAlertService:
             device_id=device_id,
             severity=severity,
         )
-        return TwinAlertListResponse(
-            items=[TwinAlertResponse.model_validate(item) for item in items],
+        return SecurityAlertListResponse(
+            items=[SecurityAlertResponse.model_validate(item) for item in items],
             total=total,
             page=page,
             page_size=page_size,

@@ -1,3 +1,3 @@
-from app.features.twin.models.twin_alert import TwinAlert
+from app.features.twin.models.security_alert import SecurityAlert
 
-__all__ = ["TwinAlert"]
+__all__ = ["SecurityAlert"]

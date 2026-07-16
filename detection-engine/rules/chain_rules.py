@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Callable
 
-from rules.alerts import TwinAlert
+from rules.alerts import SecurityAlert
 from rules.chain import (
     TYPE_ACTION_SUMMARY,
     TYPE_CLIENT_DETAILS,
@@ -35,8 +35,8 @@ def _alert(
     severity: str,
     message: str,
     detail: dict | None = None,
-) -> TwinAlert:
-    return TwinAlert(
+) -> SecurityAlert:
+    return SecurityAlert(
         timestamp=ts_iso(source.ts),
         device_id=chain.device_id,
         event_id=source.event_id,
@@ -56,9 +56,9 @@ def _network_pairs(events: list[ChainEvent]) -> list[tuple[ChainEvent, ChainEven
 # --- Single-step (last two network events) -----------------------------------
 
 
-def rule_new_public_ip(chain: DeviceChain) -> list[TwinAlert]:
+def rule_new_public_ip(chain: DeviceChain) -> list[SecurityAlert]:
     """Public IP changed between consecutive network_summary events."""
-    alerts: list[TwinAlert] = []
+    alerts: list[SecurityAlert] = []
     for prev, cur in _network_pairs(chain.events):
         old_ip = payload_str(prev.payload.get("public_ip"))
         new_ip = payload_str(cur.payload.get("public_ip"))
@@ -76,9 +76,9 @@ def rule_new_public_ip(chain: DeviceChain) -> list[TwinAlert]:
     return alerts[-1:] if alerts else []
 
 
-def rule_network_type_change(chain: DeviceChain) -> list[TwinAlert]:
+def rule_network_type_change(chain: DeviceChain) -> list[SecurityAlert]:
     """Network type changed between consecutive network_summary events."""
-    alerts: list[TwinAlert] = []
+    alerts: list[SecurityAlert] = []
     for prev, cur in _network_pairs(chain.events):
         old_type = payload_str(prev.payload.get("network_type"))
         new_type = payload_str(cur.payload.get("network_type"))
@@ -96,7 +96,7 @@ def rule_network_type_change(chain: DeviceChain) -> list[TwinAlert]:
     return alerts[-1:] if alerts else []
 
 
-def rule_network_change_while_active(chain: DeviceChain) -> list[TwinAlert]:
+def rule_network_change_while_active(chain: DeviceChain) -> list[SecurityAlert]:
     """Any network field change while latest presence is active."""
     if chain.latest_presence() != PRESENCE_ACTIVE:
         return []
@@ -122,7 +122,7 @@ def rule_network_change_while_active(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_simultaneous_ip_and_type_change(chain: DeviceChain) -> list[TwinAlert]:
+def rule_simultaneous_ip_and_type_change(chain: DeviceChain) -> list[SecurityAlert]:
     """Both public IP and network type changed on the same network_summary step."""
     for prev, cur in _network_pairs(chain.events):
         old_type = payload_str(prev.payload.get("network_type"))
@@ -158,7 +158,7 @@ def rule_simultaneous_ip_and_type_change(chain: DeviceChain) -> list[TwinAlert]:
 # --- Windowed frequency / churn ----------------------------------------------
 
 
-def rule_rapid_public_ip_changes(chain: DeviceChain) -> list[TwinAlert]:
+def rule_rapid_public_ip_changes(chain: DeviceChain) -> list[SecurityAlert]:
     """3+ distinct public IPs within 15 minutes."""
     window = timedelta(minutes=15)
     nets = chain.of_type(TYPE_NETWORK_SUMMARY, window)
@@ -184,7 +184,7 @@ def rule_rapid_public_ip_changes(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_double_ip_change_10m(chain: DeviceChain) -> list[TwinAlert]:
+def rule_double_ip_change_10m(chain: DeviceChain) -> list[SecurityAlert]:
     """2+ IP changes (edges) within 10 minutes."""
     window = timedelta(minutes=10)
     nets = chain.of_type(TYPE_NETWORK_SUMMARY, window)
@@ -208,7 +208,7 @@ def rule_double_ip_change_10m(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_network_type_flapping(chain: DeviceChain) -> list[TwinAlert]:
+def rule_network_type_flapping(chain: DeviceChain) -> list[SecurityAlert]:
     """3+ network type changes within 10 minutes."""
     window = timedelta(minutes=10)
     nets = chain.of_type(TYPE_NETWORK_SUMMARY, window)
@@ -232,7 +232,7 @@ def rule_network_type_flapping(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_network_flap_5m(chain: DeviceChain) -> list[TwinAlert]:
+def rule_network_flap_5m(chain: DeviceChain) -> list[SecurityAlert]:
     """2+ network type changes within 5 minutes."""
     window = timedelta(minutes=5)
     nets = chain.of_type(TYPE_NETWORK_SUMMARY, window)
@@ -256,7 +256,7 @@ def rule_network_flap_5m(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_event_burst(chain: DeviceChain) -> list[TwinAlert]:
+def rule_event_burst(chain: DeviceChain) -> list[SecurityAlert]:
     """10+ events of any type within 5 minutes."""
     window = timedelta(minutes=5)
     recent = chain.in_window(window)
@@ -274,7 +274,7 @@ def rule_event_burst(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_repeated_network_summary(chain: DeviceChain) -> list[TwinAlert]:
+def rule_repeated_network_summary(chain: DeviceChain) -> list[SecurityAlert]:
     """6+ network_summary events in 10 minutes with no action_summary between."""
     window = timedelta(minutes=10)
     recent = chain.in_window(window)
@@ -311,7 +311,7 @@ def _net_metric_delta(
     return None
 
 
-def rule_established_count_spike(chain: DeviceChain) -> list[TwinAlert]:
+def rule_established_count_spike(chain: DeviceChain) -> list[SecurityAlert]:
     """Established connection count jumped by 50+ between consecutive summaries."""
     hit = _net_metric_delta(chain, "established_count", min_delta=50, window=timedelta(minutes=15))
     if not hit:
@@ -332,7 +332,7 @@ def rule_established_count_spike(chain: DeviceChain) -> list[TwinAlert]:
     ]
 
 
-def rule_listening_port_spike(chain: DeviceChain) -> list[TwinAlert]:
+def rule_listening_port_spike(chain: DeviceChain) -> list[SecurityAlert]:
     """Listening port count jumped by 10+ between consecutive summaries."""
     hit = _net_metric_delta(chain, "listening_count", min_delta=10, window=timedelta(minutes=15))
     if not hit:
@@ -353,7 +353,7 @@ def rule_listening_port_spike(chain: DeviceChain) -> list[TwinAlert]:
     ]
 
 
-def rule_foreground_connections_spike(chain: DeviceChain) -> list[TwinAlert]:
+def rule_foreground_connections_spike(chain: DeviceChain) -> list[SecurityAlert]:
     """Foreground app connections jumped by 20+ between consecutive summaries."""
     hit = _net_metric_delta(
         chain, "foreground_app_connections", min_delta=20, window=timedelta(minutes=15)
@@ -376,7 +376,7 @@ def rule_foreground_connections_spike(chain: DeviceChain) -> list[TwinAlert]:
     ]
 
 
-def rule_high_listening_with_active_user(chain: DeviceChain) -> list[TwinAlert]:
+def rule_high_listening_with_active_user(chain: DeviceChain) -> list[SecurityAlert]:
     """User active and listening_count >= 20 on latest network summary."""
     if chain.latest_presence() != PRESENCE_ACTIVE:
         return []
@@ -401,7 +401,7 @@ def rule_high_listening_with_active_user(chain: DeviceChain) -> list[TwinAlert]:
 # --- Presence correlation ----------------------------------------------------
 
 
-def rule_ip_change_while_idle(chain: DeviceChain) -> list[TwinAlert]:
+def rule_ip_change_while_idle(chain: DeviceChain) -> list[SecurityAlert]:
     """IP changed while presence is idle (lower severity signal)."""
     if chain.latest_presence() != PRESENCE_IDLE:
         return []
@@ -422,7 +422,7 @@ def rule_ip_change_while_idle(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_active_ip_churn(chain: DeviceChain) -> list[TwinAlert]:
+def rule_active_ip_churn(chain: DeviceChain) -> list[SecurityAlert]:
     """2+ IP changes in 30 minutes while user stayed active."""
     if chain.latest_presence() != PRESENCE_ACTIVE:
         return []
@@ -451,7 +451,7 @@ def rule_active_ip_churn(chain: DeviceChain) -> list[TwinAlert]:
 # --- Coverage / staleness ----------------------------------------------------
 
 
-def rule_stale_client_details(chain: DeviceChain) -> list[TwinAlert]:
+def rule_stale_client_details(chain: DeviceChain) -> list[SecurityAlert]:
     """Network events in last 20 minutes but no client_details in that window."""
     window = timedelta(minutes=20)
     recent = chain.in_window(window)
@@ -475,7 +475,7 @@ def rule_stale_client_details(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_missing_network_telemetry(chain: DeviceChain) -> list[TwinAlert]:
+def rule_missing_network_telemetry(chain: DeviceChain) -> list[SecurityAlert]:
     """Client/action events in 30 minutes but no network_summary."""
     window = timedelta(minutes=30)
     recent = chain.in_window(window)
@@ -500,7 +500,7 @@ def rule_missing_network_telemetry(chain: DeviceChain) -> list[TwinAlert]:
     return []
 
 
-def rule_long_idle_with_network(chain: DeviceChain) -> list[TwinAlert]:
+def rule_long_idle_with_network(chain: DeviceChain) -> list[SecurityAlert]:
     """Latest presence idle but network summaries keep arriving (3+ in 15m)."""
     if chain.latest_presence() != PRESENCE_IDLE:
         return []
@@ -545,10 +545,10 @@ CHAIN_RULES: list[tuple[str, WindowRule]] = [
 ]
 
 
-def evaluate_chain(chain: DeviceChain) -> list[TwinAlert]:
+def evaluate_chain(chain: DeviceChain) -> list[SecurityAlert]:
     """Run all chain rules; dedupe by alert_type keeping highest severity."""
     severity_rank = {"low": 1, "medium": 2, "high": 3}
-    by_type: dict[str, TwinAlert] = {}
+    by_type: dict[str, SecurityAlert] = {}
     all_rules = [*CHAIN_RULES, *PROCESS_RULES]
     for _name, rule in all_rules:
         for alert in rule(chain):

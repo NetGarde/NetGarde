@@ -1,3 +1,3 @@
-from app.features.twin.repositories.twin_alert_repository import TwinAlertRepository
+from app.features.twin.repositories.security_alert_repository import SecurityAlertRepository
 
-__all__ = ["TwinAlertRepository"]
+__all__ = ["SecurityAlertRepository"]

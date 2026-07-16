@@ -5,7 +5,7 @@ from typing import Any
 
 
 @dataclass
-class TwinAlert:
+class SecurityAlert:
     timestamp: str
     device_id: str
     alert_type: str

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 
-def test_ingest_and_list_twin_alerts(api_client, db_session, ingest_env):
+def test_ingest_and_list_security_alerts(api_client, db_session, ingest_env):
     ts = datetime(2026, 7, 11, 12, 0, 0, tzinfo=timezone.utc).isoformat()
     ingest = api_client.post(
         "/security/alerts/ingest",
@@ -50,7 +50,7 @@ def test_ingest_accepts_legacy_trusttwin_device_id(api_client, db_session, inges
     assert listed.json()["items"][0]["device_id"] == "dev_legacy_alias"
 
 
-def test_list_twin_alerts_filter_type(api_client, db_session, ingest_env):
+def test_list_security_alerts_filter_type(api_client, db_session, ingest_env):
     ts = datetime(2026, 7, 11, 13, 0, 0, tzinfo=timezone.utc).isoformat()
     api_client.post(
         "/security/alerts/ingest",
@@ -70,7 +70,7 @@ def test_list_twin_alerts_filter_type(api_client, db_session, ingest_env):
     assert all(item["alert_type"] == "new_public_ip" for item in items)
 
 
-def test_list_twin_alerts_filter_severity(api_client, db_session, ingest_env):
+def test_list_security_alerts_filter_severity(api_client, db_session, ingest_env):
     ts_high = datetime(2026, 7, 11, 14, 0, 0, tzinfo=timezone.utc).isoformat()
     ts_low = datetime(2026, 7, 11, 14, 1, 0, tzinfo=timezone.utc).isoformat()
     api_client.post(

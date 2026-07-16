@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TrustEdge Agent event consumer — evaluates rules and posts twin alerts to the API."""
+"""TrustEdge Agent event consumer — evaluates rules and posts security alerts to the API."""
 
 from __future__ import annotations
 
@@ -85,9 +85,9 @@ def _process_event(raw: str) -> None:
     api_alerts = [alert.to_api() for alert in alerts]
     for alert in alerts:
         LOG.warning(
-            "twin alert raised",
+            "security alert raised",
             extra=structured_extra(
-                "twin_alert_raised",
+                "alert_raised",
                 alert_type=alert.alert_type,
                 device_id=alert.device_id,
                 severity=alert.severity,

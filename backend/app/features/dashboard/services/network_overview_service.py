@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.features.dashboard.schemas.network_overview import NetworkOverviewRead, NetworkOverviewStats
 from app.features.dashboard.services import network_overview_cache
 from app.features.dashboard.services.overview_templates import build_network_overview_bullets
-from app.features.twin.models.twin_alert import TwinAlert
+from app.features.twin.models.security_alert import SecurityAlert
 from app.features.twin.services import trusttwin_store
 from app.shared.config import settings
 from app.shared.logging_context import structured_extra
@@ -65,9 +65,9 @@ class NetworkOverviewService:
                 reporting += 1
 
         alert_rows = (
-            self.db.query(TwinAlert.alert_type, func.count(TwinAlert.id))
-            .filter(TwinAlert.timestamp >= cutoff)
-            .group_by(TwinAlert.alert_type)
+            self.db.query(SecurityAlert.alert_type, func.count(SecurityAlert.id))
+            .filter(SecurityAlert.timestamp >= cutoff)
+            .group_by(SecurityAlert.alert_type)
             .all()
         )
         alerts_by_type = {alert_type: int(count) for alert_type, count in alert_rows}
