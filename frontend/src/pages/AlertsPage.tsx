@@ -219,80 +219,112 @@ function processRowsForGraph(rows: ProcessSample[], selectedComm: string | null)
   return rows.filter((row) => keep.has(row.pid));
 }
 
-function ProcessTreeNode({
-  row,
-  childrenByParent,
-  selectedComm,
-  depth = 0,
-}: {
-  row: ProcessSample;
-  childrenByParent: Map<string, ProcessSample[]>;
-  selectedComm: string | null;
-  depth?: number;
-}) {
-  const children = childrenByParent.get(row.pid) || [];
-  const selected = selectedComm === row.comm;
-  return (
-    <Box>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: depth * 2 }}>
-        <Chip
-          label={`${row.comm} (pid ${row.pid})`}
-          size="small"
-          color={selected ? 'warning' : 'default'}
-          variant={selected ? 'filled' : 'outlined'}
-        />
-        {row.ppid ? (
-          <Typography variant="caption" color="text.secondary">
-            ppid {row.ppid}
-          </Typography>
-        ) : null}
-      </Stack>
-      {children.length > 0 ? (
-        <Box sx={{ ml: depth * 2 + 1.25, pl: 1.5, mt: 0.5, borderLeft: 1, borderColor: 'divider' }}>
-          <Stack spacing={0.75}>
-            {children.map((child) => (
-              <ProcessTreeNode
-                key={`${child.pid}-${child.ppid || 'root'}`}
-                row={child}
-                childrenByParent={childrenByParent}
-                selectedComm={selectedComm}
-                depth={0}
-              />
-            ))}
-          </Stack>
-        </Box>
-      ) : null}
-    </Box>
-  );
-}
+type GraphNode = {
+  pid: string;
+  ppid: string | null;
+  comm: string;
+  synthetic: boolean;
+  depth: number;
+  row: number;
+  x: number;
+  y: number;
+};
 
-function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selectedComm: string | null }) {
-  if (rows.length === 0) return null;
-  const ids = new Set(rows.map((row) => row.pid));
-  const childrenByParent = new Map<string, ProcessSample[]>();
-  const roots: ProcessSample[] = [];
-  for (const row of rows) {
-    if (row.ppid && ids.has(row.ppid)) {
-      const children = childrenByParent.get(row.ppid) || [];
-      children.push(row);
-      childrenByParent.set(row.ppid, children);
-    } else {
-      roots.push(row);
+const NODE_W = 168;
+const NODE_H = 34;
+const H_GAP = 56;
+const V_GAP = 14;
+
+function buildProcessGraph(rows: ProcessSample[]): {
+  nodes: GraphNode[];
+  edges: Array<{ from: GraphNode; to: GraphNode }>;
+  width: number;
+  height: number;
+} {
+  const nodes = new Map<string, GraphNode>();
+  const makeNode = (pid: string, comm: string, ppid: string | null, synthetic: boolean) => {
+    const existing = nodes.get(pid);
+    if (existing) {
+      if (synthetic === false && existing.synthetic) {
+        existing.synthetic = false;
+        existing.comm = comm;
+        existing.ppid = ppid;
+      }
+      return existing;
+    }
+    const node: GraphNode = { pid, ppid, comm, synthetic, depth: 0, row: 0, x: 0, y: 0 };
+    nodes.set(pid, node);
+    return node;
+  };
+
+  for (const r of rows) makeNode(r.pid, r.comm, r.ppid, false);
+  // Synthesize any referenced parent that was not itself sampled.
+  for (const r of rows) {
+    if (r.ppid && !nodes.has(r.ppid)) {
+      makeNode(r.ppid, `pid ${r.ppid}`, null, true);
     }
   }
-  for (const children of childrenByParent.values()) {
-    children.sort((a, b) => Number(a.pid) - Number(b.pid));
+
+  const childrenByParent = new Map<string, GraphNode[]>();
+  const roots: GraphNode[] = [];
+  for (const node of nodes.values()) {
+    if (node.ppid && nodes.has(node.ppid)) {
+      const list = childrenByParent.get(node.ppid) || [];
+      list.push(node);
+      childrenByParent.set(node.ppid, list);
+    } else {
+      roots.push(node);
+    }
+  }
+  for (const list of childrenByParent.values()) {
+    list.sort((a, b) => Number(a.pid) - Number(b.pid));
   }
   roots.sort((a, b) => Number(a.pid) - Number(b.pid));
 
+  // DFS assigns depth (column) and a sequential row so the layout reads top-down.
+  let rowCounter = 0;
+  let maxDepth = 0;
+  const visited = new Set<string>();
+  const walk = (node: GraphNode, depth: number) => {
+    if (visited.has(node.pid)) return;
+    visited.add(node.pid);
+    node.depth = depth;
+    node.row = rowCounter++;
+    maxDepth = Math.max(maxDepth, depth);
+    for (const child of childrenByParent.get(node.pid) || []) walk(child, depth + 1);
+  };
+  for (const root of roots) walk(root, 0);
+
+  const nodeList = Array.from(nodes.values());
+  for (const node of nodeList) {
+    node.x = node.depth * (NODE_W + H_GAP);
+    node.y = node.row * (NODE_H + V_GAP);
+  }
+
+  const edges: Array<{ from: GraphNode; to: GraphNode }> = [];
+  for (const node of nodeList) {
+    if (node.ppid && nodes.has(node.ppid)) {
+      edges.push({ from: nodes.get(node.ppid) as GraphNode, to: node });
+    }
+  }
+
+  const width = (maxDepth + 1) * NODE_W + maxDepth * H_GAP;
+  const height = Math.max(rowCounter, 1) * NODE_H + Math.max(rowCounter - 1, 0) * V_GAP;
+  return { nodes: nodeList, edges, width, height };
+}
+
+function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selectedComm: string | null }) {
+  const graph = useMemo(() => buildProcessGraph(rows), [rows]);
+  if (rows.length === 0) return null;
+  const { nodes, edges, width, height } = graph;
+
   return (
-    <Box>
+    <Box sx={{ mb: 1 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
         Process graph
         {selectedComm ? ' (matching processes plus sampled ancestors)' : ''}
       </Typography>
-      <Stack
-        spacing={1}
+      <Box
         sx={{
           mt: 0.5,
           p: 1,
@@ -300,17 +332,73 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
           border: 1,
           borderColor: 'divider',
           bgcolor: 'background.paper',
+          overflow: 'auto',
+          maxHeight: 360,
         }}
       >
-        {roots.map((root) => (
-          <ProcessTreeNode
-            key={`${root.pid}-${root.ppid || 'root'}`}
-            row={root}
-            childrenByParent={childrenByParent}
-            selectedComm={selectedComm}
-          />
-        ))}
-      </Stack>
+        <svg
+          width={width}
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: 'block', minWidth: '100%' }}
+        >
+          {edges.map((edge) => {
+            const x1 = edge.from.x + NODE_W;
+            const y1 = edge.from.y + NODE_H / 2;
+            const x2 = edge.to.x;
+            const y2 = edge.to.y + NODE_H / 2;
+            const midX = (x1 + x2) / 2;
+            return (
+              <path
+                key={`${edge.from.pid}->${edge.to.pid}`}
+                d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
+                fill="none"
+                stroke="currentColor"
+                strokeOpacity={0.35}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+          {nodes.map((node) => {
+            const selected = !node.synthetic && selectedComm === node.comm;
+            return (
+              <g key={node.pid} transform={`translate(${node.x}, ${node.y})`}>
+                <rect
+                  width={NODE_W}
+                  height={NODE_H}
+                  rx={6}
+                  ry={6}
+                  fill={selected ? 'rgba(237, 108, 2, 0.16)' : 'transparent'}
+                  stroke="currentColor"
+                  strokeOpacity={node.synthetic ? 0.4 : 0.75}
+                  strokeDasharray={node.synthetic ? '4 3' : undefined}
+                  strokeWidth={selected ? 2 : 1}
+                />
+                <text
+                  x={8}
+                  y={14}
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="currentColor"
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                >
+                  {node.comm.length > 22 ? `${node.comm.slice(0, 21)}…` : node.comm}
+                </text>
+                <text
+                  x={8}
+                  y={27}
+                  fontSize={10}
+                  fill="currentColor"
+                  fillOpacity={0.7}
+                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                >
+                  {node.synthetic ? `pid ${node.pid} · parent` : `pid ${node.pid}`}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </Box>
     </Box>
   );
 }
