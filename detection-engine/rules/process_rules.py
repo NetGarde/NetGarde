@@ -1,4 +1,8 @@
-"""Process (EDR-lite) chain rules for TrustEdge Agent process_start / process_exit events."""
+"""Process (EDR-lite) rules for TrustEdge Agent process_start events.
+
+Rules evaluate the triggering process_start first. Parent lookup via ppid
+happens only when that new process itself looks suspicious.
+"""
 
 from __future__ import annotations
 
@@ -6,18 +10,28 @@ from datetime import timedelta
 
 from rules.alerts import SecurityAlert
 from rules.chain import (
-    TYPE_PROCESS_START,
     ChainEvent,
     DeviceChain,
     payload_int,
     payload_str,
     ts_iso,
 )
+from rules.constants import (
+    ALERT_BINARY_PATH_MISMATCH,
+    ALERT_PROCESS_BURST,
+    ALERT_SCRIPT_SPAWNS_SHELL,
+    ALERT_SHELL_SPAWNS_DOWNLOADER,
+    ALERT_TEMP_PATH_EXECUTION,
+    SEVERITY_HIGH,
+    SEVERITY_MEDIUM,
+    TYPE_PROCESS_START,
+)
 
 SHELL_COMMS = frozenset({"sh", "bash", "zsh", "fish", "dash", "ksh"})
 DOWNLOAD_COMMS = frozenset({"curl", "wget", "fetch"})
 SCRIPT_COMMS = frozenset({"osascript", "python", "python3", "perl", "ruby", "node"})
 SUSPICIOUS_PATH_MARKERS = ("/tmp/", "/var/tmp/", "/downloads/", "/.hidden/", "/private/tmp/")
+PARENT_WINDOW = timedelta(minutes=5)
 
 
 def _alert(
@@ -64,19 +78,39 @@ def _with_cmdlines(detail: dict, *events: tuple[str, ChainEvent]) -> dict:
     return out
 
 
-def _pid_map(chain: DeviceChain, window: timedelta | None = None) -> dict[int, ChainEvent]:
-    events = chain.of_type(TYPE_PROCESS_START, window) if window else chain.of_type(TYPE_PROCESS_START)
-    out: dict[int, ChainEvent] = {}
-    for ev in events:
-        pid = payload_int(ev.payload.get("pid"))
-        if pid > 0:
-            out[pid] = ev
-    return out
+def _trigger_process(chain: DeviceChain) -> ChainEvent | None:
+    latest = chain.latest()
+    if latest is None or latest.event_type != TYPE_PROCESS_START:
+        return chain.latest(TYPE_PROCESS_START)
+    return latest
+
+
+def _find_parent(chain: DeviceChain, child: ChainEvent) -> ChainEvent | None:
+    """Resolve a single parent by ppid within the recent process window."""
+    ppid = payload_int(child.payload.get("ppid"))
+    if ppid <= 0:
+        return None
+    for ev in reversed(chain.of_type(TYPE_PROCESS_START, PARENT_WINDOW)):
+        if payload_int(ev.payload.get("pid")) == ppid:
+            return ev
+    return None
+
+
+def _parent_if_suspicious(
+    chain: DeviceChain,
+    child: ChainEvent,
+    *,
+    suspicious_comms: frozenset[str],
+) -> ChainEvent | None:
+    """Look up parent only when the new child process is in a suspicious set."""
+    if _comm(child) not in suspicious_comms:
+        return None
+    return _find_parent(chain, child)
 
 
 def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
     """Process started from /tmp, /var/tmp, or Downloads."""
-    latest = chain.latest(TYPE_PROCESS_START)
+    latest = _trigger_process(chain)
     if not latest:
         return []
     exe = _executable(latest)
@@ -87,8 +121,8 @@ def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=latest,
-                alert_type="temp_path_execution",
-                severity="high",
+                alert_type=ALERT_TEMP_PATH_EXECUTION,
+                severity=SEVERITY_HIGH,
                 message=f"Process started from suspicious path: {exe}",
                 detail=_with_cmdlines(
                     {"executable": exe, "pid": payload_int(latest.payload.get("pid"))},
@@ -100,72 +134,64 @@ def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
 
 
 def rule_shell_spawns_downloader(chain: DeviceChain) -> list[SecurityAlert]:
-    """Shell parent process spawned curl/wget."""
-    window = timedelta(minutes=5)
-    parents = _pid_map(chain, window)
-    for child in chain.of_type(TYPE_PROCESS_START, window):
-        comm = _comm(child)
-        if comm not in DOWNLOAD_COMMS:
-            continue
-        ppid = payload_int(child.payload.get("ppid"))
-        parent = parents.get(ppid)
-        if parent is None:
-            continue
-        if _comm(parent) in SHELL_COMMS:
-            return [
-                _alert(
-                    chain,
-                    source=child,
-                    alert_type="shell_spawns_downloader",
-                    severity="high",
-                    message=f"Shell spawned network downloader ({comm})",
-                    detail=_with_cmdlines(
-                        {
-                            "child_comm": comm,
-                            "parent_comm": _comm(parent),
-                            "child_pid": payload_int(child.payload.get("pid")),
-                            "parent_pid": ppid,
-                        },
-                        ("parent_cmdline", parent),
-                        ("child_cmdline", child),
-                    ),
-                )
-            ]
-    return []
+    """If new process is a downloader, check whether its parent is a shell."""
+    child = _trigger_process(chain)
+    if not child:
+        return []
+    parent = _parent_if_suspicious(chain, child, suspicious_comms=DOWNLOAD_COMMS)
+    if parent is None or _comm(parent) not in SHELL_COMMS:
+        return []
+    comm = _comm(child)
+    ppid = payload_int(child.payload.get("ppid"))
+    return [
+        _alert(
+            chain,
+            source=child,
+            alert_type=ALERT_SHELL_SPAWNS_DOWNLOADER,
+            severity=SEVERITY_HIGH,
+            message=f"Shell spawned network downloader ({comm})",
+            detail=_with_cmdlines(
+                {
+                    "child_comm": comm,
+                    "parent_comm": _comm(parent),
+                    "child_pid": payload_int(child.payload.get("pid")),
+                    "parent_pid": ppid,
+                },
+                ("parent_cmdline", parent),
+                ("child_cmdline", child),
+            ),
+        )
+    ]
 
 
 def rule_script_spawns_shell(chain: DeviceChain) -> list[SecurityAlert]:
-    """Script interpreter spawned a shell (common phishing / automation chain)."""
-    window = timedelta(minutes=5)
-    parents = _pid_map(chain, window)
-    for child in chain.of_type(TYPE_PROCESS_START, window):
-        if _comm(child) not in SHELL_COMMS:
-            continue
-        ppid = payload_int(child.payload.get("ppid"))
-        parent = parents.get(ppid)
-        if parent is None:
-            continue
-        if _comm(parent) in SCRIPT_COMMS:
-            return [
-                _alert(
-                    chain,
-                    source=child,
-                    alert_type="script_spawns_shell",
-                    severity="medium",
-                    message=f"{_comm(parent)} spawned shell ({_comm(child)})",
-                    detail=_with_cmdlines(
-                        {
-                            "parent_comm": _comm(parent),
-                            "child_comm": _comm(child),
-                            "parent_pid": ppid,
-                            "child_pid": payload_int(child.payload.get("pid")),
-                        },
-                        ("parent_cmdline", parent),
-                        ("child_cmdline", child),
-                    ),
-                )
-            ]
-    return []
+    """If new process is a shell, check whether its parent is a script interpreter."""
+    child = _trigger_process(chain)
+    if not child:
+        return []
+    parent = _parent_if_suspicious(chain, child, suspicious_comms=SHELL_COMMS)
+    if parent is None or _comm(parent) not in SCRIPT_COMMS:
+        return []
+    ppid = payload_int(child.payload.get("ppid"))
+    return [
+        _alert(
+            chain,
+            source=child,
+            alert_type=ALERT_SCRIPT_SPAWNS_SHELL,
+            severity=SEVERITY_MEDIUM,
+            message=f"{_comm(parent)} spawned shell ({_comm(child)})",
+            detail=_with_cmdlines(
+                {
+                    "parent_comm": _comm(parent),
+                    "child_comm": _comm(child),
+                    "parent_pid": ppid,
+                    "child_pid": payload_int(child.payload.get("pid")),
+                },
+                ("parent_cmdline", parent),
+                ("child_cmdline", child),
+            ),
+        )
+    ]
 
 
 def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
@@ -173,12 +199,13 @@ def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
     window = timedelta(minutes=2)
     starts = chain.of_type(TYPE_PROCESS_START, window)
     if len(starts) >= 25:
+        source = _trigger_process(chain) or starts[-1]
         return [
             _alert(
                 chain,
-                source=starts[-1],
-                alert_type="process_burst",
-                severity="medium",
+                source=source,
+                alert_type=ALERT_PROCESS_BURST,
+                severity=SEVERITY_MEDIUM,
                 message=f"Process creation burst ({len(starts)} starts in 2 minutes)",
                 detail={"count": len(starts), "window_minutes": 2},
             )
@@ -188,7 +215,7 @@ def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
 
 def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[SecurityAlert]:
     """Comm looks like a system tool but path is outside /usr or /System."""
-    latest = chain.latest(TYPE_PROCESS_START)
+    latest = _trigger_process(chain)
     if not latest:
         return []
     comm = _comm(latest)
@@ -204,8 +231,8 @@ def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[Securi
         _alert(
             chain,
             source=latest,
-            alert_type="binary_path_mismatch",
-            severity="medium",
+            alert_type=ALERT_BINARY_PATH_MISMATCH,
+            severity=SEVERITY_MEDIUM,
             message=f"Process name {comm} running outside system paths ({exe})",
             detail=_with_cmdlines(
                 {"comm": comm, "executable": exe},
@@ -216,9 +243,9 @@ def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[Securi
 
 
 PROCESS_RULES: list[tuple[str, object]] = [
-    ("temp_path_execution", rule_temp_path_execution),
-    ("shell_spawns_downloader", rule_shell_spawns_downloader),
-    ("script_spawns_shell", rule_script_spawns_shell),
-    ("process_burst", rule_process_burst),
-    ("binary_path_mismatch", rule_unsigned_system_binary_impersonation),
+    (ALERT_TEMP_PATH_EXECUTION, rule_temp_path_execution),
+    (ALERT_SHELL_SPAWNS_DOWNLOADER, rule_shell_spawns_downloader),
+    (ALERT_SCRIPT_SPAWNS_SHELL, rule_script_spawns_shell),
+    (ALERT_PROCESS_BURST, rule_process_burst),
+    (ALERT_BINARY_PATH_MISMATCH, rule_unsigned_system_binary_impersonation),
 ]

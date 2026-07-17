@@ -19,6 +19,7 @@ from api_client import post_alerts
 from http_api import serve_forever
 from log_config import setup_logging, structured_extra
 from recent_alerts import append as remember_alert
+from rules.constants import SEVERITY_HIGH
 from rules.engine import evaluate_event
 from rules.state import StateStore
 
@@ -134,7 +135,7 @@ def _process_event(raw: str) -> None:
         )
     # Optional Postgres ingest still stores high-severity only when enabled.
     if _post_alerts_to_backend():
-        high = [a for a in api_alerts if (a.get("severity") or "").strip().lower() == "high"]
+        high = [a for a in api_alerts if (a.get("severity") or "").strip().lower() == SEVERITY_HIGH]
         if high:
             post_alerts(high)
 

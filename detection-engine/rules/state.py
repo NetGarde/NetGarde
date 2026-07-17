@@ -5,6 +5,7 @@ from datetime import timedelta
 from typing import Any
 
 from rules.chain import ChainEvent, DeviceChain
+from rules.constants import TYPE_ACTION_SUMMARY, TYPE_NETWORK_SUMMARY
 
 
 @dataclass
@@ -53,11 +54,11 @@ class StateStore:
         )
 
         state = self.get(device_id)
-        if chain_event.event_type == "action_summary":
+        if chain_event.event_type == TYPE_ACTION_SUMMARY:
             presence = str(chain_event.payload.get("presence") or "").strip()
             if presence:
                 state.presence = presence
-        elif chain_event.event_type == "network_summary":
+        elif chain_event.event_type == TYPE_NETWORK_SUMMARY:
             network_type = str(chain_event.payload.get("network_type") or "").strip()
             public_ip = str(chain_event.payload.get("public_ip") or "").strip()
             if network_type:
