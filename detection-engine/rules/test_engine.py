@@ -277,6 +277,39 @@ def test_driver_load_alert():
     assert "com.example.driver" in alert.message
 
 
+def test_process_burst_includes_process_samples():
+    store = StateStore()
+    device = "dev_burst"
+    alerts = []
+    for i in range(25):
+        comm = "bash" if i % 5 == 0 else "helper"
+        alerts = evaluate_event(
+            _process_event(
+                device,
+                1000 + i,
+                1,
+                comm,
+                f"/usr/bin/{comm}",
+                f"2026-07-11T12:00:{i:02d}Z",
+                cmdline=f"{comm} --job {i}",
+            ),
+            store,
+        )
+    types = {a.alert_type for a in alerts}
+    assert "process_burst" in types
+    alert = next(a for a in alerts if a.alert_type == "process_burst")
+    assert alert.detail is not None
+    detail = __import__("json").loads(alert.detail)
+    assert detail["count"] == 25
+    assert detail["window_minutes"] == 2
+    assert len(detail["processes"]) == 15
+    assert detail["processes"][-1]["pid"] == 1024
+    assert "cmdline" in detail["processes"][-1]
+    top = {row["comm"]: row["count"] for row in detail["top_comms"]}
+    assert top["helper"] == 20
+    assert top["bash"] == 5
+
+
 def test_process_event_does_not_rerun_network_rules():
     store = StateStore()
     device = "dev_route"

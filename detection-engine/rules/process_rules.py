@@ -32,6 +32,10 @@ DOWNLOAD_COMMS = frozenset({"curl", "wget", "fetch"})
 SCRIPT_COMMS = frozenset({"osascript", "python", "python3", "perl", "ruby", "node"})
 SUSPICIOUS_PATH_MARKERS = ("/tmp/", "/var/tmp/", "/downloads/", "/.hidden/", "/private/tmp/")
 PARENT_WINDOW = timedelta(minutes=5)
+PROCESS_BURST_THRESHOLD = 25
+PROCESS_BURST_SAMPLE_LIMIT = 15
+PROCESS_BURST_TOP_COMMS = 8
+PROCESS_BURST_CMDLINE_MAX = 200
 
 
 def _alert(
@@ -194,12 +198,44 @@ def rule_script_spawns_shell(chain: DeviceChain) -> list[SecurityAlert]:
     ]
 
 
+def _truncate_cmdline(value: str) -> str:
+    text = (value or "").strip()
+    if len(text) <= PROCESS_BURST_CMDLINE_MAX:
+        return text
+    return text[: PROCESS_BURST_CMDLINE_MAX - 1] + "…"
+
+
+def _burst_process_sample(ev: ChainEvent) -> dict:
+    sample: dict = {
+        "pid": payload_int(ev.payload.get("pid")),
+        "ppid": payload_int(ev.payload.get("ppid")),
+        "comm": _comm(ev) or "unknown",
+    }
+    exe = _executable(ev)
+    if exe and exe != sample["comm"]:
+        sample["executable"] = exe
+    cmdline = _truncate_cmdline(_cmdline(ev))
+    if cmdline:
+        sample["cmdline"] = cmdline
+    return sample
+
+
+def _burst_top_comms(starts: list[ChainEvent], *, limit: int = PROCESS_BURST_TOP_COMMS) -> list[dict]:
+    counts: dict[str, int] = {}
+    for ev in starts:
+        name = _comm(ev) or "unknown"
+        counts[name] = counts.get(name, 0) + 1
+    ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+    return [{"comm": name, "count": count} for name, count in ranked[:limit]]
+
+
 def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
     """Many new processes in a short window (possible malware sweep or unpacker)."""
     window = timedelta(minutes=2)
     starts = chain.of_type(TYPE_PROCESS_START, window)
-    if len(starts) >= 25:
+    if len(starts) >= PROCESS_BURST_THRESHOLD:
         source = _trigger_process(chain) or starts[-1]
+        samples = [_burst_process_sample(ev) for ev in starts[-PROCESS_BURST_SAMPLE_LIMIT:]]
         return [
             _alert(
                 chain,
@@ -207,7 +243,13 @@ def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
                 alert_type=ALERT_PROCESS_BURST,
                 severity=SEVERITY_MEDIUM,
                 message=f"Process creation burst ({len(starts)} starts in 2 minutes)",
-                detail={"count": len(starts), "window_minutes": 2},
+                detail={
+                    "count": len(starts),
+                    "window_minutes": 2,
+                    "sample_limit": PROCESS_BURST_SAMPLE_LIMIT,
+                    "top_comms": _burst_top_comms(starts),
+                    "processes": samples,
+                },
             )
         ]
     return []
