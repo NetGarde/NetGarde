@@ -185,10 +185,145 @@ function ProcessChainView({ detail }: { detail: AlertDetail }) {
   );
 }
 
+type ProcessSample = {
+  pid: string;
+  ppid: string | null;
+  comm: string;
+  executable: string;
+  cmdline: string;
+};
+
+function processSampleFromUnknown(item: unknown): ProcessSample {
+  const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+  return {
+    pid: row.pid != null ? String(row.pid) : '?',
+    ppid: row.ppid != null ? String(row.ppid) : null,
+    comm: row.comm != null ? String(row.comm) : 'unknown',
+    executable: row.executable != null ? String(row.executable).trim() : '',
+    cmdline: row.cmdline != null ? String(row.cmdline).trim() : '',
+  };
+}
+
+function processRowsForGraph(rows: ProcessSample[], selectedComm: string | null): ProcessSample[] {
+  if (!selectedComm) return rows;
+  const byPid = new Map(rows.map((row) => [row.pid, row]));
+  const keep = new Set<string>();
+  for (const row of rows) {
+    if (row.comm !== selectedComm) continue;
+    let current: ProcessSample | undefined = row;
+    while (current && !keep.has(current.pid)) {
+      keep.add(current.pid);
+      current = current.ppid ? byPid.get(current.ppid) : undefined;
+    }
+  }
+  return rows.filter((row) => keep.has(row.pid));
+}
+
+function ProcessTreeNode({
+  row,
+  childrenByParent,
+  selectedComm,
+  depth = 0,
+}: {
+  row: ProcessSample;
+  childrenByParent: Map<string, ProcessSample[]>;
+  selectedComm: string | null;
+  depth?: number;
+}) {
+  const children = childrenByParent.get(row.pid) || [];
+  const selected = selectedComm === row.comm;
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: depth * 2 }}>
+        <Chip
+          label={`${row.comm} (pid ${row.pid})`}
+          size="small"
+          color={selected ? 'warning' : 'default'}
+          variant={selected ? 'filled' : 'outlined'}
+        />
+        {row.ppid ? (
+          <Typography variant="caption" color="text.secondary">
+            ppid {row.ppid}
+          </Typography>
+        ) : null}
+      </Stack>
+      {children.length > 0 ? (
+        <Box sx={{ ml: depth * 2 + 1.25, pl: 1.5, mt: 0.5, borderLeft: 1, borderColor: 'divider' }}>
+          <Stack spacing={0.75}>
+            {children.map((child) => (
+              <ProcessTreeNode
+                key={`${child.pid}-${child.ppid || 'root'}`}
+                row={child}
+                childrenByParent={childrenByParent}
+                selectedComm={selectedComm}
+                depth={0}
+              />
+            ))}
+          </Stack>
+        </Box>
+      ) : null}
+    </Box>
+  );
+}
+
+function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selectedComm: string | null }) {
+  if (rows.length === 0) return null;
+  const ids = new Set(rows.map((row) => row.pid));
+  const childrenByParent = new Map<string, ProcessSample[]>();
+  const roots: ProcessSample[] = [];
+  for (const row of rows) {
+    if (row.ppid && ids.has(row.ppid)) {
+      const children = childrenByParent.get(row.ppid) || [];
+      children.push(row);
+      childrenByParent.set(row.ppid, children);
+    } else {
+      roots.push(row);
+    }
+  }
+  for (const children of childrenByParent.values()) {
+    children.sort((a, b) => Number(a.pid) - Number(b.pid));
+  }
+  roots.sort((a, b) => Number(a.pid) - Number(b.pid));
+
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Process graph
+        {selectedComm ? ' (matching processes plus sampled ancestors)' : ''}
+      </Typography>
+      <Stack
+        spacing={1}
+        sx={{
+          mt: 0.5,
+          p: 1,
+          borderRadius: 1,
+          border: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+        }}
+      >
+        {roots.map((root) => (
+          <ProcessTreeNode
+            key={`${root.pid}-${root.ppid || 'root'}`}
+            row={root}
+            childrenByParent={childrenByParent}
+            selectedComm={selectedComm}
+          />
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
 function ProcessBurstView({ detail }: { detail: AlertDetail }) {
   const processes = Array.isArray(detail.processes) ? detail.processes : [];
   const topComms = Array.isArray(detail.top_comms) ? detail.top_comms : [];
+  const [selectedComm, setSelectedComm] = useState<string | null>(null);
   if (processes.length === 0 && topComms.length === 0) return null;
+
+  const processRows = processes.map(processSampleFromUnknown);
+  const visibleProcesses = selectedComm ? processRows.filter((row) => row.comm === selectedComm) : processRows;
+  const graphProcesses = processRowsForGraph(processRows, selectedComm);
 
   return (
     <Stack spacing={1}>
@@ -196,18 +331,34 @@ function ProcessBurstView({ detail }: { detail: AlertDetail }) {
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Top processes
+            {selectedComm ? ` · filtered to ${selectedComm}` : ' · click to filter'}
           </Typography>
           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
             {topComms.map((item, index) => {
               const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
               const comm = row.comm != null ? String(row.comm) : 'unknown';
               const count = row.count != null ? String(row.count) : '?';
+              const selected = selectedComm === comm;
               return (
                 <Chip
                   key={`${comm}-${index}`}
                   label={`${comm} ×${count}`}
                   size="small"
-                  variant="outlined"
+                  clickable
+                  color={selected ? 'warning' : 'default'}
+                  variant={selected ? 'filled' : 'outlined'}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSelectedComm((current) => (current === comm ? null : comm));
+                  }}
+                  onDelete={
+                    selected
+                      ? (event) => {
+                          event.stopPropagation();
+                          setSelectedComm(null);
+                        }
+                      : undefined
+                  }
                 />
               );
             })}
@@ -216,75 +367,78 @@ function ProcessBurstView({ detail }: { detail: AlertDetail }) {
       ) : null}
       {processes.length > 0 ? (
         <Box>
+          <ProcessGraphView rows={graphProcesses} selectedComm={selectedComm} />
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Recent processes
-            {detail.count != null
-              ? ` (showing ${processes.length} of ${String(detail.count)})`
-              : ` (${processes.length})`}
+            {selectedComm
+              ? ` (showing ${visibleProcesses.length} matching ${selectedComm})`
+              : detail.count != null
+                ? ` (showing ${visibleProcesses.length} of ${String(detail.count)})`
+                : ` (${visibleProcesses.length})`}
           </Typography>
           <Stack spacing={0.75} sx={{ mt: 0.5 }}>
-            {processes.map((item, index) => {
-              const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
-              const comm = row.comm != null ? String(row.comm) : 'unknown';
-              const pid = row.pid != null ? String(row.pid) : '?';
-              const ppid = row.ppid != null ? String(row.ppid) : null;
-              const cmdline = row.cmdline != null ? String(row.cmdline).trim() : '';
-              const executable = row.executable != null ? String(row.executable).trim() : '';
-              return (
-                <Box
-                  key={`${pid}-${index}`}
-                  sx={{
-                    p: 1,
-                    borderRadius: 1,
-                    border: 1,
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  <Typography
-                    variant="body2"
+            {visibleProcesses.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No sampled processes match this filter.
+              </Typography>
+            ) : (
+              visibleProcesses.map((row, index) => {
+                return (
+                  <Box
+                    key={`${row.pid}-${index}`}
                     sx={{
-                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                      fontSize: '0.75rem',
-                      fontWeight: 600,
+                      p: 1,
+                      borderRadius: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                      bgcolor: 'background.paper',
                     }}
                   >
-                    {comm}
-                    {` (pid ${pid}`}
-                    {ppid ? `, ppid ${ppid}` : ''}
-                    {`)`}
-                  </Typography>
-                  {executable ? (
                     <Typography
-                      variant="caption"
-                      color="text.secondary"
+                      variant="body2"
                       sx={{
-                        display: 'block',
                         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
                       }}
                     >
-                      {executable}
+                      {row.comm}
+                      {` (pid ${row.pid}`}
+                      {row.ppid ? `, ppid ${row.ppid}` : ''}
+                      {`)`}
                     </Typography>
-                  ) : null}
-                  {cmdline ? (
-                    <Typography
-                      variant="caption"
-                      component="pre"
-                      sx={{
-                        m: 0,
-                        mt: 0.5,
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                        fontSize: '0.7rem',
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {cmdline}
-                    </Typography>
-                  ) : null}
-                </Box>
-              );
-            })}
+                    {row.executable ? (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{
+                          display: 'block',
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        }}
+                      >
+                        {row.executable}
+                      </Typography>
+                    ) : null}
+                    {row.cmdline ? (
+                      <Typography
+                        variant="caption"
+                        component="pre"
+                        sx={{
+                          m: 0,
+                          mt: 0.5,
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                          fontSize: '0.7rem',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {row.cmdline}
+                      </Typography>
+                    ) : null}
+                  </Box>
+                );
+              })
+            )}
           </Stack>
         </Box>
       ) : null}
