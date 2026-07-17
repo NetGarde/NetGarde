@@ -77,6 +77,9 @@ const DETAIL_LABELS: Record<string, string> = {
   presence: 'Presence',
   listening_count: 'Listening ports',
   network_events: 'Network events',
+  sample_limit: 'Sample size',
+  top_comms: 'Top processes',
+  processes: 'Recent processes',
   name: 'Name',
   display_name: 'Display name',
   state: 'State',
@@ -182,6 +185,113 @@ function ProcessChainView({ detail }: { detail: AlertDetail }) {
   );
 }
 
+function ProcessBurstView({ detail }: { detail: AlertDetail }) {
+  const processes = Array.isArray(detail.processes) ? detail.processes : [];
+  const topComms = Array.isArray(detail.top_comms) ? detail.top_comms : [];
+  if (processes.length === 0 && topComms.length === 0) return null;
+
+  return (
+    <Stack spacing={1}>
+      {topComms.length > 0 ? (
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            Top processes
+          </Typography>
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+            {topComms.map((item, index) => {
+              const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+              const comm = row.comm != null ? String(row.comm) : 'unknown';
+              const count = row.count != null ? String(row.count) : '?';
+              return (
+                <Chip
+                  key={`${comm}-${index}`}
+                  label={`${comm} ×${count}`}
+                  size="small"
+                  variant="outlined"
+                />
+              );
+            })}
+          </Stack>
+        </Box>
+      ) : null}
+      {processes.length > 0 ? (
+        <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+            Recent processes
+            {detail.count != null
+              ? ` (showing ${processes.length} of ${String(detail.count)})`
+              : ` (${processes.length})`}
+          </Typography>
+          <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+            {processes.map((item, index) => {
+              const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+              const comm = row.comm != null ? String(row.comm) : 'unknown';
+              const pid = row.pid != null ? String(row.pid) : '?';
+              const ppid = row.ppid != null ? String(row.ppid) : null;
+              const cmdline = row.cmdline != null ? String(row.cmdline).trim() : '';
+              const executable = row.executable != null ? String(row.executable).trim() : '';
+              return (
+                <Box
+                  key={`${pid}-${index}`}
+                  sx={{
+                    p: 1,
+                    borderRadius: 1,
+                    border: 1,
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {comm}
+                    {` (pid ${pid}`}
+                    {ppid ? `, ppid ${ppid}` : ''}
+                    {`)`}
+                  </Typography>
+                  {executable ? (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        display: 'block',
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                      }}
+                    >
+                      {executable}
+                    </Typography>
+                  ) : null}
+                  {cmdline ? (
+                    <Typography
+                      variant="caption"
+                      component="pre"
+                      sx={{
+                        m: 0,
+                        mt: 0.5,
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                        fontSize: '0.7rem',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {cmdline}
+                    </Typography>
+                  ) : null}
+                </Box>
+              );
+            })}
+          </Stack>
+        </Box>
+      ) : null}
+    </Stack>
+  );
+}
+
 function DetailFields({ detail }: { detail: AlertDetail }) {
   const chainKeys = new Set([
     'parent_comm',
@@ -191,6 +301,9 @@ function DetailFields({ detail }: { detail: AlertDetail }) {
     'parent_cmdline',
     'child_cmdline',
     'cmdline',
+    'processes',
+    'top_comms',
+    'sample_limit',
   ]);
   const entries = Object.entries(detail).filter(([key, value]) => !chainKeys.has(key) && value != null);
   if (entries.length === 0) return null;
@@ -367,6 +480,7 @@ function AlertRow({
               <Stack spacing={1.5}>
                 <AlertMetadata alert={alert} />
                 {detail ? <ProcessChainView detail={detail} /> : null}
+                {detail ? <ProcessBurstView detail={detail} /> : null}
                 {detail ? <DetailFields detail={detail} /> : null}
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Button
