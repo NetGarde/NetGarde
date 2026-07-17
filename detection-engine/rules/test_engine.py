@@ -277,13 +277,27 @@ def test_driver_load_alert():
     assert "com.example.driver" in alert.message
 
 
+def test_process_event_does_not_rerun_network_rules():
+    store = StateStore()
+    device = "dev_route"
+    evaluate_event(_network_event(device, "wifi", "1.1.1.1"), store)
+    evaluate_event(_network_event(device, "ethernet", "1.1.1.1", "2026-07-11T12:01:00Z"), store)
+    alerts = evaluate_event(
+        _process_event(device, 10, 1, "bash", "/bin/bash", "2026-07-11T12:01:05Z"),
+        store,
+    )
+    types = {a.alert_type for a in alerts}
+    assert "network_type_change" not in types
+
+
 def test_event_burst_fingerprint_shares_cooldown_bucket():
     from rules.alerts import SecurityAlert, alert_fingerprint
+    from rules.constants import ALERT_EVENT_BURST, ALERT_SHELL_SPAWNS_DOWNLOADER
 
     a = SecurityAlert(
         timestamp="2026-07-16T19:39:36Z",
         device_id="dev_x",
-        alert_type="event_burst",
+        alert_type=ALERT_EVENT_BURST,
         severity="low",
         message="High event volume (36 events in 5 minutes)",
         event_id="evt_a",
@@ -291,7 +305,7 @@ def test_event_burst_fingerprint_shares_cooldown_bucket():
     b = SecurityAlert(
         timestamp="2026-07-16T19:39:56Z",
         device_id="dev_x",
-        alert_type="event_burst",
+        alert_type=ALERT_EVENT_BURST,
         severity="low",
         message="High event volume (47 events in 5 minutes)",
         event_id="evt_b",
@@ -301,12 +315,12 @@ def test_event_burst_fingerprint_shares_cooldown_bucket():
     # Point-in-time alerts still key on event_id.
     assert alert_fingerprint(
         device_id="dev_x",
-        alert_type="shell_spawns_downloader",
+        alert_type=ALERT_SHELL_SPAWNS_DOWNLOADER,
         timestamp="2026-07-16T19:39:36Z",
         event_id="evt_a",
     ) != alert_fingerprint(
         device_id="dev_x",
-        alert_type="shell_spawns_downloader",
+        alert_type=ALERT_SHELL_SPAWNS_DOWNLOADER,
         timestamp="2026-07-16T19:39:36Z",
         event_id="evt_b",
     )

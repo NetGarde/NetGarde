@@ -1,7 +1,7 @@
-"""Multi-event (chain) detection rules for TrustEdge Agent telemetry.
+"""Multi-event detection rules for TrustEdge Agent telemetry.
 
-Each rule inspects recent events for one device and may emit zero or more alerts.
-Rules are intentionally explicit and auditable (no LLM).
+Rules are registered by trigger event type (network, process, security, …).
+evaluate_chain runs only the matching lane plus cross-cutting ALWAYS_RULES.
 """
 
 from __future__ import annotations
@@ -11,21 +11,55 @@ from typing import Callable
 
 from rules.alerts import SecurityAlert
 from rules.chain import (
-    TYPE_ACTION_SUMMARY,
-    TYPE_CLIENT_DETAILS,
-    TYPE_NETWORK_SUMMARY,
     ChainEvent,
     DeviceChain,
     payload_int,
     payload_str,
     ts_iso,
 )
-
-PRESENCE_ACTIVE = "active"
-PRESENCE_IDLE = "idle"
+from rules.constants import (
+    ALERT_ACTIVE_IP_CHURN,
+    ALERT_DOUBLE_IP_CHANGE_10M,
+    ALERT_ESTABLISHED_COUNT_SPIKE,
+    ALERT_EVENT_BURST,
+    ALERT_FOREGROUND_CONNECTIONS_SPIKE,
+    ALERT_HIGH_LISTENING_WHILE_ACTIVE,
+    ALERT_IDLE_WITH_NETWORK_ACTIVITY,
+    ALERT_IP_CHANGE_WHILE_IDLE,
+    ALERT_LISTENING_PORT_SPIKE,
+    ALERT_MISSING_NETWORK_TELEMETRY,
+    ALERT_NETWORK_CHANGE_WHILE_ACTIVE,
+    ALERT_NETWORK_FLAP_5M,
+    ALERT_NETWORK_TYPE_CHANGE,
+    ALERT_NETWORK_TYPE_FLAPPING,
+    ALERT_NEW_PUBLIC_IP,
+    ALERT_RAPID_PUBLIC_IP_CHANGES,
+    ALERT_REPEATED_NETWORK_SUMMARY,
+    ALERT_SIMULTANEOUS_IP_AND_TYPE_CHANGE,
+    ALERT_STALE_CLIENT_DETAILS,
+    PRESENCE_ACTIVE,
+    PRESENCE_IDLE,
+    SEVERITY_HIGH,
+    SEVERITY_LOW,
+    SEVERITY_MEDIUM,
+    SEVERITY_RANK,
+    TYPE_ACTION_SUMMARY,
+    TYPE_CLIENT_DETAILS,
+    TYPE_DRIVER_LOAD,
+    TYPE_NETWORK_SUMMARY,
+    TYPE_PROCESS_START,
+    TYPE_REGISTRY_PERSISTENCE,
+    TYPE_SERVICE_INSTALL,
+)
 
 from rules.process_rules import PROCESS_RULES
-from rules.security_rules import SECURITY_RULES
+from rules.security_rules import (
+    DRIVER_LOAD_RULES,
+    REGISTRY_PERSISTENCE_RULES,
+    SERVICE_INSTALL_RULES,
+)
+
+WindowRule = Callable[[DeviceChain], list[SecurityAlert]]
 
 
 def _alert(
@@ -68,8 +102,8 @@ def rule_new_public_ip(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=cur,
-                    alert_type="new_public_ip",
-                    severity="high",
+                    alert_type=ALERT_NEW_PUBLIC_IP,
+                    severity=SEVERITY_HIGH,
                     message=f"Public IP changed from {old_ip} to {new_ip}",
                     detail={"from": old_ip, "to": new_ip},
                 )
@@ -88,8 +122,8 @@ def rule_network_type_change(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=cur,
-                    alert_type="network_type_change",
-                    severity="medium",
+                    alert_type=ALERT_NETWORK_TYPE_CHANGE,
+                    severity=SEVERITY_MEDIUM,
                     message=f"Network type changed from {old_type} to {new_type}",
                     detail={"from": old_type, "to": new_type},
                 )
@@ -114,8 +148,8 @@ def rule_network_change_while_active(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=cur,
-                    alert_type="network_change_while_active",
-                    severity="medium",
+                    alert_type=ALERT_NETWORK_CHANGE_WHILE_ACTIVE,
+                    severity=SEVERITY_MEDIUM,
                     message="Network changed while user presence is active",
                     detail={"presence": PRESENCE_ACTIVE},
                 )
@@ -142,8 +176,8 @@ def rule_simultaneous_ip_and_type_change(chain: DeviceChain) -> list[SecurityAle
                 _alert(
                     chain,
                     source=cur,
-                    alert_type="simultaneous_ip_and_type_change",
-                    severity="high",
+                    alert_type=ALERT_SIMULTANEOUS_IP_AND_TYPE_CHANGE,
+                    severity=SEVERITY_HIGH,
                     message="Public IP and network type changed together",
                     detail={
                         "from_ip": old_ip,
@@ -176,8 +210,8 @@ def rule_rapid_public_ip_changes(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=latest,
-                alert_type="rapid_public_ip_changes",
-                severity="high",
+                alert_type=ALERT_RAPID_PUBLIC_IP_CHANGES,
+                severity=SEVERITY_HIGH,
                 message=f"Multiple public IPs in 15 minutes ({len(unique)} distinct)",
                 detail={"ips": unique, "window_minutes": 15},
             )
@@ -200,8 +234,8 @@ def rule_double_ip_change_10m(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=nets[-1],
-                alert_type="double_ip_change_10m",
-                severity="high",
+                alert_type=ALERT_DOUBLE_IP_CHANGE_10M,
+                severity=SEVERITY_HIGH,
                 message=f"Public IP changed {changes} times within 10 minutes",
                 detail={"changes": changes, "window_minutes": 10},
             )
@@ -224,8 +258,8 @@ def rule_network_type_flapping(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=nets[-1],
-                alert_type="network_type_flapping",
-                severity="medium",
+                alert_type=ALERT_NETWORK_TYPE_FLAPPING,
+                severity=SEVERITY_MEDIUM,
                 message=f"Network type flapped {changes} times within 10 minutes",
                 detail={"changes": changes, "window_minutes": 10},
             )
@@ -248,8 +282,8 @@ def rule_network_flap_5m(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=nets[-1],
-                alert_type="network_flap_5m",
-                severity="medium",
+                alert_type=ALERT_NETWORK_FLAP_5M,
+                severity=SEVERITY_MEDIUM,
                 message=f"Rapid network type changes ({changes}) within 5 minutes",
                 detail={"changes": changes, "window_minutes": 5},
             )
@@ -266,8 +300,8 @@ def rule_event_burst(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=recent[-1],
-                alert_type="event_burst",
-                severity="low",
+                alert_type=ALERT_EVENT_BURST,
+                severity=SEVERITY_LOW,
                 message=f"High event volume ({len(recent)} events in 5 minutes)",
                 detail={"count": len(recent), "window_minutes": 5},
             )
@@ -288,8 +322,8 @@ def rule_repeated_network_summary(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=latest,
-                    alert_type="repeated_network_summary",
-                    severity="low",
+                    alert_type=ALERT_REPEATED_NETWORK_SUMMARY,
+                    severity=SEVERITY_LOW,
                     message="Many network summaries without action context",
                     detail={"network_events": net_count, "window_minutes": 10},
                 )
@@ -322,8 +356,8 @@ def rule_established_count_spike(chain: DeviceChain) -> list[SecurityAlert]:
         _alert(
             chain,
             source=cur,
-            alert_type="established_count_spike",
-            severity="medium",
+            alert_type=ALERT_ESTABLISHED_COUNT_SPIKE,
+            severity=SEVERITY_MEDIUM,
             message=f"Established connections spiked by {delta}",
             detail={
                 "from": payload_int(prev.payload.get("established_count")),
@@ -343,8 +377,8 @@ def rule_listening_port_spike(chain: DeviceChain) -> list[SecurityAlert]:
         _alert(
             chain,
             source=cur,
-            alert_type="listening_port_spike",
-            severity="medium",
+            alert_type=ALERT_LISTENING_PORT_SPIKE,
+            severity=SEVERITY_MEDIUM,
             message=f"Listening ports increased by {delta}",
             detail={
                 "from": payload_int(prev.payload.get("listening_count")),
@@ -366,8 +400,8 @@ def rule_foreground_connections_spike(chain: DeviceChain) -> list[SecurityAlert]
         _alert(
             chain,
             source=cur,
-            alert_type="foreground_connections_spike",
-            severity="medium",
+            alert_type=ALERT_FOREGROUND_CONNECTIONS_SPIKE,
+            severity=SEVERITY_MEDIUM,
             message=f"Foreground app connections spiked by {delta}",
             detail={
                 "from": payload_int(prev.payload.get("foreground_app_connections")),
@@ -390,8 +424,8 @@ def rule_high_listening_with_active_user(chain: DeviceChain) -> list[SecurityAle
             _alert(
                 chain,
                 source=latest,
-                alert_type="high_listening_while_active",
-                severity="low",
+                alert_type=ALERT_HIGH_LISTENING_WHILE_ACTIVE,
+                severity=SEVERITY_LOW,
                 message=f"Many listening ports ({listening}) while user is active",
                 detail={"listening_count": listening},
             )
@@ -414,8 +448,8 @@ def rule_ip_change_while_idle(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=cur,
-                    alert_type="ip_change_while_idle",
-                    severity="low",
+                    alert_type=ALERT_IP_CHANGE_WHILE_IDLE,
+                    severity=SEVERITY_LOW,
                     message=f"Public IP changed while idle ({old_ip} → {new_ip})",
                     detail={"from": old_ip, "to": new_ip, "presence": PRESENCE_IDLE},
                 )
@@ -440,8 +474,8 @@ def rule_active_ip_churn(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=nets[-1],
-                alert_type="active_ip_churn",
-                severity="high",
+                alert_type=ALERT_ACTIVE_IP_CHURN,
+                severity=SEVERITY_HIGH,
                 message=f"IP churn ({changes} changes) while user remained active",
                 detail={"changes": changes, "window_minutes": 30},
             )
@@ -467,8 +501,8 @@ def rule_stale_client_details(chain: DeviceChain) -> list[SecurityAlert]:
                 _alert(
                     chain,
                     source=latest,
-                    alert_type="stale_client_details",
-                    severity="low",
+                    alert_type=ALERT_STALE_CLIENT_DETAILS,
+                    severity=SEVERITY_LOW,
                     message="Network telemetry without recent client heartbeat",
                     detail={"window_minutes": 20},
                 )
@@ -492,8 +526,8 @@ def rule_missing_network_telemetry(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=latest,
-                alert_type="missing_network_telemetry",
-                severity="low",
+                alert_type=ALERT_MISSING_NETWORK_TELEMETRY,
+                severity=SEVERITY_LOW,
                 message="Client telemetry without network summary in 30 minutes",
                 detail={"window_minutes": 30},
             )
@@ -512,8 +546,8 @@ def rule_long_idle_with_network(chain: DeviceChain) -> list[SecurityAlert]:
             _alert(
                 chain,
                 source=nets[-1],
-                alert_type="idle_with_network_activity",
-                severity="low",
+                alert_type=ALERT_IDLE_WITH_NETWORK_ACTIVITY,
+                severity=SEVERITY_LOW,
                 message="Repeated network summaries while user is idle",
                 detail={"network_events": len(nets), "window_minutes": 15},
             )
@@ -523,38 +557,71 @@ def rule_long_idle_with_network(chain: DeviceChain) -> list[SecurityAlert]:
 
 # --- Registry ----------------------------------------------------------------
 
-CHAIN_RULES: list[tuple[str, WindowRule]] = [
-    ("new_public_ip", rule_new_public_ip),
-    ("network_type_change", rule_network_type_change),
-    ("network_change_while_active", rule_network_change_while_active),
-    ("simultaneous_ip_and_type_change", rule_simultaneous_ip_and_type_change),
-    ("rapid_public_ip_changes", rule_rapid_public_ip_changes),
-    ("double_ip_change_10m", rule_double_ip_change_10m),
-    ("network_type_flapping", rule_network_type_flapping),
-    ("network_flap_5m", rule_network_flap_5m),
-    ("event_burst", rule_event_burst),
-    ("repeated_network_summary", rule_repeated_network_summary),
-    ("established_count_spike", rule_established_count_spike),
-    ("listening_port_spike", rule_listening_port_spike),
-    ("foreground_connections_spike", rule_foreground_connections_spike),
-    ("high_listening_while_active", rule_high_listening_with_active_user),
-    ("ip_change_while_idle", rule_ip_change_while_idle),
-    ("active_ip_churn", rule_active_ip_churn),
-    ("stale_client_details", rule_stale_client_details),
-    ("missing_network_telemetry", rule_missing_network_telemetry),
-    ("idle_with_network_activity", rule_long_idle_with_network),
+# Network / presence-gated detections — triggered by network_summary.
+NETWORK_RULES: list[tuple[str, WindowRule]] = [
+    (ALERT_NEW_PUBLIC_IP, rule_new_public_ip),
+    (ALERT_NETWORK_TYPE_CHANGE, rule_network_type_change),
+    (ALERT_NETWORK_CHANGE_WHILE_ACTIVE, rule_network_change_while_active),
+    (ALERT_SIMULTANEOUS_IP_AND_TYPE_CHANGE, rule_simultaneous_ip_and_type_change),
+    (ALERT_RAPID_PUBLIC_IP_CHANGES, rule_rapid_public_ip_changes),
+    (ALERT_DOUBLE_IP_CHANGE_10M, rule_double_ip_change_10m),
+    (ALERT_NETWORK_TYPE_FLAPPING, rule_network_type_flapping),
+    (ALERT_NETWORK_FLAP_5M, rule_network_flap_5m),
+    (ALERT_REPEATED_NETWORK_SUMMARY, rule_repeated_network_summary),
+    (ALERT_ESTABLISHED_COUNT_SPIKE, rule_established_count_spike),
+    (ALERT_LISTENING_PORT_SPIKE, rule_listening_port_spike),
+    (ALERT_FOREGROUND_CONNECTIONS_SPIKE, rule_foreground_connections_spike),
+    (ALERT_HIGH_LISTENING_WHILE_ACTIVE, rule_high_listening_with_active_user),
+    (ALERT_IP_CHANGE_WHILE_IDLE, rule_ip_change_while_idle),
+    (ALERT_ACTIVE_IP_CHURN, rule_active_ip_churn),
+    (ALERT_STALE_CLIENT_DETAILS, rule_stale_client_details),
+    (ALERT_IDLE_WITH_NETWORK_ACTIVITY, rule_long_idle_with_network),
 ]
 
+# Coverage gaps — triggered by client/action telemetry without network.
+COVERAGE_RULES: list[tuple[str, WindowRule]] = [
+    (ALERT_MISSING_NETWORK_TELEMETRY, rule_missing_network_telemetry),
+]
 
-def evaluate_chain(chain: DeviceChain) -> list[SecurityAlert]:
-    """Run all chain rules; dedupe by alert_type keeping highest severity."""
-    severity_rank = {"low": 1, "medium": 2, "high": 3}
+# Cross-cutting volume rule — runs for every event type.
+ALWAYS_RULES: list[tuple[str, WindowRule]] = [
+    (ALERT_EVENT_BURST, rule_event_burst),
+]
+
+# Flat list kept for discovery / tests.
+CHAIN_RULES: list[tuple[str, WindowRule]] = [
+    *NETWORK_RULES,
+    *ALWAYS_RULES,
+    *COVERAGE_RULES,
+]
+
+RULES_BY_TYPE: dict[str, list[tuple[str, object]]] = {
+    TYPE_NETWORK_SUMMARY: NETWORK_RULES,
+    TYPE_PROCESS_START: PROCESS_RULES,
+    TYPE_ACTION_SUMMARY: COVERAGE_RULES,
+    TYPE_CLIENT_DETAILS: COVERAGE_RULES,
+    TYPE_DRIVER_LOAD: DRIVER_LOAD_RULES,
+    TYPE_SERVICE_INSTALL: SERVICE_INSTALL_RULES,
+    TYPE_REGISTRY_PERSISTENCE: REGISTRY_PERSISTENCE_RULES,
+}
+
+
+def evaluate_chain(
+    chain: DeviceChain,
+    *,
+    trigger: ChainEvent | None = None,
+) -> list[SecurityAlert]:
+    """Run rules for the triggering event type; dedupe by alert_type keeping highest severity."""
+    source = trigger or chain.latest()
+    if source is None:
+        return []
+
+    typed_rules = RULES_BY_TYPE.get(source.event_type, [])
     by_type: dict[str, SecurityAlert] = {}
-    all_rules = [*CHAIN_RULES, *PROCESS_RULES, *SECURITY_RULES]
-    for _name, rule in all_rules:
+    for _name, rule in [*typed_rules, *ALWAYS_RULES]:
         for alert in rule(chain):
             existing = by_type.get(alert.alert_type)
-            if existing is None or severity_rank.get(alert.severity, 0) > severity_rank.get(
+            if existing is None or SEVERITY_RANK.get(alert.severity, 0) > SEVERITY_RANK.get(
                 existing.severity, 0
             ):
                 by_type[alert.alert_type] = alert

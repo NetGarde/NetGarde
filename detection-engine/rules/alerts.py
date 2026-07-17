@@ -5,27 +5,9 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-# Windowed / threshold rules re-match on every subsequent event while the
-# condition holds. Fingerprint by time bucket so we emit once per cooldown.
-COOLDOWN_SECONDS: dict[str, int] = {
-    "event_burst": 5 * 60,
-    "process_burst": 2 * 60,
-    "rapid_public_ip_changes": 15 * 60,
-    "double_ip_change_10m": 10 * 60,
-    "network_type_flapping": 10 * 60,
-    "network_flap_5m": 5 * 60,
-    "repeated_network_summary": 10 * 60,
-    "established_count_spike": 15 * 60,
-    "listening_port_spike": 15 * 60,
-    "foreground_connections_spike": 15 * 60,
-    "high_listening_while_active": 5 * 60,
-    "network_change_while_active": 5 * 60,
-    "ip_change_while_idle": 5 * 60,
-    "active_ip_churn": 30 * 60,
-    "stale_client_details": 20 * 60,
-    "missing_network_telemetry": 30 * 60,
-    "idle_with_network_activity": 15 * 60,
-}
+from rules.constants import COOLDOWN_SECONDS
+
+__all__ = ["SecurityAlert", "alert_fingerprint"]
 
 
 def _parse_ts(raw: str) -> datetime:

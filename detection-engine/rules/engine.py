@@ -13,4 +13,5 @@ def evaluate_event(event: dict[str, Any], store: StateStore) -> list[SecurityAle
     chain = store.record_event(event)
     if chain is None:
         return []
-    return evaluate_chain(chain)
+    trigger = chain.latest()
+    return evaluate_chain(chain, trigger=trigger)
