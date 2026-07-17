@@ -219,98 +219,157 @@ function processRowsForGraph(rows: ProcessSample[], selectedComm: string | null)
   return rows.filter((row) => keep.has(row.pid));
 }
 
-type GraphNode = {
-  pid: string;
-  ppid: string | null;
+type GraphGroup = {
+  id: string;
   comm: string;
+  pids: string[];
   synthetic: boolean;
   depth: number;
   row: number;
   x: number;
   y: number;
+  height: number;
 };
 
-const NODE_W = 168;
-const NODE_H = 34;
-const H_GAP = 56;
-const V_GAP = 14;
+const NODE_W = 180;
+const H_GAP = 64;
+const V_GAP = 18;
+const HEADER_H = 18;
+const PID_LINE_H = 12;
+const NODE_PAD = 8;
+const MAX_PIDS_SHOWN = 8;
+
+function groupNodeHeight(pidCount: number): number {
+  const shown = Math.min(pidCount, MAX_PIDS_SHOWN) + (pidCount > MAX_PIDS_SHOWN ? 1 : 0);
+  return HEADER_H + shown * PID_LINE_H + NODE_PAD;
+}
 
 function buildProcessGraph(rows: ProcessSample[]): {
-  nodes: GraphNode[];
-  edges: Array<{ from: GraphNode; to: GraphNode }>;
+  nodes: GraphGroup[];
+  edges: Array<{ from: GraphGroup; to: GraphGroup }>;
   width: number;
   height: number;
 } {
-  const nodes = new Map<string, GraphNode>();
-  const makeNode = (pid: string, comm: string, ppid: string | null, synthetic: boolean) => {
-    const existing = nodes.get(pid);
-    if (existing) {
-      if (synthetic === false && existing.synthetic) {
-        existing.synthetic = false;
-        existing.comm = comm;
-        existing.ppid = ppid;
-      }
-      return existing;
+  const groups = new Map<string, GraphGroup>();
+  const pidToGroup = new Map<string, string>();
+
+  const ensureGroup = (id: string, comm: string, synthetic: boolean) => {
+    let group = groups.get(id);
+    if (!group) {
+      group = {
+        id,
+        comm,
+        pids: [],
+        synthetic,
+        depth: 0,
+        row: 0,
+        x: 0,
+        y: 0,
+        height: groupNodeHeight(0),
+      };
+      groups.set(id, group);
+    } else if (!synthetic && group.synthetic) {
+      group.synthetic = false;
+      group.comm = comm;
     }
-    const node: GraphNode = { pid, ppid, comm, synthetic, depth: 0, row: 0, x: 0, y: 0 };
-    nodes.set(pid, node);
-    return node;
+    return group;
   };
 
-  for (const r of rows) makeNode(r.pid, r.comm, r.ppid, false);
-  // Synthesize any referenced parent that was not itself sampled.
   for (const r of rows) {
-    if (r.ppid && !nodes.has(r.ppid)) {
-      makeNode(r.ppid, `pid ${r.ppid}`, null, true);
-    }
+    const id = `comm:${r.comm}`;
+    const group = ensureGroup(id, r.comm, false);
+    if (!group.pids.includes(r.pid)) group.pids.push(r.pid);
+    pidToGroup.set(r.pid, id);
   }
 
-  const childrenByParent = new Map<string, GraphNode[]>();
-  const roots: GraphNode[] = [];
-  for (const node of nodes.values()) {
-    if (node.ppid && nodes.has(node.ppid)) {
-      const list = childrenByParent.get(node.ppid) || [];
-      list.push(node);
-      childrenByParent.set(node.ppid, list);
-    } else {
-      roots.push(node);
-    }
+  // Synthesize missing parents as their own groups so edges still exist.
+  for (const r of rows) {
+    if (!r.ppid || pidToGroup.has(r.ppid)) continue;
+    const id = `parent:${r.ppid}`;
+    const group = ensureGroup(id, `pid ${r.ppid}`, true);
+    if (!group.pids.includes(r.ppid)) group.pids.push(r.ppid);
+    pidToGroup.set(r.ppid, id);
   }
-  for (const list of childrenByParent.values()) {
-    list.sort((a, b) => Number(a.pid) - Number(b.pid));
-  }
-  roots.sort((a, b) => Number(a.pid) - Number(b.pid));
 
-  // DFS assigns depth (column) and a sequential row so the layout reads top-down.
-  let rowCounter = 0;
+  for (const group of groups.values()) {
+    group.pids.sort((a, b) => Number(a) - Number(b));
+    group.height = groupNodeHeight(group.pids.length);
+  }
+
+  const edgeKeys = new Set<string>();
+  const childrenByParent = new Map<string, string[]>();
+  for (const r of rows) {
+    if (!r.ppid) continue;
+    const parentId = pidToGroup.get(r.ppid);
+    const childId = pidToGroup.get(r.pid);
+    if (!parentId || !childId || parentId === childId) continue;
+    const key = `${parentId}->${childId}`;
+    if (edgeKeys.has(key)) continue;
+    edgeKeys.add(key);
+    const list = childrenByParent.get(parentId) || [];
+    list.push(childId);
+    childrenByParent.set(parentId, list);
+  }
+
+  const childIds = new Set<string>();
+  for (const children of childrenByParent.values()) {
+    for (const id of children) childIds.add(id);
+  }
+  const roots = Array.from(groups.keys())
+    .filter((id) => !childIds.has(id))
+    .sort((a, b) => a.localeCompare(b));
+
+  // DFS on the grouped DAG: column = depth, vertical order = visit order.
   let maxDepth = 0;
   const visited = new Set<string>();
-  const walk = (node: GraphNode, depth: number) => {
-    if (visited.has(node.pid)) return;
-    visited.add(node.pid);
-    node.depth = depth;
-    node.row = rowCounter++;
+  const order: string[] = [];
+  const walk = (id: string, depth: number) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const group = groups.get(id);
+    if (!group) return;
+    group.depth = depth;
     maxDepth = Math.max(maxDepth, depth);
-    for (const child of childrenByParent.get(node.pid) || []) walk(child, depth + 1);
+    order.push(id);
+    for (const childId of childrenByParent.get(id) || []) walk(childId, depth + 1);
   };
   for (const root of roots) walk(root, 0);
-
-  const nodeList = Array.from(nodes.values());
-  for (const node of nodeList) {
-    node.x = node.depth * (NODE_W + H_GAP);
-    node.y = node.row * (NODE_H + V_GAP);
+  for (const id of groups.keys()) {
+    if (!visited.has(id)) walk(id, 0);
   }
 
-  const edges: Array<{ from: GraphNode; to: GraphNode }> = [];
-  for (const node of nodeList) {
-    if (node.ppid && nodes.has(node.ppid)) {
-      edges.push({ from: nodes.get(node.ppid) as GraphNode, to: node });
+  // Place each depth column independently so siblings stack tightly.
+  const byDepth = new Map<number, GraphGroup[]>();
+  for (const id of order) {
+    const group = groups.get(id);
+    if (!group) continue;
+    const list = byDepth.get(group.depth) || [];
+    list.push(group);
+    byDepth.set(group.depth, list);
+  }
+
+  let maxHeight = 0;
+  for (const [depth, list] of byDepth) {
+    let y = 0;
+    for (const group of list) {
+      group.x = depth * (NODE_W + H_GAP);
+      group.y = y;
+      y += group.height + V_GAP;
     }
+    maxHeight = Math.max(maxHeight, y - V_GAP);
+  }
+
+  const edges: Array<{ from: GraphGroup; to: GraphGroup }> = [];
+  for (const key of edgeKeys) {
+    const [fromId, toId] = key.split('->');
+    const from = groups.get(fromId);
+    const to = groups.get(toId);
+    if (from && to) edges.push({ from, to });
   }
 
   const width = (maxDepth + 1) * NODE_W + maxDepth * H_GAP;
-  const height = Math.max(rowCounter, 1) * NODE_H + Math.max(rowCounter - 1, 0) * V_GAP;
-  return { nodes: nodeList, edges, width, height };
+  const height = Math.max(maxHeight, groupNodeHeight(1));
+  return { nodes: Array.from(groups.values()), edges, width, height };
 }
 
 function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selectedComm: string | null }) {
@@ -322,7 +381,7 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
     <Box sx={{ mb: 1 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
         Process graph
-        {selectedComm ? ' (matching processes plus sampled ancestors)' : ''}
+        {selectedComm ? ' (matching processes plus sampled ancestors)' : ' · grouped by command'}
       </Typography>
       <Box
         sx={{
@@ -333,7 +392,7 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
           borderColor: 'divider',
           bgcolor: 'background.paper',
           overflow: 'auto',
-          maxHeight: 360,
+          maxHeight: 420,
         }}
       >
         <svg
@@ -344,13 +403,13 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
         >
           {edges.map((edge) => {
             const x1 = edge.from.x + NODE_W;
-            const y1 = edge.from.y + NODE_H / 2;
+            const y1 = edge.from.y + edge.from.height / 2;
             const x2 = edge.to.x;
-            const y2 = edge.to.y + NODE_H / 2;
+            const y2 = edge.to.y + edge.to.height / 2;
             const midX = (x1 + x2) / 2;
             return (
               <path
-                key={`${edge.from.pid}->${edge.to.pid}`}
+                key={`${edge.from.id}->${edge.to.id}`}
                 d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
                 fill="none"
                 stroke="currentColor"
@@ -361,11 +420,13 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
           })}
           {nodes.map((node) => {
             const selected = !node.synthetic && selectedComm === node.comm;
+            const shown = node.pids.slice(0, MAX_PIDS_SHOWN);
+            const hidden = node.pids.length - shown.length;
             return (
-              <g key={node.pid} transform={`translate(${node.x}, ${node.y})`}>
+              <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
                 <rect
                   width={NODE_W}
-                  height={NODE_H}
+                  height={node.height}
                   rx={6}
                   ry={6}
                   fill={selected ? 'rgba(237, 108, 2, 0.16)' : 'transparent'}
@@ -382,18 +443,34 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
                   fill="currentColor"
                   fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                 >
-                  {node.comm.length > 22 ? `${node.comm.slice(0, 21)}…` : node.comm}
+                  {(node.comm.length > 22 ? `${node.comm.slice(0, 21)}…` : node.comm) +
+                    (node.synthetic ? '' : ` ×${node.pids.length}`)}
                 </text>
-                <text
-                  x={8}
-                  y={27}
-                  fontSize={10}
-                  fill="currentColor"
-                  fillOpacity={0.7}
-                  fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                >
-                  {node.synthetic ? `pid ${node.pid} · parent` : `pid ${node.pid}`}
-                </text>
+                {shown.map((pid, index) => (
+                  <text
+                    key={pid}
+                    x={8}
+                    y={HEADER_H + (index + 1) * PID_LINE_H}
+                    fontSize={10}
+                    fill="currentColor"
+                    fillOpacity={0.7}
+                    fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                  >
+                    {node.synthetic ? `pid ${pid} · parent` : `pid ${pid}`}
+                  </text>
+                ))}
+                {hidden > 0 ? (
+                  <text
+                    x={8}
+                    y={HEADER_H + (shown.length + 1) * PID_LINE_H}
+                    fontSize={10}
+                    fill="currentColor"
+                    fillOpacity={0.55}
+                    fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                  >
+                    +{hidden} more
+                  </text>
+                ) : null}
               </g>
             );
           })}
