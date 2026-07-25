@@ -20,6 +20,8 @@ import NotificationImportantIcon from '@mui/icons-material/NotificationImportant
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import ComputerIcon from '@mui/icons-material/Computer';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
+import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import './MenuContent.css';
 
 type NavItem = {
@@ -67,6 +69,19 @@ const navSections: NavSection[] = [
       },
     ],
   },
+  {
+    id: 'learn',
+    label: 'Learn',
+    icon: <MenuBookOutlinedIcon />,
+    items: [
+      {
+        text: 'How it works',
+        icon: <RouteOutlinedIcon />,
+        path: '/how-it-works',
+        iconClass: 'homeIcon',
+      },
+    ],
+  },
 ];
 
 const secondaryListItems: NavItem[] = [
@@ -88,6 +103,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     endpoints: true,
     detection: true,
+    learn: true,
   });
   const navItemSx = sidebarNavItemSx(theme);
   const nestedNavItemSx = sidebarNavItemSx(theme, true);

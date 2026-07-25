@@ -3,6 +3,7 @@ import Layout from '../shared/components/Layout';
 import DashboardPage from '../pages/DashboardPage';
 import AgentsPage from '../pages/AgentsPage';
 import AgentDetailPage from '../pages/AgentDetailPage';
+import AgentFlowPage from '../pages/AgentFlowPage';
 import AlertsPage from '../pages/AlertsPage';
 import SettingsPage from '../pages/SettingsPage';
 
@@ -28,6 +29,14 @@ export const routes: RouteObject[] = [
     element: (
       <Layout>
         <AgentDetailPage />
+      </Layout>
+    ),
+  },
+  {
+    path: '/how-it-works',
+    element: (
+      <Layout>
+        <AgentFlowPage />
       </Layout>
     ),
   },
