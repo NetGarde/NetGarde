@@ -4,6 +4,7 @@ import DashboardPage from '../pages/DashboardPage';
 import AgentsPage from '../pages/AgentsPage';
 import AgentDetailPage from '../pages/AgentDetailPage';
 import AgentFlowPage from '../pages/AgentFlowPage';
+import DetectionFlowPage from '../pages/DetectionFlowPage';
 import AlertsPage from '../pages/AlertsPage';
 import SettingsPage from '../pages/SettingsPage';
 
@@ -37,6 +38,14 @@ export const routes: RouteObject[] = [
     element: (
       <Layout>
         <AgentFlowPage />
+      </Layout>
+    ),
+  },
+  {
+    path: '/how-detection-works',
+    element: (
+      <Layout>
+        <DetectionFlowPage />
       </Layout>
     ),
   },

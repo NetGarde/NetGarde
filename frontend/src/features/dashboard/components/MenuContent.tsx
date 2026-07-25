@@ -22,6 +22,7 @@ import ComputerIcon from '@mui/icons-material/Computer';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import PolicyOutlinedIcon from '@mui/icons-material/PolicyOutlined';
 import './MenuContent.css';
 
 type NavItem = {
@@ -79,6 +80,12 @@ const navSections: NavSection[] = [
         icon: <RouteOutlinedIcon />,
         path: '/how-it-works',
         iconClass: 'homeIcon',
+      },
+      {
+        text: 'Detection engine',
+        icon: <PolicyOutlinedIcon />,
+        path: '/how-detection-works',
+        iconClass: 'alertsIcon',
       },
     ],
   },
