@@ -2,6 +2,7 @@ import { RouteObject } from 'react-router-dom';
 import Layout from '../shared/components/Layout';
 import DashboardPage from '../pages/DashboardPage';
 import AgentsPage from '../pages/AgentsPage';
+import AgentDetailPage from '../pages/AgentDetailPage';
 import AlertsPage from '../pages/AlertsPage';
 import SettingsPage from '../pages/SettingsPage';
 
@@ -19,6 +20,14 @@ export const routes: RouteObject[] = [
     element: (
       <Layout>
         <AgentsPage />
+      </Layout>
+    ),
+  },
+  {
+    path: '/agents/:agentId',
+    element: (
+      <Layout>
+        <AgentDetailPage />
       </Layout>
     ),
   },

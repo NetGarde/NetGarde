@@ -11,6 +11,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAgents } from './hooks/useAgents';
 import { isAgentOnline } from './utils/presence';
 import { formatShortDateTime } from '../../shared/utils/dateUtils';
@@ -69,7 +70,17 @@ export default function AgentsList() {
               {agents.map((agent) => {
                 const online = isAgentOnline(agent.last_seen_at);
                 return (
-                  <TableRow key={agent.agent_id} hover>
+                  <TableRow
+                    key={agent.agent_id}
+                    hover
+                    component={RouterLink}
+                    to={`/agents/${encodeURIComponent(agent.agent_id)}`}
+                    sx={{
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                    }}
+                  >
                     <TableCell>{agent.hostname || '—'}</TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {agent.agent_id}

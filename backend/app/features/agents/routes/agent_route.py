@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.features.agents.schemas.agent import AgentListResponse, AgentRead, AgentUpsertRequest
@@ -31,3 +31,16 @@ def list_agents(
 ):
     """List registered agents for the dashboard."""
     return service.list_agents()
+
+
+@router.get("/agents/{agent_id}", response_model=AgentRead)
+def get_agent(
+    agent_id: str,
+    _: None = Depends(verify_admin_api_token),
+    service: AgentService = Depends(get_agent_service),
+):
+    """Fetch a single registered agent by install identity."""
+    agent = service.get_agent(agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return agent

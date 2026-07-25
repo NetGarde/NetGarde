@@ -34,3 +34,9 @@ class AgentService:
         rows = self.repo.list_all()
         items = [AgentRead.model_validate(row) for row in rows]
         return AgentListResponse(items=items, total=len(items))
+
+    def get_agent(self, agent_id: str) -> AgentRead | None:
+        row = self.repo.get_by_agent_id(agent_id)
+        if row is None:
+            return None
+        return AgentRead.model_validate(row)

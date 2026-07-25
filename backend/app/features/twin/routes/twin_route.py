@@ -3,7 +3,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.features.twin.schemas.connected_agent import ConnectedAgentListResponse
+from app.features.twin.schemas.connected_agent import (
+    AgentEventListResponse,
+    ConnectedAgentListResponse,
+    ConnectedAgentRead,
+)
 from app.features.twin.schemas.security_alert import (
     SecurityAlertCreate,
     SecurityAlertExplainRequest,
@@ -81,3 +85,28 @@ def list_connected_agents(
 ):
     """List connected TrustEdge agents from live Redis state."""
     return service.list_connected_agents(connected_within_sec=connected_within_sec)
+
+
+@router.get("/agents/{device_id}", response_model=ConnectedAgentRead)
+def get_connected_agent(
+    device_id: str,
+    connected_within_sec: int = Query(default=300, ge=30, le=86400),
+    _: None = Depends(verify_admin_api_token),
+    service: ConnectedAgentService = Depends(get_connected_agent_service),
+):
+    """Fetch live twin telemetry for a single agent device."""
+    agent = service.get_connected_agent(device_id, connected_within_sec=connected_within_sec)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="Live agent state not found")
+    return agent
+
+
+@router.get("/agents/{device_id}/events", response_model=AgentEventListResponse)
+def list_connected_agent_events(
+    device_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    _: None = Depends(verify_admin_api_token),
+    service: ConnectedAgentService = Depends(get_connected_agent_service),
+):
+    """Recent telemetry event timeline for a device (newest first)."""
+    return service.list_device_events(device_id, limit=limit)

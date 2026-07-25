@@ -6,10 +6,12 @@ export function useSecurityAlerts(options?: {
   pageSize?: number;
   severity?: string;
   alertType?: string;
+  deviceId?: string;
 }) {
   const pageSize = options?.pageSize ?? 50;
   const severity = options?.severity;
   const alertType = options?.alertType;
+  const deviceId = options?.deviceId;
   const [items, setItems] = useState<SecurityAlert[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,7 @@ export function useSecurityAlerts(options?: {
         page_size: pageSize,
         severity,
         alert_type: alertType,
+        device_id: deviceId,
       });
       setItems(data.items);
       setTotal(data.total);
@@ -32,7 +35,7 @@ export function useSecurityAlerts(options?: {
     } finally {
       setLoading(false);
     }
-  }, [pageSize, severity, alertType]);
+  }, [pageSize, severity, alertType, deviceId]);
 
   useEffect(() => {
     fetchAlerts();

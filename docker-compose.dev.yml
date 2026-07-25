@@ -4,11 +4,26 @@
 #
 # Local/dev compose for API, Postgres, Redis, and agent ingest.
 # Frontend runs on the host: cd frontend && npm start
-# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent repo (see TrustEdgeOrg/TrustEdge-Agent).
+# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent-API (see TrustEdgeOrg/TrustEdge-Agent-API).
 
 name: trustedge-dev
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: trustedge-dev-ollama
+    ports:
+      - "${DEV_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - trustedge-dev-ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: trustedge-dev-postgres
@@ -61,6 +76,7 @@ services:
       LOG_SERVICE: backend
       ENVIRONMENT: development
       DETECTION_ENGINE_URL: ${DETECTION_ENGINE_URL:-http://detection-engine:9090}
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +147,7 @@ services:
   trustedge-agent-api:
     image: ${TRUSTEDGE_AGENT_API_IMAGE:-trustedge-agent-api:local}
     build:
-      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent}
+      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent-API}
       dockerfile: Dockerfile
     container_name: trustedge-dev-agent-api
     # Fresh named volumes are root-owned; run as root in local dev only.
@@ -169,3 +185,4 @@ volumes:
   trustedge-dev-pg:
   trustedge-dev-agent-data:
   trustedge-dev-redpanda-data:
+  trustedge-dev-ollama-data:

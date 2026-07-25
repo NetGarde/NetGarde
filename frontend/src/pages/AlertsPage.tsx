@@ -186,21 +186,29 @@ function ProcessChainView({ detail }: { detail: AlertDetail }) {
 }
 
 type ProcessSample = {
+  eventId: string;
   pid: string;
   ppid: string | null;
   comm: string;
+  parentComm: string;
   executable: string;
   cmdline: string;
+  startedAt: string;
+  role: string;
 };
 
 function processSampleFromUnknown(item: unknown): ProcessSample {
   const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
   return {
+    eventId: row.event_id != null ? String(row.event_id) : '',
     pid: row.pid != null ? String(row.pid) : '?',
     ppid: row.ppid != null ? String(row.ppid) : null,
     comm: row.comm != null ? String(row.comm) : 'unknown',
+    parentComm: row.parent_comm != null ? String(row.parent_comm) : '',
     executable: row.executable != null ? String(row.executable).trim() : '',
     cmdline: row.cmdline != null ? String(row.cmdline).trim() : '',
+    startedAt: row.started_at != null ? String(row.started_at) : '',
+    role: row.role != null ? String(row.role) : 'context',
   };
 }
 
@@ -219,10 +227,34 @@ function processRowsForGraph(rows: ProcessSample[], selectedComm: string | null)
   return rows.filter((row) => keep.has(row.pid));
 }
 
+/** Best available name for a parent PID that was not itself sampled. */
+function syntheticParentLabel(ppid: string, rows: ProcessSample[]): string {
+  const votes = new Map<string, number>();
+  for (const row of rows) {
+    if (row.ppid !== ppid || !row.parentComm) continue;
+    const name = row.parentComm.trim();
+    if (!name) continue;
+    votes.set(name, (votes.get(name) || 0) + 1);
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const [name, count] of votes) {
+    if (count > bestCount || (count === bestCount && name.localeCompare(best) < 0)) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  if (best) return best;
+  // PID 1 is the system init process on Unix-like hosts (launchd / systemd / init).
+  if (ppid === '1') return 'init';
+  return `pid ${ppid}`;
+}
+
 type GraphGroup = {
   id: string;
   comm: string;
   pids: string[];
+  triggerPids: string[];
   synthetic: boolean;
   depth: number;
   row: number;
@@ -260,6 +292,7 @@ function buildProcessGraph(rows: ProcessSample[]): {
         id,
         comm,
         pids: [],
+        triggerPids: [],
         synthetic,
         depth: 0,
         row: 0,
@@ -279,6 +312,7 @@ function buildProcessGraph(rows: ProcessSample[]): {
     const id = `comm:${r.comm}`;
     const group = ensureGroup(id, r.comm, false);
     if (!group.pids.includes(r.pid)) group.pids.push(r.pid);
+    if (r.role === 'trigger' && !group.triggerPids.includes(r.pid)) group.triggerPids.push(r.pid);
     pidToGroup.set(r.pid, id);
   }
 
@@ -286,7 +320,7 @@ function buildProcessGraph(rows: ProcessSample[]): {
   for (const r of rows) {
     if (!r.ppid || pidToGroup.has(r.ppid)) continue;
     const id = `parent:${r.ppid}`;
-    const group = ensureGroup(id, `pid ${r.ppid}`, true);
+    const group = ensureGroup(id, syntheticParentLabel(r.ppid, rows), true);
     if (!group.pids.includes(r.ppid)) group.pids.push(r.ppid);
     pidToGroup.set(r.ppid, id);
   }
@@ -420,6 +454,7 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
           })}
           {nodes.map((node) => {
             const selected = !node.synthetic && selectedComm === node.comm;
+            const triggered = node.triggerPids.length > 0;
             const shown = node.pids.slice(0, MAX_PIDS_SHOWN);
             const hidden = node.pids.length - shown.length;
             return (
@@ -429,11 +464,11 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
                   height={node.height}
                   rx={6}
                   ry={6}
-                  fill={selected ? 'rgba(237, 108, 2, 0.16)' : 'transparent'}
-                  stroke="currentColor"
+                  fill={triggered ? 'rgba(211, 47, 47, 0.14)' : selected ? 'rgba(237, 108, 2, 0.16)' : 'transparent'}
+                  stroke={triggered ? '#d32f2f' : 'currentColor'}
                   strokeOpacity={node.synthetic ? 0.4 : 0.75}
                   strokeDasharray={node.synthetic ? '4 3' : undefined}
-                  strokeWidth={selected ? 2 : 1}
+                  strokeWidth={triggered || selected ? 2 : 1}
                 />
                 <text
                   x={8}
@@ -444,7 +479,7 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
                   fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                 >
                   {(node.comm.length > 22 ? `${node.comm.slice(0, 21)}…` : node.comm) +
-                    (node.synthetic ? '' : ` ×${node.pids.length}`)}
+                    (node.synthetic ? '' : ` ×${node.pids.length}${triggered ? ' · source' : ''}`)}
                 </text>
                 {shown.map((pid, index) => (
                   <text
@@ -456,7 +491,9 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
                     fillOpacity={0.7}
                     fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                   >
-                    {node.synthetic ? `pid ${pid} · parent` : `pid ${pid}`}
+                    {node.synthetic
+                      ? `pid ${pid} · parent`
+                      : `pid ${pid}${node.triggerPids.includes(pid) ? ' · source' : ''}`}
                   </text>
                 ))}
                 {hidden > 0 ? (
@@ -480,7 +517,38 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
   );
 }
 
-function ProcessBurstView({ detail }: { detail: AlertDetail }) {
+function SourceEventView({ detail }: { detail: AlertDetail }) {
+  const raw = detail.source_event;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  const type = source.type != null ? String(source.type) : '';
+  const timestamp = source.timestamp != null ? String(source.timestamp) : '';
+  const eventId = source.event_id != null ? String(source.event_id) : '';
+  if (!type && !timestamp && !eventId) return null;
+
+  return (
+    <Stack spacing={0.5}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Source event
+      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+        {type ? <Chip label={type} size="small" color="error" variant="outlined" /> : null}
+        {timestamp ? <Chip label={formatShortDateTime(timestamp)} size="small" variant="outlined" /> : null}
+        {eventId ? (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}
+          >
+            {eventId}
+          </Typography>
+        ) : null}
+      </Stack>
+    </Stack>
+  );
+}
+
+function ProcessContextView({ detail }: { detail: AlertDetail }) {
   const processes = Array.isArray(detail.processes) ? detail.processes : [];
   const topComms = Array.isArray(detail.top_comms) ? detail.top_comms : [];
   const [selectedComm, setSelectedComm] = useState<string | null>(null);
@@ -489,6 +557,13 @@ function ProcessBurstView({ detail }: { detail: AlertDetail }) {
   const processRows = processes.map(processSampleFromUnknown);
   const visibleProcesses = selectedComm ? processRows.filter((row) => row.comm === selectedComm) : processRows;
   const graphProcesses = processRowsForGraph(processRows, selectedComm);
+  const contextKind = detail.process_context_kind != null ? String(detail.process_context_kind) : '';
+  const processSummary =
+    contextKind === 'ancestry'
+      ? ` (${visibleProcesses.length} related process${visibleProcesses.length === 1 ? '' : 'es'})`
+      : detail.count != null
+        ? ` (showing ${visibleProcesses.length} of ${String(detail.count)})`
+        : ` (${visibleProcesses.length})`;
 
   return (
     <Stack spacing={1}>
@@ -534,12 +609,10 @@ function ProcessBurstView({ detail }: { detail: AlertDetail }) {
         <Box>
           <ProcessGraphView rows={graphProcesses} selectedComm={selectedComm} />
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-            Recent processes
+            Process timeline
             {selectedComm
               ? ` (showing ${visibleProcesses.length} matching ${selectedComm})`
-              : detail.count != null
-                ? ` (showing ${visibleProcesses.length} of ${String(detail.count)})`
-                : ` (${visibleProcesses.length})`}
+              : processSummary}
           </Typography>
           <Stack spacing={0.75} sx={{ mt: 0.5 }}>
             {visibleProcesses.length === 0 ? (
@@ -569,9 +642,19 @@ function ProcessBurstView({ detail }: { detail: AlertDetail }) {
                     >
                       {row.comm}
                       {` (pid ${row.pid}`}
-                      {row.ppid ? `, ppid ${row.ppid}` : ''}
+                      {row.ppid
+                        ? `, ppid ${row.ppid}${row.parentComm ? ` ${row.parentComm}` : ''}`
+                        : ''}
                       {`)`}
                     </Typography>
+                    <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+                      {row.role === 'trigger' ? <Chip label="Source" size="small" color="error" /> : null}
+                      {row.startedAt ? (
+                        <Typography variant="caption" color="text.secondary">
+                          {formatShortDateTime(row.startedAt)}
+                        </Typography>
+                      ) : null}
+                    </Stack>
                     {row.executable ? (
                       <Typography
                         variant="caption"
@@ -623,6 +706,9 @@ function DetailFields({ detail }: { detail: AlertDetail }) {
     'processes',
     'top_comms',
     'sample_limit',
+    'source_event',
+    'process_context_kind',
+    'process_context_window_minutes',
   ]);
   const entries = Object.entries(detail).filter(([key, value]) => !chainKeys.has(key) && value != null);
   if (entries.length === 0) return null;
@@ -798,8 +884,9 @@ function AlertRow({
             <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
               <Stack spacing={1.5}>
                 <AlertMetadata alert={alert} />
+                {detail ? <SourceEventView detail={detail} /> : null}
                 {detail ? <ProcessChainView detail={detail} /> : null}
-                {detail ? <ProcessBurstView detail={detail} /> : null}
+                {detail ? <ProcessContextView detail={detail} /> : null}
                 {detail ? <DetailFields detail={detail} /> : null}
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Button

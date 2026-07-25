@@ -97,7 +97,12 @@ export default function MenuContent({ open = true }: MenuContentProps) {
     setOpenSections((prev) => {
       const next = { ...prev };
       for (const section of navSections) {
-        if (section.items.some((item) => location.pathname === item.path)) {
+        if (
+          section.items.some(
+            (item) =>
+              location.pathname === item.path || location.pathname.startsWith(`${item.path}/`),
+          )
+        ) {
           next[section.id] = true;
         }
       }
@@ -110,7 +115,10 @@ export default function MenuContent({ open = true }: MenuContentProps) {
   };
 
   const renderNavItem = (item: NavItem, index: number, nested = false) => {
-    const isSelected = location.pathname === item.path;
+    const isSelected =
+      item.path === '/'
+        ? location.pathname === '/'
+        : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
     const button = (
       <ListItemButton
         component={Link}

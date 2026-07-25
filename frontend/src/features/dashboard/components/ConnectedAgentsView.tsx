@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -88,7 +89,12 @@ export default function ConnectedAgentsView() {
         ) : (
           <Stack spacing={1}>
             {items.slice(0, 12).map((agent, idx) => (
-              <Box key={`${agent.device_id}-${idx}`}>
+              <Box
+                key={`${agent.device_id}-${idx}`}
+                component={RouterLink}
+                to={`/agents/${encodeURIComponent(agent.device_id)}`}
+                sx={{ textDecoration: 'none', color: 'inherit', display: 'block' }}
+              >
                 <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
                   <Stack spacing={0.25} sx={{ minWidth: 0 }}>
                     <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
@@ -126,4 +132,3 @@ export default function ConnectedAgentsView() {
     </Paper>
   );
 }
-

@@ -151,6 +151,7 @@ def _process_event(
     executable: str,
     ts: str,
     cmdline=None,
+    parent_comm=None,
 ):
     payload = {
         "pid": pid,
@@ -161,6 +162,8 @@ def _process_event(
     }
     if cmdline is not None:
         payload["cmdline"] = cmdline
+    if parent_comm is not None:
+        payload["parent_comm"] = parent_comm
     return {
         "event_id": f"evt_proc_{pid}_{ts}",
         "device_id": device_id,
@@ -222,6 +225,85 @@ def test_temp_path_execution_alert():
     )
     types = {a.alert_type for a in alerts}
     assert "temp_path_execution" in types
+
+
+def test_process_alert_includes_source_and_timed_process_graph_context():
+    store = StateStore()
+    device = "dev_tmp_context"
+    evaluate_event(
+        _process_event(device, 100, 1, "zsh", "/bin/zsh", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            101,
+            100,
+            "trustedge-high-test",
+            "/private/tmp/trustedge-high-test",
+            "2026-07-11T12:00:05Z",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "temp_path_execution")
+    detail = __import__("json").loads(alert.detail)
+
+    assert detail["source_event"]["type"] == "process_start"
+    assert detail["source_event"]["timestamp"] == "2026-07-11T12:00:05Z"
+    assert detail["process_context_kind"] == "ancestry"
+    assert [row["pid"] for row in detail["processes"]] == [100, 101]
+    assert detail["processes"][1]["ppid"] == 100
+    assert detail["processes"][1]["role"] == "trigger"
+    assert detail["processes"][1]["started_at"] == "2026-07-11T12:00:05Z"
+
+
+def test_non_process_alert_does_not_claim_recent_processes_are_related():
+    store = StateStore()
+    device = "dev_network_context"
+    evaluate_event(
+        _process_event(device, 200, 1, "browser", "/Applications/Browser", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    evaluate_event(_network_event(device, "wifi", "1.1.1.1", "2026-07-11T12:00:10Z"), store)
+    alerts = evaluate_event(
+        _network_event(device, "ethernet", "1.1.1.1", "2026-07-11T12:00:20Z"),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "network_type_change")
+    detail = __import__("json").loads(alert.detail)
+
+    assert detail["source_event"]["type"] == "network_summary"
+    assert detail["source_event"]["timestamp"] == "2026-07-11T12:00:20Z"
+    assert detail["process_context_kind"] == "none"
+    assert detail["processes"] == []
+
+
+def test_point_process_alert_excludes_unrelated_recent_processes():
+    store = StateStore()
+    device = "dev_process_ancestry"
+    evaluate_event(
+        _process_event(device, 100, 1, "zsh", "/bin/zsh", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    evaluate_event(
+        _process_event(device, 200, 1, "ps", "/bin/ps", "2026-07-11T12:00:02Z"),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            101,
+            100,
+            "trustedge-high-test",
+            "/private/tmp/trustedge-high-test",
+            "2026-07-11T12:00:05Z",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "temp_path_execution")
+    detail = __import__("json").loads(alert.detail)
+
+    assert [row["pid"] for row in detail["processes"]] == [100, 101]
 
 
 def test_registry_persistence_alert():
@@ -292,6 +374,7 @@ def test_process_burst_includes_process_samples():
                 f"/usr/bin/{comm}",
                 f"2026-07-11T12:00:{i:02d}Z",
                 cmdline=f"{comm} --job {i}",
+                parent_comm="launchd",
             ),
             store,
         )
@@ -305,9 +388,38 @@ def test_process_burst_includes_process_samples():
     assert len(detail["processes"]) == 15
     assert detail["processes"][-1]["pid"] == 1024
     assert "cmdline" in detail["processes"][-1]
+    assert detail["processes"][-1]["parent_comm"] == "launchd"
     top = {row["comm"]: row["count"] for row in detail["top_comms"]}
     assert top["helper"] == 20
     assert top["bash"] == 5
+
+
+def test_process_burst_includes_resolved_parent_sample():
+    store = StateStore()
+    device = "dev_burst_parent"
+    evaluate_event(
+        _process_event(device, 50, 1, "agent", "/usr/local/bin/agent", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    alerts = []
+    for i in range(25):
+        alerts = evaluate_event(
+            _process_event(
+                device,
+                100 + i,
+                50,
+                "helper",
+                "/usr/bin/helper",
+                f"2026-07-11T12:00:{i + 1:02d}Z",
+            ),
+            store,
+        )
+    alert = next(a for a in alerts if a.alert_type == "process_burst")
+    detail = __import__("json").loads(alert.detail)
+    parent_rows = [row for row in detail["processes"] if row.get("pid") == 50]
+    assert parent_rows
+    assert parent_rows[0]["comm"] == "agent"
+    assert detail["processes"][-1]["parent_comm"] == "agent"
 
 
 def test_process_event_does_not_rerun_network_rules():

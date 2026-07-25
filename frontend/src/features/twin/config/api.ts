@@ -6,7 +6,11 @@ import {
   SecurityAlertListParams,
   SecurityAlertListResponse,
 } from '../types/securityAlert';
-import { ConnectedAgentListResponse } from '../types/connectedAgent';
+import {
+  AgentTelemetryEventListResponse,
+  ConnectedAgent,
+  ConnectedAgentListResponse,
+} from '../types/connectedAgent';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -57,5 +61,13 @@ export const twinApi = {
   listConnectedAgents: (connectedWithinSec = 300) =>
     apiFetch<ConnectedAgentListResponse>(
       `/security/agents?connected_within_sec=${encodeURIComponent(String(connectedWithinSec))}`
+    ),
+  getConnectedAgent: (deviceId: string, connectedWithinSec = 300) =>
+    apiFetch<ConnectedAgent>(
+      `/security/agents/${encodeURIComponent(deviceId)}?connected_within_sec=${encodeURIComponent(String(connectedWithinSec))}`
+    ),
+  listDeviceEvents: (deviceId: string, limit = 50) =>
+    apiFetch<AgentTelemetryEventListResponse>(
+      `/security/agents/${encodeURIComponent(deviceId)}/events?limit=${encodeURIComponent(String(limit))}`
     ),
 };

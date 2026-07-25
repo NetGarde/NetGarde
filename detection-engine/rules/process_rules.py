@@ -205,7 +205,7 @@ def _truncate_cmdline(value: str) -> str:
     return text[: PROCESS_BURST_CMDLINE_MAX - 1] + "…"
 
 
-def _burst_process_sample(ev: ChainEvent) -> dict:
+def _burst_process_sample(ev: ChainEvent, *, parent: ChainEvent | None = None) -> dict:
     sample: dict = {
         "pid": payload_int(ev.payload.get("pid")),
         "ppid": payload_int(ev.payload.get("ppid")),
@@ -217,6 +217,11 @@ def _burst_process_sample(ev: ChainEvent) -> dict:
     cmdline = _truncate_cmdline(_cmdline(ev))
     if cmdline:
         sample["cmdline"] = cmdline
+    parent_comm = payload_str(ev.payload.get("parent_comm"))
+    if not parent_comm and parent is not None:
+        parent_comm = _comm(parent)
+    if parent_comm:
+        sample["parent_comm"] = parent_comm.lower().split("/")[-1]
     return sample
 
 
@@ -229,13 +234,39 @@ def _burst_top_comms(starts: list[ChainEvent], *, limit: int = PROCESS_BURST_TOP
     return [{"comm": name, "count": count} for name, count in ranked[:limit]]
 
 
+def _burst_process_samples(chain: DeviceChain, starts: list[ChainEvent]) -> list[dict]:
+    """Build graph samples, resolving parent names and including known ancestors."""
+    window_starts = starts[-PROCESS_BURST_SAMPLE_LIMIT:]
+    samples: list[dict] = []
+    seen_pids: set[int] = set()
+    ancestors: list[dict] = []
+
+    for ev in window_starts:
+        parent = _find_parent(chain, ev)
+        sample = _burst_process_sample(ev, parent=parent)
+        samples.append(sample)
+        pid = sample.get("pid")
+        if isinstance(pid, int) and pid > 0:
+            seen_pids.add(pid)
+
+        if parent is None:
+            continue
+        parent_pid = payload_int(parent.payload.get("pid"))
+        if parent_pid <= 0 or parent_pid in seen_pids:
+            continue
+        ancestors.append(_burst_process_sample(parent))
+        seen_pids.add(parent_pid)
+
+    return ancestors + samples
+
+
 def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
     """Many new processes in a short window (possible malware sweep or unpacker)."""
     window = timedelta(minutes=2)
     starts = chain.of_type(TYPE_PROCESS_START, window)
     if len(starts) >= PROCESS_BURST_THRESHOLD:
         source = _trigger_process(chain) or starts[-1]
-        samples = [_burst_process_sample(ev) for ev in starts[-PROCESS_BURST_SAMPLE_LIMIT:]]
+        samples = _burst_process_samples(chain, starts)
         return [
             _alert(
                 chain,
