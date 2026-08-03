@@ -20,8 +20,6 @@ logger = get_logger(__name__)
 
 # Keep in sync with detection-engine/rules/alerts.py COOLDOWN_SECONDS.
 COOLDOWN_SECONDS: dict[str, int] = {
-    "event_burst": 5 * 60,
-    "process_burst": 2 * 60,
     "rapid_public_ip_changes": 15 * 60,
     "double_ip_change_10m": 10 * 60,
     "network_type_flapping": 10 * 60,

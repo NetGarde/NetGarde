@@ -34,7 +34,6 @@ ALERT_RAPID_PUBLIC_IP_CHANGES: Final = "rapid_public_ip_changes"
 ALERT_DOUBLE_IP_CHANGE_10M: Final = "double_ip_change_10m"
 ALERT_NETWORK_TYPE_FLAPPING: Final = "network_type_flapping"
 ALERT_NETWORK_FLAP_5M: Final = "network_flap_5m"
-ALERT_EVENT_BURST: Final = "event_burst"
 ALERT_REPEATED_NETWORK_SUMMARY: Final = "repeated_network_summary"
 ALERT_ESTABLISHED_COUNT_SPIKE: Final = "established_count_spike"
 ALERT_LISTENING_PORT_SPIKE: Final = "listening_port_spike"
@@ -48,7 +47,6 @@ ALERT_IDLE_WITH_NETWORK_ACTIVITY: Final = "idle_with_network_activity"
 ALERT_TEMP_PATH_EXECUTION: Final = "temp_path_execution"
 ALERT_SHELL_SPAWNS_DOWNLOADER: Final = "shell_spawns_downloader"
 ALERT_SCRIPT_SPAWNS_SHELL: Final = "script_spawns_shell"
-ALERT_PROCESS_BURST: Final = "process_burst"
 ALERT_BINARY_PATH_MISMATCH: Final = "binary_path_mismatch"
 ALERT_NOVEL_PROCESS: Final = "novel_process"
 ALERT_DRIVER_LOAD: Final = "driver_load"
@@ -57,8 +55,6 @@ ALERT_REGISTRY_PERSISTENCE: Final = "registry_persistence"
 
 # Windowed rules use these buckets to suppress repeated alerts.
 COOLDOWN_SECONDS: Final[dict[str, int]] = {
-    ALERT_EVENT_BURST: 5 * 60,
-    ALERT_PROCESS_BURST: 2 * 60,
     ALERT_NOVEL_PROCESS: 30 * 60,
     ALERT_RAPID_PUBLIC_IP_CHANGES: 15 * 60,
     ALERT_DOUBLE_IP_CHANGE_10M: 10 * 60,

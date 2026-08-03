@@ -200,12 +200,3 @@ rules:
     absent_type: network_summary
     severity: low
     message: "Client telemetry without network summary in 30 minutes"
-
-  # --- Always ----------------------------------------------------------------
-  - id: event_burst
-    kind: window_count
-    always: true
-    within: 5m
-    min_count: 10
-    severity: low
-    message: "High event volume ({count} events in 5 minutes)"
