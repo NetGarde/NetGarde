@@ -359,7 +359,8 @@ def test_driver_load_alert():
     assert "com.example.driver" in alert.message
 
 
-def test_process_burst_includes_process_samples():
+def test_process_burst_is_disabled():
+    """process_burst stays unregistered — high volume starts must not alert."""
     store = StateStore()
     device = "dev_burst"
     alerts = []
@@ -379,47 +380,7 @@ def test_process_burst_includes_process_samples():
             store,
         )
     types = {a.alert_type for a in alerts}
-    assert "process_burst" in types
-    alert = next(a for a in alerts if a.alert_type == "process_burst")
-    assert alert.detail is not None
-    detail = __import__("json").loads(alert.detail)
-    assert detail["count"] == 25
-    assert detail["window_minutes"] == 2
-    assert len(detail["processes"]) == 15
-    assert detail["processes"][-1]["pid"] == 1024
-    assert "cmdline" in detail["processes"][-1]
-    assert detail["processes"][-1]["parent_comm"] == "launchd"
-    top = {row["comm"]: row["count"] for row in detail["top_comms"]}
-    assert top["helper"] == 20
-    assert top["bash"] == 5
-
-
-def test_process_burst_includes_resolved_parent_sample():
-    store = StateStore()
-    device = "dev_burst_parent"
-    evaluate_event(
-        _process_event(device, 50, 1, "agent", "/usr/local/bin/agent", "2026-07-11T12:00:00Z"),
-        store,
-    )
-    alerts = []
-    for i in range(25):
-        alerts = evaluate_event(
-            _process_event(
-                device,
-                100 + i,
-                50,
-                "helper",
-                "/usr/bin/helper",
-                f"2026-07-11T12:00:{i + 1:02d}Z",
-            ),
-            store,
-        )
-    alert = next(a for a in alerts if a.alert_type == "process_burst")
-    detail = __import__("json").loads(alert.detail)
-    parent_rows = [row for row in detail["processes"] if row.get("pid") == 50]
-    assert parent_rows
-    assert parent_rows[0]["comm"] == "agent"
-    assert detail["processes"][-1]["parent_comm"] == "agent"
+    assert "process_burst" not in types
 
 
 def test_process_event_does_not_rerun_network_rules():

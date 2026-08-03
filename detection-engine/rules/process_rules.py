@@ -319,6 +319,6 @@ PROCESS_RULES: list[tuple[str, object]] = [
     (ALERT_TEMP_PATH_EXECUTION, rule_temp_path_execution),
     (ALERT_SHELL_SPAWNS_DOWNLOADER, rule_shell_spawns_downloader),
     (ALERT_SCRIPT_SPAWNS_SHELL, rule_script_spawns_shell),
-    (ALERT_PROCESS_BURST, rule_process_burst),
+    # process_burst intentionally not registered — too noisy for current baseline.
     (ALERT_BINARY_PATH_MISMATCH, rule_unsigned_system_binary_impersonation),
 ]

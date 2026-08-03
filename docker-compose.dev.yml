@@ -77,6 +77,9 @@ services:
       ENVIRONMENT: development
       DETECTION_ENGINE_URL: ${DETECTION_ENGINE_URL:-http://detection-engine:9090}
       OLLAMA_BASE_URL: http://ollama:11434
+      BEHAVIOR_SUPPRESS_COUNT: ${BEHAVIOR_SUPPRESS_COUNT:-20}
+      BEHAVIOR_SUPPRESS_AGE_HOURS: ${BEHAVIOR_SUPPRESS_AGE_HOURS:-72}
+      BEHAVIOR_PROFILE_MIN_KEYS: ${BEHAVIOR_PROFILE_MIN_KEYS:-30}
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,6 +137,7 @@ services:
       TRUSTEDGE_POST_ALERTS_TO_BACKEND: "0"
       API_BASE_URL: http://backend:8000
       TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
+      TRUSTEDGE_BEHAVIOR_BASELINE: "1"
       LOG_JSON: "1"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_SERVICE: detection-engine
