@@ -50,6 +50,7 @@ ALERT_SHELL_SPAWNS_DOWNLOADER: Final = "shell_spawns_downloader"
 ALERT_SCRIPT_SPAWNS_SHELL: Final = "script_spawns_shell"
 ALERT_PROCESS_BURST: Final = "process_burst"
 ALERT_BINARY_PATH_MISMATCH: Final = "binary_path_mismatch"
+ALERT_NOVEL_PROCESS: Final = "novel_process"
 ALERT_DRIVER_LOAD: Final = "driver_load"
 ALERT_SERVICE_INSTALL: Final = "service_install"
 ALERT_REGISTRY_PERSISTENCE: Final = "registry_persistence"
@@ -58,6 +59,7 @@ ALERT_REGISTRY_PERSISTENCE: Final = "registry_persistence"
 COOLDOWN_SECONDS: Final[dict[str, int]] = {
     ALERT_EVENT_BURST: 5 * 60,
     ALERT_PROCESS_BURST: 2 * 60,
+    ALERT_NOVEL_PROCESS: 30 * 60,
     ALERT_RAPID_PUBLIC_IP_CHANGES: 15 * 60,
     ALERT_DOUBLE_IP_CHANGE_10M: 10 * 60,
     ALERT_NETWORK_TYPE_FLAPPING: 10 * 60,

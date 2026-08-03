@@ -10,7 +10,8 @@ from rules.chain_rules import evaluate_chain
 from rules.constants import ALERT_PROCESS_BURST, TYPE_PROCESS_START
 from rules.state import StateStore
 
-__all__ = ["SecurityAlert", "evaluate_event"]
+__all__ = ["SecurityAlert", "evaluate_event", "with_alert_context"]
+
 
 PROCESS_CONTEXT_WINDOW = timedelta(minutes=5)
 PROCESS_CONTEXT_SAMPLE_LIMIT = 15
@@ -132,6 +133,10 @@ def _with_alert_context(chain: DeviceChain, alert: SecurityAlert) -> SecurityAle
     detail["processes"] = _process_context(chain, source, alert_type=alert.alert_type)
     alert.detail = DeviceChain.detail_json(detail)
     return alert
+
+
+def with_alert_context(chain: DeviceChain, alert: SecurityAlert) -> SecurityAlert:
+    return _with_alert_context(chain, alert)
 
 
 def evaluate_event(event: dict[str, Any], store: StateStore) -> list[SecurityAlert]:
