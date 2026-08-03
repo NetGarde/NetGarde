@@ -4,7 +4,6 @@ from typing import Optional
 
 from rules.constants import ALERT_NOVEL_PROCESS, TYPE_PROCESS_START
 from rules.process_profile import (
-    KIND_PROCESS_CHAIN,
     KIND_PROCESS_COMM,
     novel_process_alert,
     profile_keys_from_event,
@@ -40,20 +39,21 @@ def _process_start(
     }
 
 
-def test_profile_keys_comm_and_chain_from_parent_comm():
+def test_profile_keys_comm_only_no_chain():
     store = StateStore()
     event = _process_start(parent_comm="zsh")
     store.record_event(event)
 
-    keys = {k: (key, meta) for k, key, meta in profile_keys_from_event(event, store)}
-    assert KIND_PROCESS_COMM in keys
-    assert keys[KIND_PROCESS_COMM][0] == "curl"
-    assert keys[KIND_PROCESS_COMM][1]["comm"] == "curl"
-    assert KIND_PROCESS_CHAIN in keys
-    assert keys[KIND_PROCESS_CHAIN][0] == "zsh>curl"
+    keys = profile_keys_from_event(event, store)
+    assert len(keys) == 1
+    kind, key, meta = keys[0]
+    assert kind == KIND_PROCESS_COMM
+    assert key == "curl"
+    assert meta["comm"] == "curl"
+    assert not any(k == "process_chain" for k, _key, _meta in keys)
 
 
-def test_profile_keys_resolve_parent_via_ppid():
+def test_profile_keys_ignore_parent_resolution():
     store = StateStore()
     parent = _process_start(
         event_id="evt_parent",
@@ -75,8 +75,7 @@ def test_profile_keys_resolve_parent_via_ppid():
     store.record_event(child)
 
     keys = {k: key for k, key, _meta in profile_keys_from_event(child, store)}
-    assert keys[KIND_PROCESS_COMM] == "wget"
-    assert keys[KIND_PROCESS_CHAIN] == "bash>wget"
+    assert keys == {KIND_PROCESS_COMM: "wget"}
 
 
 def test_profile_keys_skip_non_process_events():

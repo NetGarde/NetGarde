@@ -1,7 +1,7 @@
-"""Process (EDR-lite) rules for TrustEdge Agent process_start events.
+"""Process helpers and unregistered windowed rules.
 
-Rules evaluate the triggering process_start first. Parent lookup via ppid
-happens only when that new process itself looks suspicious.
+Registered process detections live in rules/definitions/process.yml
+and are compiled by rules.dsl.
 """
 
 from __future__ import annotations
@@ -17,20 +17,11 @@ from rules.chain import (
     ts_iso,
 )
 from rules.constants import (
-    ALERT_BINARY_PATH_MISMATCH,
     ALERT_PROCESS_BURST,
-    ALERT_SCRIPT_SPAWNS_SHELL,
-    ALERT_SHELL_SPAWNS_DOWNLOADER,
-    ALERT_TEMP_PATH_EXECUTION,
-    SEVERITY_HIGH,
     SEVERITY_MEDIUM,
     TYPE_PROCESS_START,
 )
 
-SHELL_COMMS = frozenset({"sh", "bash", "zsh", "fish", "dash", "ksh"})
-DOWNLOAD_COMMS = frozenset({"curl", "wget", "fetch"})
-SCRIPT_COMMS = frozenset({"osascript", "python", "python3", "perl", "ruby", "node"})
-SUSPICIOUS_PATH_MARKERS = ("/tmp/", "/var/tmp/", "/downloads/", "/.hidden/", "/private/tmp/")
 PARENT_WINDOW = timedelta(minutes=5)
 PROCESS_BURST_THRESHOLD = 25
 PROCESS_BURST_SAMPLE_LIMIT = 15
@@ -72,16 +63,6 @@ def _cmdline(ev: ChainEvent) -> str:
     return payload_str(ev.payload.get("cmdline"))
 
 
-def _with_cmdlines(detail: dict, *events: tuple[str, ChainEvent]) -> dict:
-    """Attach non-empty cmdline fields from process events."""
-    out = dict(detail)
-    for key, ev in events:
-        cmd = _cmdline(ev)
-        if cmd:
-            out[key] = cmd
-    return out
-
-
 def _trigger_process(chain: DeviceChain) -> ChainEvent | None:
     latest = chain.latest()
     if latest is None or latest.event_type != TYPE_PROCESS_START:
@@ -98,104 +79,6 @@ def _find_parent(chain: DeviceChain, child: ChainEvent) -> ChainEvent | None:
         if payload_int(ev.payload.get("pid")) == ppid:
             return ev
     return None
-
-
-def _parent_if_suspicious(
-    chain: DeviceChain,
-    child: ChainEvent,
-    *,
-    suspicious_comms: frozenset[str],
-) -> ChainEvent | None:
-    """Look up parent only when the new child process is in a suspicious set."""
-    if _comm(child) not in suspicious_comms:
-        return None
-    return _find_parent(chain, child)
-
-
-def rule_temp_path_execution(chain: DeviceChain) -> list[SecurityAlert]:
-    """Process started from /tmp, /var/tmp, or Downloads."""
-    latest = _trigger_process(chain)
-    if not latest:
-        return []
-    exe = _executable(latest)
-    if not exe:
-        return []
-    if any(marker in exe for marker in SUSPICIOUS_PATH_MARKERS):
-        return [
-            _alert(
-                chain,
-                source=latest,
-                alert_type=ALERT_TEMP_PATH_EXECUTION,
-                severity=SEVERITY_HIGH,
-                message=f"Process started from suspicious path: {exe}",
-                detail=_with_cmdlines(
-                    {"executable": exe, "pid": payload_int(latest.payload.get("pid"))},
-                    ("cmdline", latest),
-                ),
-            )
-        ]
-    return []
-
-
-def rule_shell_spawns_downloader(chain: DeviceChain) -> list[SecurityAlert]:
-    """If new process is a downloader, check whether its parent is a shell."""
-    child = _trigger_process(chain)
-    if not child:
-        return []
-    parent = _parent_if_suspicious(chain, child, suspicious_comms=DOWNLOAD_COMMS)
-    if parent is None or _comm(parent) not in SHELL_COMMS:
-        return []
-    comm = _comm(child)
-    ppid = payload_int(child.payload.get("ppid"))
-    return [
-        _alert(
-            chain,
-            source=child,
-            alert_type=ALERT_SHELL_SPAWNS_DOWNLOADER,
-            severity=SEVERITY_HIGH,
-            message=f"Shell spawned network downloader ({comm})",
-            detail=_with_cmdlines(
-                {
-                    "child_comm": comm,
-                    "parent_comm": _comm(parent),
-                    "child_pid": payload_int(child.payload.get("pid")),
-                    "parent_pid": ppid,
-                },
-                ("parent_cmdline", parent),
-                ("child_cmdline", child),
-            ),
-        )
-    ]
-
-
-def rule_script_spawns_shell(chain: DeviceChain) -> list[SecurityAlert]:
-    """If new process is a shell, check whether its parent is a script interpreter."""
-    child = _trigger_process(chain)
-    if not child:
-        return []
-    parent = _parent_if_suspicious(chain, child, suspicious_comms=SHELL_COMMS)
-    if parent is None or _comm(parent) not in SCRIPT_COMMS:
-        return []
-    ppid = payload_int(child.payload.get("ppid"))
-    return [
-        _alert(
-            chain,
-            source=child,
-            alert_type=ALERT_SCRIPT_SPAWNS_SHELL,
-            severity=SEVERITY_MEDIUM,
-            message=f"{_comm(parent)} spawned shell ({_comm(child)})",
-            detail=_with_cmdlines(
-                {
-                    "parent_comm": _comm(parent),
-                    "child_comm": _comm(child),
-                    "parent_pid": ppid,
-                    "child_pid": payload_int(child.payload.get("pid")),
-                },
-                ("parent_cmdline", parent),
-                ("child_cmdline", child),
-            ),
-        )
-    ]
 
 
 def _truncate_cmdline(value: str) -> str:
@@ -284,41 +167,3 @@ def rule_process_burst(chain: DeviceChain) -> list[SecurityAlert]:
             )
         ]
     return []
-
-
-def rule_unsigned_system_binary_impersonation(chain: DeviceChain) -> list[SecurityAlert]:
-    """Comm looks like a system tool but path is outside /usr or /System."""
-    latest = _trigger_process(chain)
-    if not latest:
-        return []
-    comm = _comm(latest)
-    exe = _executable(latest)
-    system_names = frozenset({"curl", "bash", "sh", "python", "python3", "ls", "cat"})
-    if comm not in system_names:
-        return []
-    if exe.startswith("/usr/") or exe.startswith("/system/") or exe.startswith("/bin/"):
-        return []
-    if comm == exe:
-        return []
-    return [
-        _alert(
-            chain,
-            source=latest,
-            alert_type=ALERT_BINARY_PATH_MISMATCH,
-            severity=SEVERITY_MEDIUM,
-            message=f"Process name {comm} running outside system paths ({exe})",
-            detail=_with_cmdlines(
-                {"comm": comm, "executable": exe},
-                ("cmdline", latest),
-            ),
-        )
-    ]
-
-
-PROCESS_RULES: list[tuple[str, object]] = [
-    (ALERT_TEMP_PATH_EXECUTION, rule_temp_path_execution),
-    (ALERT_SHELL_SPAWNS_DOWNLOADER, rule_shell_spawns_downloader),
-    (ALERT_SCRIPT_SPAWNS_SHELL, rule_script_spawns_shell),
-    # process_burst intentionally not registered — too noisy for current baseline.
-    (ALERT_BINARY_PATH_MISMATCH, rule_unsigned_system_binary_impersonation),
-]

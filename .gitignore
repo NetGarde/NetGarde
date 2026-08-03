@@ -2,6 +2,10 @@
 __pycache__/
 *.pyc
 
+# Virtualenvs
+.venv/
+venv/
+
 # Environment files (global)
 .env
 .env.*

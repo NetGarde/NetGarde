@@ -1,8 +1,10 @@
-"""Build process frequency profile keys from process_start events."""
+"""Build process frequency profile keys from process_start events.
+
+Behavioral profile stores process_comm only (not parent>child chains).
+"""
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any, Optional
 
 from rules.alerts import SecurityAlert
@@ -15,8 +17,6 @@ from rules.constants import (
 from rules.state import StateStore
 
 KIND_PROCESS_COMM = "process_comm"
-KIND_PROCESS_CHAIN = "process_chain"
-PARENT_WINDOW = timedelta(minutes=5)
 
 
 def _norm(value: Any) -> str:
@@ -35,25 +35,15 @@ def _executable_from_payload(payload: dict[str, Any]) -> str:
     return _norm(payload_str(payload.get("executable") or payload.get("comm")))
 
 
-def _find_parent_comm(chain: DeviceChain, child_payload: dict[str, Any]) -> str:
-    """Resolve parent process basename via ppid within the recent window."""
-    parent_comm = _norm(payload_str(child_payload.get("parent_comm")))
-    if parent_comm:
-        return parent_comm
-    ppid = payload_int(child_payload.get("ppid"))
-    if ppid <= 0:
-        return ""
-    for ev in reversed(chain.of_type(TYPE_PROCESS_START, PARENT_WINDOW)):
-        if payload_int(ev.payload.get("pid")) == ppid:
-            return _comm_from_payload(ev.payload)
-    return ""
-
-
 def profile_keys_from_event(
     event: dict[str, Any],
     store: StateStore,
 ) -> list[tuple[str, str, dict[str, Any]]]:
-    """Return [(kind, key, meta), ...] for process_start profile learning."""
+    """Return [(kind, key, meta), ...] for process_start profile learning.
+
+    Only process_comm is persisted — no parent>child process_chain keys.
+    """
+    del store  # retained for call-site compatibility; chain lookup not used
     if payload_str(event.get("type")) != TYPE_PROCESS_START:
         return []
     device_id = payload_str(event.get("device_id"))
@@ -72,19 +62,7 @@ def profile_keys_from_event(
     if exe:
         meta["executable"] = exe
 
-    keys: list[tuple[str, str, dict[str, Any]]] = [
-        (KIND_PROCESS_COMM, comm, meta),
-    ]
-
-    chain = store.get_chain(device_id)
-    parent = _find_parent_comm(chain, raw_payload)
-    if parent:
-        chain_key = f"{parent}>{comm}"
-        chain_meta = dict(meta)
-        chain_meta.update({"parent_comm": parent, "child_comm": comm})
-        keys.append((KIND_PROCESS_CHAIN, chain_key, chain_meta))
-
-    return keys
+    return [(KIND_PROCESS_COMM, comm, meta)]
 
 
 def novel_process_alert(

@@ -1,0 +1,211 @@
+version: 1
+
+rules:
+  # --- Pair changes ----------------------------------------------------------
+  - id: new_public_ip
+    kind: pair_change
+    trigger: network_summary
+    event_type: network_summary
+    fields: [public_ip]
+    require: any
+    severity: high
+    message: "Public IP changed from {from} to {to}"
+    detail:
+      from: from
+      to: to
+
+  - id: network_type_change
+    kind: pair_change
+    trigger: network_summary
+    event_type: network_summary
+    fields: [network_type]
+    require: any
+    severity: medium
+    message: "Network type changed from {from} to {to}"
+    detail:
+      from: from
+      to: to
+
+  - id: network_change_while_active
+    kind: pair_change
+    trigger: network_summary
+    event_type: network_summary
+    fields: [network_type, public_ip]
+    require: any
+    match: first
+    presence: active
+    severity: medium
+    message: "Network changed while user presence is active"
+
+  - id: simultaneous_ip_and_type_change
+    kind: pair_change
+    trigger: network_summary
+    event_type: network_summary
+    fields: [public_ip, network_type]
+    require: all
+    match: first
+    severity: high
+    message: "Public IP and network type changed together"
+    detail:
+      from_ip: from_ip
+      to_ip: to_ip
+      from_type: from_type
+      to_type: to_type
+
+  - id: ip_change_while_idle
+    kind: pair_change
+    trigger: network_summary
+    event_type: network_summary
+    fields: [public_ip]
+    require: any
+    match: first
+    presence: idle
+    severity: low
+    message: "Public IP changed while idle ({from} → {to})"
+    detail:
+      from: from
+      to: to
+      presence: presence
+
+  # --- Windowed frequency / churn --------------------------------------------
+  - id: rapid_public_ip_changes
+    kind: window_unique
+    trigger: network_summary
+    event_type: network_summary
+    within: 15m
+    field: public_ip
+    min_unique: 3
+    severity: high
+    message: "Multiple public IPs in 15 minutes ({count} distinct)"
+
+  - id: double_ip_change_10m
+    kind: window_changes
+    trigger: network_summary
+    event_type: network_summary
+    within: 10m
+    field: public_ip
+    min_changes: 2
+    severity: high
+    message: "Public IP changed {changes} times within 10 minutes"
+
+  - id: network_type_flapping
+    kind: window_changes
+    trigger: network_summary
+    event_type: network_summary
+    within: 10m
+    field: network_type
+    min_changes: 3
+    severity: medium
+    message: "Network type flapped {changes} times within 10 minutes"
+
+  - id: network_flap_5m
+    kind: window_changes
+    trigger: network_summary
+    event_type: network_summary
+    within: 5m
+    field: network_type
+    min_changes: 2
+    severity: medium
+    message: "Rapid network type changes ({changes}) within 5 minutes"
+
+  - id: active_ip_churn
+    kind: window_changes
+    trigger: network_summary
+    event_type: network_summary
+    within: 30m
+    field: public_ip
+    min_changes: 2
+    presence: active
+    severity: high
+    message: "IP churn ({changes} changes) while user remained active"
+
+  - id: repeated_network_summary
+    kind: window_count
+    trigger: network_summary
+    within: 10m
+    count_type: network_summary
+    min_count: 6
+    absent_type: action_summary
+    severity: low
+    message: "Many network summaries without action context"
+
+  - id: idle_with_network_activity
+    kind: window_count
+    trigger: network_summary
+    within: 15m
+    count_type: network_summary
+    min_count: 3
+    presence: idle
+    severity: low
+    message: "Repeated network summaries while user is idle"
+
+  # --- Metric spikes ---------------------------------------------------------
+  - id: established_count_spike
+    kind: metric_delta
+    trigger: network_summary
+    event_type: network_summary
+    within: 15m
+    field: established_count
+    min_delta: 50
+    severity: medium
+    message: "Established connections spiked by {delta}"
+
+  - id: listening_port_spike
+    kind: metric_delta
+    trigger: network_summary
+    event_type: network_summary
+    within: 15m
+    field: listening_count
+    min_delta: 10
+    severity: medium
+    message: "Listening ports increased by {delta}"
+
+  - id: foreground_connections_spike
+    kind: metric_delta
+    trigger: network_summary
+    event_type: network_summary
+    within: 15m
+    field: foreground_app_connections
+    min_delta: 20
+    severity: medium
+    message: "Foreground app connections spiked by {delta}"
+
+  - id: high_listening_while_active
+    kind: threshold
+    trigger: network_summary
+    event_type: network_summary
+    field: listening_count
+    min: 20
+    presence: active
+    severity: low
+    message: "Many listening ports ({listening_count}) while user is active"
+
+  # --- Coverage / staleness --------------------------------------------------
+  - id: stale_client_details
+    kind: coverage
+    trigger: network_summary
+    within: 20m
+    require_type: network_summary
+    require_min: 2
+    absent_type: client_details
+    severity: low
+    message: "Network telemetry without recent client heartbeat"
+
+  - id: missing_network_telemetry
+    kind: coverage
+    triggers: [action_summary, client_details]
+    within: 30m
+    min_events: 3
+    require_any: [client_details, action_summary]
+    absent_type: network_summary
+    severity: low
+    message: "Client telemetry without network summary in 30 minutes"
+
+  # --- Always ----------------------------------------------------------------
+  - id: event_burst
+    kind: window_count
+    always: true
+    within: 5m
+    min_count: 10
+    severity: low
+    message: "High event volume ({count} events in 5 minutes)"
