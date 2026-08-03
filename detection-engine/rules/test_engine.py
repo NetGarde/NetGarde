@@ -359,8 +359,8 @@ def test_driver_load_alert():
     assert "com.example.driver" in alert.message
 
 
-def test_process_burst_is_disabled():
-    """process_burst stays unregistered — high volume starts must not alert."""
+def test_high_volume_process_starts_do_not_emit_burst_alerts():
+    """Burst-style process volume alerts are removed; high volume must not alert."""
     store = StateStore()
     device = "dev_burst"
     alerts = []
@@ -381,6 +381,7 @@ def test_process_burst_is_disabled():
         )
     types = {a.alert_type for a in alerts}
     assert "process_burst" not in types
+    assert "event_burst" not in types
 
 
 def test_process_event_does_not_rerun_network_rules():
@@ -396,24 +397,24 @@ def test_process_event_does_not_rerun_network_rules():
     assert "network_type_change" not in types
 
 
-def test_event_burst_fingerprint_shares_cooldown_bucket():
+def test_windowed_alert_fingerprint_shares_cooldown_bucket():
     from rules.alerts import SecurityAlert, alert_fingerprint
-    from rules.constants import ALERT_EVENT_BURST, ALERT_SHELL_SPAWNS_DOWNLOADER
+    from rules.constants import ALERT_NETWORK_FLAP_5M, ALERT_SHELL_SPAWNS_DOWNLOADER
 
     a = SecurityAlert(
         timestamp="2026-07-16T19:39:36Z",
         device_id="dev_x",
-        alert_type=ALERT_EVENT_BURST,
-        severity="low",
-        message="High event volume (36 events in 5 minutes)",
+        alert_type=ALERT_NETWORK_FLAP_5M,
+        severity="medium",
+        message="Network flap",
         event_id="evt_a",
     )
     b = SecurityAlert(
         timestamp="2026-07-16T19:39:56Z",
         device_id="dev_x",
-        alert_type=ALERT_EVENT_BURST,
-        severity="low",
-        message="High event volume (47 events in 5 minutes)",
+        alert_type=ALERT_NETWORK_FLAP_5M,
+        severity="medium",
+        message="Network flap again",
         event_id="evt_b",
     )
     assert a.fingerprint() == b.fingerprint()

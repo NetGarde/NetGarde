@@ -28,9 +28,9 @@ def test_explain_security_alert_calls_ollama():
     alert = SecurityAlertExplainRequest(
         timestamp=datetime(2026, 7, 17, 0, 0, tzinfo=timezone.utc),
         device_id="dev_x",
-        alert_type="process_burst",
-        severity="medium",
-        message="Process creation burst",
+        alert_type="temp_path_execution",
+        severity="high",
+        message="Process started from suspicious path",
     )
 
     class FakeResponse:
@@ -38,7 +38,7 @@ def test_explain_security_alert_calls_ollama():
             return None
 
         def json(self):
-            return {"message": {"content": "This looks like a burst of process starts."}}
+            return {"message": {"content": "This looks like temp-path execution."}}
 
     class FakeClient:
         def __init__(self, *args, **kwargs):
@@ -70,4 +70,4 @@ def test_explain_security_alert_calls_ollama():
 
     assert result.source == "ollama"
     assert result.model == "llama3.2:3b"
-    assert "burst of process starts" in result.explanation
+    assert "temp-path execution" in result.explanation

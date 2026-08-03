@@ -45,16 +45,16 @@ const STEPS: FlowStep[] = [
     title: 'Per-device memory',
     plain: 'Every device gets a short rolling history so rules can compare “now” to “a moment ago.”',
     detail:
-      'StateStore keeps roughly the last 100 events (about 30 minutes) per device_id. That’s how parent shells, previous IPs, and bursts become visible.',
+      'StateStore keeps roughly the last 100 events (about 30 minutes) per device_id. That’s how parent shells and previous IPs become visible.',
     icon: <StorageOutlinedIcon fontSize="small" />,
     tone: 'cloud',
   },
   {
     id: 'lane',
     title: 'Pick a rule lane',
-    plain: 'Only the rules that match this event type run — plus one always-on volume check.',
+    plain: 'Only the rules that match this event type run.',
     detail:
-      'process_start → process rules. network_summary → network rules. driver/service/persistence → security rules. Any event can also raise event_burst.',
+      'process_start → process rules. network_summary → network rules. driver/service/persistence → security rules.',
     icon: <FilterAltOutlinedIcon fontSize="small" />,
     tone: 'path',
   },
@@ -63,7 +63,7 @@ const STEPS: FlowStep[] = [
     title: 'Evaluate rules',
     plain: 'Deterministic checks look for attack patterns and drift — no AI verdict.',
     detail:
-      'Examples: shell spawning curl, binaries from /tmp, process creation storms, public IP changes, LaunchAgent persistence. If nothing matches, no alert.',
+      'Examples: shell spawning curl, binaries from /tmp, public IP changes, LaunchAgent persistence. If nothing matches, no alert.',
     icon: <RuleOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
@@ -72,7 +72,7 @@ const STEPS: FlowStep[] = [
     title: 'Attach evidence',
     plain: 'Alerts carry enough context for an operator to investigate quickly.',
     detail:
-      'Process alerts add ancestry or burst samples into detail. Network alerts include from/to IPs or counts. The UI uses this for graphs and explain.',
+      'Process alerts add ancestry into detail. Network alerts include from/to IPs or counts. The UI uses this for graphs and explain.',
     icon: <AccountTreeOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
@@ -106,7 +106,7 @@ const STEPS: FlowStep[] = [
 ];
 
 const COVERS = [
-  'Process chains (shell → downloader, temp-path exec, bursts)',
+  'Process chains (shell → downloader, temp-path exec)',
   'Network drift (IP/type change, flapping, connection spikes)',
   'Security lifecycle (drivers, services, persistence)',
   'Coverage gaps (missing network telemetry, idle with activity)',

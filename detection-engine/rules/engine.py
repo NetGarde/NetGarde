@@ -7,14 +7,13 @@ from typing import Any
 from rules.alerts import SecurityAlert
 from rules.chain import ChainEvent, DeviceChain, payload_int, payload_str, ts_iso
 from rules.chain_rules import evaluate_chain
-from rules.constants import ALERT_PROCESS_BURST, TYPE_PROCESS_START
+from rules.constants import TYPE_PROCESS_START
 from rules.state import StateStore
 
 __all__ = ["SecurityAlert", "evaluate_event", "with_alert_context"]
 
 
 PROCESS_CONTEXT_WINDOW = timedelta(minutes=5)
-PROCESS_CONTEXT_SAMPLE_LIMIT = 15
 
 
 def _source_event(chain: DeviceChain, alert: SecurityAlert) -> ChainEvent | None:
@@ -75,6 +74,7 @@ def _process_context(
     *,
     alert_type: str,
 ) -> list[dict[str, Any]]:
+    del alert_type  # retained for call-site compatibility
     if source is None:
         return []
     starts = [
@@ -85,12 +85,8 @@ def _process_context(
     if source.event_type != TYPE_PROCESS_START:
         return []
 
-    if alert_type == ALERT_PROCESS_BURST:
-        cutoff = source.ts - PROCESS_CONTEXT_WINDOW
-        sampled = [item for item in starts if item.ts >= cutoff][-PROCESS_CONTEXT_SAMPLE_LIMIT:]
-    else:
-        # Point-in-time process alerts are causal chains, not ambient snapshots.
-        sampled = [source]
+    # Point-in-time process alerts are causal chains, not ambient snapshots.
+    sampled = [source]
 
     # Keep known ancestors even when they started before the context window.
     included = {id(item) for item in sampled}
@@ -124,9 +120,7 @@ def _with_alert_context(chain: DeviceChain, alert: SecurityAlert) -> SecurityAle
         "timestamp": alert.timestamp,
     }
     if source is not None and source.event_type == TYPE_PROCESS_START:
-        detail["process_context_kind"] = (
-            "burst" if alert.alert_type == ALERT_PROCESS_BURST else "ancestry"
-        )
+        detail["process_context_kind"] = "ancestry"
     else:
         detail["process_context_kind"] = "none"
     detail["process_context_window_minutes"] = int(PROCESS_CONTEXT_WINDOW.total_seconds() // 60)

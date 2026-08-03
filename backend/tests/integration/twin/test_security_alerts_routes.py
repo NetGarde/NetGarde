@@ -37,9 +37,9 @@ def test_ingest_skips_non_high_severity(api_client, db_session, ingest_env):
                 "timestamp": ts,
                 "device_id": "dev_low",
                 "event_id": "evt_low",
-                "alert_type": "event_burst",
+                "alert_type": "idle_with_network_activity",
                 "severity": "low",
-                "message": "High event volume (36 events in 5 minutes)",
+                "message": "Idle host with network activity",
             },
             {
                 "timestamp": ts,
@@ -98,7 +98,7 @@ def test_ingest_dedupes_within_single_batch(api_client, db_session, ingest_env):
     assert resp.json()["created"] == 1
 
 
-def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, ingest_env):
+def test_ingest_cooldowns_windowed_alert_within_window(api_client, db_session, ingest_env):
     """Windowed rules share one fingerprint per cooldown bucket, not per event_id."""
     base = datetime(2026, 7, 11, 12, 10, 0, tzinfo=timezone.utc)
     first = api_client.post(
@@ -108,10 +108,10 @@ def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, inge
                 "timestamp": base.isoformat(),
                 "device_id": "dev_burst",
                 "event_id": "evt_burst_1",
-                "event_type": "process_start",
-                "alert_type": "event_burst",
+                "event_type": "network_summary",
+                "alert_type": "network_flap_5m",
                 "severity": "high",
-                "message": "High event volume (36 events in 5 minutes)",
+                "message": "Network flap",
             }
         ],
     )
@@ -126,17 +126,17 @@ def test_ingest_cooldowns_event_burst_within_window(api_client, db_session, inge
                 "timestamp": (base.replace(second=30)).isoformat(),
                 "device_id": "dev_burst",
                 "event_id": "evt_burst_2",
-                "event_type": "process_exit",
-                "alert_type": "event_burst",
+                "event_type": "network_summary",
+                "alert_type": "network_flap_5m",
                 "severity": "high",
-                "message": "High event volume (47 events in 5 minutes)",
+                "message": "Network flap again",
             }
         ],
     )
     assert second.status_code == 200
     assert second.json()["created"] == 0
 
-    listed = api_client.get("/security/alerts?device_id=dev_burst&alert_type=event_burst")
+    listed = api_client.get("/security/alerts?device_id=dev_burst&alert_type=network_flap_5m")
     assert listed.json()["total"] == 1
 
 
@@ -198,9 +198,9 @@ def test_list_security_alerts_filter_severity(api_client, db_session, ingest_env
             {
                 "timestamp": ts_low,
                 "device_id": "dev_sev",
-                "alert_type": "event_burst",
+                "alert_type": "idle_with_network_activity",
                 "severity": "low",
-                "message": "Burst of events",
+                "message": "Idle host with network activity",
             },
         ],
     )

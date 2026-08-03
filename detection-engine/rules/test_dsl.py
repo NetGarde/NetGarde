@@ -63,9 +63,8 @@ def test_load_bundled_network_and_security_rules():
     assert "rapid_public_ip_changes" in network_ids
     assert "stale_client_details" in network_ids
     assert "driver_load" in {a for a, *_r in by_type["driver_load"]}
-    assert "event_burst" in {a for a, *_r in by_type["*"]}
     assert "missing_network_telemetry" in {a for a, *_r in by_type["action_summary"]}
-
+    assert "*" not in by_type or not by_type["*"]
 
 def test_loader_rejects_unknown_operator(tmp_path: Path):
     path = tmp_path / "bad.yml"
