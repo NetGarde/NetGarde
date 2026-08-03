@@ -7,6 +7,7 @@ import urllib.request
 from typing import Optional
 
 from app.features.twin.schemas.security_alert import SecurityAlertListResponse
+from app.features.twin.schemas.device_baseline import DeviceBaselineResponse
 from app.shared.config import settings
 from app.shared.utils.logging import get_logger
 
@@ -49,3 +50,28 @@ def fetch_security_alerts(
         raise
 
     return SecurityAlertListResponse.model_validate(payload)
+
+
+def fetch_device_baseline(*, device_id: str, limit: int = 100) -> DeviceBaselineResponse:
+    base = settings.DETECTION_ENGINE_URL.strip().rstrip("/")
+    if not base:
+        raise RuntimeError("DETECTION_ENGINE_URL is not configured")
+
+    params = {
+        "device_id": device_id.strip(),
+        "limit": str(limit),
+    }
+    url = f"{base}/baseline?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        body = exc.read()[:500]
+        logger.error("detection-engine baseline fetch failed: %s %s", exc.code, body)
+        raise
+    except Exception as exc:
+        logger.error("detection-engine baseline fetch error: %s", exc)
+        raise
+
+    return DeviceBaselineResponse.model_validate(payload)

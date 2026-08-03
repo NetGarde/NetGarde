@@ -270,3 +270,48 @@ def test_list_proxies_detection_engine(api_client, monkeypatch):
     body = response.json()
     assert body["total"] == 1
     assert body["items"][0]["message"] == "from engine"
+
+
+def test_baseline_proxies_detection_engine(api_client, monkeypatch):
+    from app.features.twin.schemas.device_baseline import DeviceBaselineResponse, DeviceBaselineItem
+
+    def fake_baseline(*, device_id: str, limit: int = 100):
+        return DeviceBaselineResponse(
+            device_id=device_id,
+            profile_warm=True,
+            total=1,
+            items=[
+                DeviceBaselineItem(
+                    behavior_kind="process_comm",
+                    behavior_key="chrome",
+                    count=12,
+                    first_seen_at="2026-08-03T10:00:00Z",
+                    last_seen_at="2026-08-03T12:00:00Z",
+                    established=False,
+                )
+            ],
+            suppress_count=20,
+            suppress_age_hours=72,
+            profile_min_keys=30,
+        )
+
+    monkeypatch.setattr(
+        "app.features.twin.routes.twin_route.fetch_device_baseline",
+        fake_baseline,
+    )
+    monkeypatch.setattr(
+        "app.shared.config.settings.DETECTION_ENGINE_URL",
+        "http://detection-engine:9090",
+    )
+    response = api_client.get("/security/agents/dev_proxy/baseline")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["device_id"] == "dev_proxy"
+    assert body["profile_warm"] is True
+    assert body["items"][0]["behavior_key"] == "chrome"
+
+
+def test_baseline_requires_detection_engine_url(api_client, monkeypatch):
+    monkeypatch.setattr("app.shared.config.settings.DETECTION_ENGINE_URL", "")
+    response = api_client.get("/security/agents/dev_x/baseline")
+    assert response.status_code == 503

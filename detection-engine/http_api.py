@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from log_config import setup_logging, structured_extra
 from recent_alerts import list_alerts
+from baseline_view import snapshot_device
 from rules.metrics import METRICS
 
 LOG = setup_logging(service=os.getenv("LOG_SERVICE", "detection-engine"), logger_name=__name__)
@@ -38,8 +39,21 @@ class _Handler(BaseHTTPRequestHandler):
                     "rules_run": snap.rules_run,
                     "alerts": snap.alerts,
                     "avg_eval_ms": round(snap.avg_eval_ms, 4),
+                    "hits_rule": snap.hits_rule,
+                    "hits_behavioral": snap.hits_behavioral,
+                    "hits_threat_intel": snap.hits_threat_intel,
+                    "scored_events": snap.scored_events,
                 },
             )
+            return
+        if parsed.path == "/baseline":
+            qs = parse_qs(parsed.query)
+            device_id = _query_str(qs, "device_id")
+            if not device_id:
+                self._json(400, {"detail": "device_id is required"})
+                return
+            limit = _query_int(qs, "limit", 100, min_value=1, max_value=500)
+            self._json(200, snapshot_device(device_id, limit=limit))
             return
         if parsed.path != "/alerts":
             self._json(404, {"detail": "not found"})

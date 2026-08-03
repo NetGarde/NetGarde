@@ -56,9 +56,22 @@ export function useAgentDetail(agentId: string | undefined) {
     }
   }, [agentId]);
 
+  const refreshEvents = useCallback(async () => {
+    if (!agentId) {
+      setEvents([]);
+      return;
+    }
+    try {
+      const eventsResult = await twinApi.listDeviceEvents(agentId, 50);
+      setEvents(eventsResult.items || []);
+    } catch {
+      setEvents([]);
+    }
+  }, [agentId]);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  return { agent, live, events, loading, error, liveMissing, refresh };
+  return { agent, live, events, loading, error, liveMissing, refresh, refreshEvents };
 }

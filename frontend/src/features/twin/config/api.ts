@@ -11,6 +11,7 @@ import {
   ConnectedAgent,
   ConnectedAgentListResponse,
 } from '../types/connectedAgent';
+import { DeviceBaselineResponse } from '../types/deviceBaseline';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -69,5 +70,9 @@ export const twinApi = {
   listDeviceEvents: (deviceId: string, limit = 50) =>
     apiFetch<AgentTelemetryEventListResponse>(
       `/security/agents/${encodeURIComponent(deviceId)}/events?limit=${encodeURIComponent(String(limit))}`
+    ),
+  getDeviceBaseline: (deviceId: string, limit = 100) =>
+    apiFetch<DeviceBaselineResponse>(
+      `/security/agents/${encodeURIComponent(deviceId)}/baseline?limit=${encodeURIComponent(String(limit))}`
     ),
 };

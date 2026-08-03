@@ -56,6 +56,8 @@ class SecurityAlert:
     event_id: str | None = None
     event_type: str | None = None
     detail: str | None = None
+    score: int | None = None
+    engines: list[dict[str, Any]] | None = None
 
     def fingerprint(self) -> str:
         return alert_fingerprint(
@@ -80,4 +82,8 @@ class SecurityAlert:
             out["event_type"] = self.event_type
         if self.detail:
             out["detail"] = self.detail
+        if self.score is not None:
+            out["score"] = self.score
+        if self.engines:
+            out["engines"] = self.engines
         return out
