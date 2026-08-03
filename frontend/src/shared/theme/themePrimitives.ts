@@ -30,56 +30,57 @@ const defaultTheme = createTheme();
 
 const customShadows: Shadows = [...defaultTheme.shadows];
 
+/** Teal accent matching the analytics dashboard look. */
 export const brand = {
-  50: 'hsl(210, 100%, 95%)',
-  100: 'hsl(210, 100%, 92%)',
-  200: 'hsl(210, 100%, 80%)',
-  300: 'hsl(210, 100%, 65%)',
-  400: 'hsl(210, 98%, 48%)',
-  500: 'hsl(210, 98%, 42%)',
-  600: 'hsl(210, 98%, 55%)',
-  700: 'hsl(210, 100%, 35%)',
-  800: 'hsl(210, 100%, 16%)',
-  900: 'hsl(210, 100%, 21%)',
+  50: 'hsl(168, 76%, 96%)',
+  100: 'hsl(168, 70%, 90%)',
+  200: 'hsl(168, 65%, 78%)',
+  300: 'hsl(172, 55%, 55%)',
+  400: 'hsl(173, 58%, 39%)',
+  500: 'hsl(175, 70%, 32%)',
+  600: 'hsl(176, 72%, 26%)',
+  700: 'hsl(177, 75%, 20%)',
+  800: 'hsl(178, 80%, 14%)',
+  900: 'hsl(179, 84%, 10%)',
 };
 
 export const gray = {
-  50: 'hsl(220, 35%, 97%)',
-  100: 'hsl(220, 30%, 94%)',
-  200: 'hsl(220, 20%, 88%)',
-  300: 'hsl(220, 20%, 80%)',
-  400: 'hsl(220, 20%, 65%)',
-  500: 'hsl(220, 20%, 42%)',
-  600: 'hsl(220, 20%, 35%)',
-  700: 'hsl(220, 20%, 25%)',
-  800: 'hsl(220, 30%, 6%)',
-  900: 'hsl(220, 35%, 3%)',
+  50: 'hsl(220, 20%, 97%)',
+  100: 'hsl(220, 16%, 94%)',
+  200: 'hsl(220, 14%, 90%)',
+  300: 'hsl(220, 12%, 82%)',
+  400: 'hsl(220, 10%, 64%)',
+  500: 'hsl(220, 9%, 46%)',
+  600: 'hsl(220, 10%, 36%)',
+  700: 'hsl(220, 13%, 26%)',
+  800: 'hsl(220, 18%, 16%)',
+  900: 'hsl(220, 22%, 10%)',
 };
 
 export const green = {
-  50: 'hsl(120, 80%, 98%)',
-  100: 'hsl(120, 75%, 94%)',
-  200: 'hsl(120, 75%, 87%)',
-  300: 'hsl(120, 61%, 77%)',
-  400: 'hsl(120, 44%, 53%)',
-  500: 'hsl(120, 59%, 30%)',
-  600: 'hsl(120, 70%, 25%)',
-  700: 'hsl(120, 75%, 16%)',
-  800: 'hsl(120, 84%, 10%)',
-  900: 'hsl(120, 87%, 6%)',
+  50: 'hsl(145, 60%, 96%)',
+  100: 'hsl(145, 55%, 90%)',
+  200: 'hsl(145, 50%, 78%)',
+  300: 'hsl(145, 45%, 58%)',
+  400: 'hsl(145, 50%, 42%)',
+  500: 'hsl(145, 55%, 32%)',
+  600: 'hsl(145, 60%, 26%)',
+  700: 'hsl(145, 65%, 20%)',
+  800: 'hsl(145, 70%, 14%)',
+  900: 'hsl(145, 75%, 10%)',
 };
 
 export const orange = {
-  50: 'hsl(45, 100%, 97%)',
-  100: 'hsl(45, 92%, 90%)',
-  200: 'hsl(45, 94%, 80%)',
-  300: 'hsl(45, 90%, 65%)',
-  400: 'hsl(45, 90%, 40%)',
-  500: 'hsl(45, 90%, 35%)',
-  600: 'hsl(45, 91%, 25%)',
-  700: 'hsl(45, 94%, 20%)',
-  800: 'hsl(45, 95%, 16%)',
-  900: 'hsl(45, 93%, 12%)',
+  50: 'hsl(28, 100%, 97%)',
+  100: 'hsl(28, 95%, 90%)',
+  200: 'hsl(28, 90%, 78%)',
+  300: 'hsl(25, 90%, 62%)',
+  400: 'hsl(22, 90%, 50%)',
+  500: 'hsl(20, 90%, 42%)',
+  600: 'hsl(18, 90%, 34%)',
+  700: 'hsl(16, 90%, 26%)',
+  800: 'hsl(14, 90%, 18%)',
+  900: 'hsl(12, 90%, 12%)',
 };
 
 export const red = {
@@ -87,19 +88,32 @@ export const red = {
   100: 'hsl(0, 92%, 90%)',
   200: 'hsl(0, 94%, 80%)',
   300: 'hsl(0, 90%, 65%)',
-  400: 'hsl(0, 90%, 40%)',
-  500: 'hsl(0, 90%, 30%)',
-  600: 'hsl(0, 91%, 25%)',
-  700: 'hsl(0, 94%, 18%)',
-  800: 'hsl(0, 95%, 12%)',
-  900: 'hsl(0, 93%, 6%)',
+  400: 'hsl(0, 84%, 50%)',
+  500: 'hsl(0, 80%, 42%)',
+  600: 'hsl(0, 78%, 34%)',
+  700: 'hsl(0, 76%, 26%)',
+  800: 'hsl(0, 74%, 18%)',
+  900: 'hsl(0, 72%, 12%)',
+};
+
+export const purple = {
+  50: 'hsl(262, 80%, 96%)',
+  100: 'hsl(262, 70%, 90%)',
+  200: 'hsl(262, 60%, 78%)',
+  300: 'hsl(262, 55%, 64%)',
+  400: 'hsl(262, 52%, 52%)',
+  500: 'hsl(262, 55%, 42%)',
+  600: 'hsl(262, 58%, 34%)',
+  700: 'hsl(262, 60%, 26%)',
+  800: 'hsl(262, 62%, 18%)',
+  900: 'hsl(262, 65%, 12%)',
 };
 
 export const getDesignTokens = (mode: PaletteMode) => {
   customShadows[1] =
     mode === 'dark'
       ? 'hsla(220, 30%, 5%, 0.7) 0px 4px 16px 0px, hsla(220, 25%, 10%, 0.8) 0px 8px 16px -5px'
-      : 'hsla(220, 30%, 5%, 0.07) 0px 4px 16px 0px, hsla(220, 25%, 10%, 0.07) 0px 8px 16px -5px';
+      : '0px 1px 2px rgba(16, 24, 40, 0.04), 0px 1px 3px rgba(16, 24, 40, 0.06)';
 
   return {
     palette: {
@@ -108,7 +122,7 @@ export const getDesignTokens = (mode: PaletteMode) => {
         light: brand[200],
         main: brand[400],
         dark: brand[700],
-        contrastText: brand[50],
+        contrastText: '#ffffff',
         ...(mode === 'dark' && {
           contrastText: brand[50],
           light: brand[300],
@@ -161,21 +175,21 @@ export const getDesignTokens = (mode: PaletteMode) => {
       grey: {
         ...gray,
       },
-      divider: mode === 'dark' ? alpha(gray[700], 0.6) : alpha(gray[300], 0.4),
+      divider: mode === 'dark' ? alpha(gray[700], 0.6) : '#E5E7EB',
       background: {
-        default: 'hsl(0, 0%, 99%)',
-        paper: 'hsl(220, 35%, 97%)',
+        default: '#F7F8FA',
+        paper: '#FFFFFF',
         ...(mode === 'dark' && { default: gray[900], paper: 'hsl(220, 30%, 7%)' }),
       },
       text: {
-        primary: gray[800],
-        secondary: gray[600],
+        primary: '#111827',
+        secondary: '#6B7280',
         warning: orange[400],
         ...(mode === 'dark' && { primary: 'hsl(0, 0%, 100%)', secondary: gray[400] }),
       },
       action: {
-        hover: alpha(gray[200], 0.2),
-        selected: `${alpha(gray[200], 0.3)}`,
+        hover: alpha(gray[200], 0.5),
+        selected: gray[100],
         ...(mode === 'dark' && {
           hover: alpha(gray[600], 0.2),
           selected: alpha(gray[600], 0.3),
@@ -183,7 +197,8 @@ export const getDesignTokens = (mode: PaletteMode) => {
       },
     },
     typography: {
-      fontFamily: 'Inter, sans-serif',
+      fontFamily:
+        '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       h1: {
         fontSize: defaultTheme.typography.pxToRem(48),
         fontWeight: 600,
@@ -232,7 +247,7 @@ export const getDesignTokens = (mode: PaletteMode) => {
       },
     },
     shape: {
-      borderRadius: 8,
+      borderRadius: 10,
     },
     shadows: customShadows,
   };
@@ -245,7 +260,7 @@ export const colorSchemes = {
         light: brand[200],
         main: brand[400],
         dark: brand[700],
-        contrastText: brand[50],
+        contrastText: '#ffffff',
       },
       info: {
         light: brand[100],
@@ -271,22 +286,21 @@ export const colorSchemes = {
       grey: {
         ...gray,
       },
-      divider: alpha(gray[300], 0.4),
+      divider: '#E5E7EB',
       background: {
-        default: 'hsl(0, 0%, 99%)',
-        paper: 'hsl(220, 35%, 97%)',
+        default: '#F7F8FA',
+        paper: '#FFFFFF',
       },
       text: {
-        primary: gray[800],
-        secondary: gray[600],
+        primary: '#111827',
+        secondary: '#6B7280',
         warning: orange[400],
       },
       action: {
-        hover: alpha(gray[200], 0.2),
-        selected: `${alpha(gray[200], 0.3)}`,
+        hover: alpha(gray[200], 0.55),
+        selected: gray[100],
       },
-      baseShadow:
-        'hsla(220, 30%, 5%, 0.07) 0px 4px 16px 0px, hsla(220, 25%, 10%, 0.07) 0px 8px 16px -5px',
+      baseShadow: '0px 1px 2px rgba(16, 24, 40, 0.04), 0px 1px 3px rgba(16, 24, 40, 0.06)',
     },
   },
   dark: {
@@ -341,7 +355,8 @@ export const colorSchemes = {
 };
 
 export const typography = {
-  fontFamily: 'Inter, sans-serif',
+  fontFamily:
+    '"Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   h1: {
     fontSize: defaultTheme.typography.pxToRem(48),
     fontWeight: 600,
@@ -391,7 +406,7 @@ export const typography = {
 };
 
 export const shape = {
-  borderRadius: 8,
+  borderRadius: 10,
 };
 
 const defaultShadows: Shadows = [

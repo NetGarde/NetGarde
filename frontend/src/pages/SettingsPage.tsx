@@ -6,10 +6,20 @@ import Paper from '@mui/material/Paper';
 export default function SettingsPage() {
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Typography component="h1" variant="h5" sx={{ mb: 0.5 }}>
+      <Typography
+        component="h1"
+        sx={{
+          fontWeight: 700,
+          fontSize: { xs: '1.5rem', md: '1.75rem' },
+          letterSpacing: '-0.03em',
+          color: 'text.primary',
+          lineHeight: 1.2,
+          mb: 0.75,
+        }}
+      >
         Settings
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
         Product configuration for TrustEdge operators.
       </Typography>
       <Paper variant="outlined" sx={{ p: 2 }}>

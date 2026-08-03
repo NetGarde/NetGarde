@@ -957,7 +957,17 @@ export default function AlertsPage() {
         sx={{ mb: 2 }}
       >
         <Box>
-          <Typography component="h1" variant="h5" sx={{ mb: 0.5 }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              letterSpacing: '-0.03em',
+              color: 'text.primary',
+              lineHeight: 1.2,
+              mb: 0.75,
+            }}
+          >
             Alerts
           </Typography>
           <Typography variant="body2" color="text.secondary">

@@ -1,42 +1,28 @@
 import type { Theme } from '@mui/material/styles';
 import type { SxProps } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
-/** Azure-style accent in light mode only. */
-export const NAV_ACCENT_LIGHT = '#0078d4';
 
-export const NAVBAR_HEIGHT = 48;
+export const NAVBAR_HEIGHT = 56;
 
-/** Top bar surface — matches sidebar in dark mode (neutral, not blue). */
+/** Top bar surface — white like the sidebar (analytics dashboard look). */
 export function navbarBackground(theme: Theme): string {
-  const palette = (theme.vars || theme).palette;
-  return theme.palette.mode === 'dark'
-    ? palette.background.default
-    : NAV_ACCENT_LIGHT;
+  return (theme.vars || theme).palette.background.paper;
 }
 
 export function navbarBorderColor(theme: Theme): string {
-  return theme.palette.mode === 'dark'
-    ? theme.palette.divider
-    : alpha(theme.palette.common.white, 0.1);
+  return theme.palette.divider;
 }
 
 export function navAccentColor(theme: Theme): string {
-  return theme.palette.mode === 'dark' ? theme.palette.primary.main : NAV_ACCENT_LIGHT;
+  return theme.palette.primary.main;
 }
 
 export function navbarIconButtonSx(theme: Theme): SxProps<Theme> {
-  const fg = theme.palette.mode === 'dark' ? theme.palette.text.secondary : 'rgba(255, 255, 255, 0.8)';
-  const fgHover = theme.palette.mode === 'dark' ? theme.palette.text.primary : '#ffffff';
-  const hoverBg =
-    theme.palette.mode === 'dark'
-      ? alpha(theme.palette.common.white, 0.08)
-      : 'rgba(255, 255, 255, 0.1)';
-
   return {
-    color: fg,
+    color: theme.palette.text.secondary,
     '&:hover': {
-      backgroundColor: hoverBg,
-      color: fgHover,
+      backgroundColor: theme.palette.action.hover,
+      color: theme.palette.text.primary,
     },
   };
 }
@@ -45,42 +31,28 @@ export function navbarColorModeButtonSx(theme: Theme): SxProps<Theme> {
   return {
     ...navbarIconButtonSx(theme),
     border: '1px solid',
-    borderColor:
-      theme.palette.mode === 'dark'
-        ? alpha(theme.palette.common.white, 0.12)
-        : 'rgba(255, 255, 255, 0.25)',
+    borderColor: theme.palette.divider,
   };
 }
 
 export function sidebarNavItemSx(theme: Theme, nested = false): SxProps<Theme> {
-  const accent = navAccentColor(theme);
-  const selectedBg = alpha(accent, theme.palette.mode === 'dark' ? 0.22 : 0.08);
-  const selectedHoverBg = alpha(accent, theme.palette.mode === 'dark' ? 0.3 : 0.12);
-
   return {
-    minHeight: 40,
-    borderRadius: '4px',
-    px: 1.5,
-    py: 1,
-    mx: 0.5,
-    mb: 0.5,
-    ...(nested ? { ml: 4 } : {}),
+    minHeight: 36,
+    borderRadius: '8px',
+    px: 1.25,
+    py: 0.75,
+    mx: 0.75,
+    mb: 0.25,
+    ...(nested ? { ml: 1.5 } : {}),
     position: 'relative',
     '&.Mui-selected': {
-      backgroundColor: selectedBg,
+      backgroundColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.08) : '#F3F4F6',
       '&:hover': {
-        backgroundColor: selectedHoverBg,
+        backgroundColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.12) : '#EBEBED',
       },
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        left: 0,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: 3,
-        height: 20,
-        backgroundColor: accent,
-        borderRadius: '0 2px 2px 0',
+      '& .MuiListItemText-primary': {
+        color: theme.palette.text.primary,
+        fontWeight: 500,
       },
     },
     '&:hover': {
@@ -91,12 +63,13 @@ export function sidebarNavItemSx(theme: Theme, nested = false): SxProps<Theme> {
 
 export function sidebarSectionButtonSx(theme: Theme): SxProps<Theme> {
   return {
-    minHeight: 40,
-    borderRadius: '4px',
-    px: 1.5,
-    py: 1,
-    mx: 0.5,
-    mb: 0.5,
+    minHeight: 32,
+    borderRadius: '8px',
+    px: 1.25,
+    py: 0.5,
+    mx: 0.75,
+    mb: 0.25,
+    mt: 1,
     '&:hover': {
       backgroundColor: theme.palette.action.hover,
     },

@@ -1,28 +1,19 @@
 import { useState } from 'react';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import MuiToolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
-import Avatar from '@mui/material/Avatar';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
-import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import SideMenuMobile from './SideMenuMobile';
 import MenuButton from './MenuButton';
 import ColorModeIconDropdown from '../../../shared/theme/ColorModeIconDropdown';
-import {
-  navbarBackground,
-  navbarBorderColor,
-  navbarColorModeButtonSx,
-  navbarIconButtonSx,
-  NAVBAR_HEIGHT,
-} from '../../../shared/theme/navigationChrome';
 
 const Toolbar = styled(MuiToolbar)({
   width: '100%',
-  padding: '12px',
+  padding: '12px 16px',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'start',
@@ -31,165 +22,61 @@ const Toolbar = styled(MuiToolbar)({
   flexShrink: 0,
 });
 
-const AzureToolbar = styled(MuiToolbar)(({ theme }) => ({
-  minHeight: `${NAVBAR_HEIGHT}px !important`,
-  padding: '0 16px !important',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  backgroundColor: navbarBackground(theme),
-  borderBottom: `1px solid ${navbarBorderColor(theme)}`,
-}));
-
 export default function AppNavbar() {
-  const theme = useTheme();
   const [open, setOpen] = useState(false);
-  const isDark = theme.palette.mode === 'dark';
 
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpen(newOpen);
   };
 
-  const navbarFg = isDark ? theme.palette.text.primary : '#ffffff';
-  const navbarIconBg = isDark
-    ? theme.palette.action.hover
-    : 'rgba(255, 255, 255, 0.1)';
-
   return (
-    <>
-      <AppBar
-        position="fixed"
-        sx={{
-          display: { xs: 'auto', md: 'none' },
-          boxShadow: 0,
-          bgcolor: 'background.paper',
-          backgroundImage: 'none',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          top: 'var(--template-frame-height, 0px)',
-        }}
-      >
-        <Toolbar variant="regular">
-          <Stack
-            direction="row"
-            sx={{
-              alignItems: 'center',
-              flexGrow: 1,
-              width: '100%',
-              gap: 1,
-            }}
-          >
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{ justifyContent: 'center', mr: 'auto' }}
-            >
-              <CustomIcon />
-              <Typography variant="h4" component="h1" sx={{ color: 'text.primary' }}>
-                Dashboard
-              </Typography>
-            </Stack>
-            <ColorModeIconDropdown />
-            <MenuButton aria-label="menu" onClick={toggleDrawer(true)}>
-              <MenuRoundedIcon />
-            </MenuButton>
-            <SideMenuMobile open={open} toggleDrawer={toggleDrawer} />
-          </Stack>
-        </Toolbar>
-      </AppBar>
-
-      <AppBar
-        position="fixed"
-        sx={{
-          display: { xs: 'none', md: 'block' },
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: (t) => t.zIndex.drawer + 1,
-          backgroundColor: navbarBackground(theme),
-          borderBottom: 1,
-          borderColor: 'divider',
-          boxShadow: 'none',
-        }}
-      >
-        <AzureToolbar>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+    <AppBar
+      position="fixed"
+      sx={{
+        display: { xs: 'auto', md: 'none' },
+        boxShadow: 0,
+        bgcolor: 'background.paper',
+        backgroundImage: 'none',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        top: 'var(--template-frame-height, 0px)',
+      }}
+    >
+      <Toolbar variant="regular">
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: 'center',
+            flexGrow: 1,
+            width: '100%',
+            gap: 1,
+          }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mr: 'auto' }}>
             <Box
               sx={{
-                width: '32px',
-                height: '32px',
+                width: 28,
+                height: 28,
+                borderRadius: '8px',
+                bgcolor: 'primary.main',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: '4px',
-                backgroundColor: navbarIconBg,
               }}
             >
-              <DashboardRoundedIcon sx={{ color: navbarFg, fontSize: '20px' }} />
+              <ShieldOutlinedIcon sx={{ color: '#fff', fontSize: 16 }} />
             </Box>
-            <Typography
-              variant="h6"
-              component="div"
-              sx={{
-                color: navbarFg,
-                fontWeight: 600,
-                fontSize: '1.125rem',
-                letterSpacing: '0.01em',
-              }}
-            >
+            <Typography variant="h6" component="h1" sx={{ color: 'text.primary', fontWeight: 700, fontSize: '1rem' }}>
               TrustEdge
             </Typography>
           </Stack>
-
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <MenuButton aria-label="notifications" sx={navbarIconButtonSx(theme)}>
-              <NotificationsRoundedIcon />
-            </MenuButton>
-            <ColorModeIconDropdown sx={navbarColorModeButtonSx(theme)} />
-            <Avatar
-              sizes="small"
-              alt="TrustEdge"
-              sx={{
-                width: 32,
-                height: 32,
-                border: '2px solid',
-                borderColor: isDark ? 'divider' : 'rgba(255, 255, 255, 0.3)',
-                cursor: 'pointer',
-                '&:hover': {
-                  borderColor: isDark
-                    ? theme.palette.text.secondary
-                    : 'rgba(255, 255, 255, 0.5)',
-                },
-              }}
-            />
-          </Stack>
-        </AzureToolbar>
-      </AppBar>
-    </>
-  );
-}
-
-export function CustomIcon() {
-  return (
-    <Box
-      sx={{
-        width: '1.5rem',
-        height: '1.5rem',
-        bgcolor: 'black',
-        borderRadius: '999px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        alignSelf: 'center',
-        backgroundImage:
-          'linear-gradient(135deg, hsl(210, 98%, 60%) 0%, hsl(210, 100%, 35%) 100%)',
-        color: 'hsla(210, 100%, 95%, 0.9)',
-        border: '1px solid',
-        borderColor: 'hsl(210, 100%, 55%)',
-        boxShadow: 'inset 0 2px 5px rgba(255, 255, 255, 0.3)',
-      }}
-    >
-      <DashboardRoundedIcon color="inherit" sx={{ fontSize: '1rem' }} />
-    </Box>
+          <ColorModeIconDropdown />
+          <MenuButton aria-label="menu" onClick={toggleDrawer(true)}>
+            <MenuRoundedIcon />
+          </MenuButton>
+          <SideMenuMobile open={open} toggleDrawer={toggleDrawer} />
+        </Stack>
+      </Toolbar>
+    </AppBar>
   );
 }

@@ -11,6 +11,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Collapse from '@mui/material/Collapse';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 import type { ReactElement } from 'react';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
@@ -18,10 +19,7 @@ import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import NotificationImportantIcon from '@mui/icons-material/NotificationImportant';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import ComputerIcon from '@mui/icons-material/Computer';
-import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
-import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import PolicyOutlinedIcon from '@mui/icons-material/PolicyOutlined';
 import './MenuContent.css';
 
@@ -35,7 +33,6 @@ type NavItem = {
 type NavSection = {
   id: string;
   label: string;
-  icon: ReactElement;
   items: NavItem[];
 };
 
@@ -47,7 +44,6 @@ const navSections: NavSection[] = [
   {
     id: 'endpoints',
     label: 'Endpoints',
-    icon: <ComputerIcon />,
     items: [
       {
         text: 'Agents',
@@ -60,7 +56,6 @@ const navSections: NavSection[] = [
   {
     id: 'detection',
     label: 'Detection',
-    icon: <ShieldOutlinedIcon />,
     items: [
       {
         text: 'Alerts',
@@ -73,7 +68,6 @@ const navSections: NavSection[] = [
   {
     id: 'learn',
     label: 'Learn',
-    icon: <MenuBookOutlinedIcon />,
     items: [
       {
         text: 'How it works',
@@ -153,7 +147,7 @@ export default function MenuContent({ open = true }: MenuContentProps) {
         <ListItemIcon
           className={`menuIcon ${item.iconClass}`}
           sx={{
-            minWidth: open ? 40 : 'auto',
+            minWidth: open ? 36 : 'auto',
             justifyContent: open ? 'flex-start' : 'center',
           }}
         >
@@ -195,15 +189,27 @@ export default function MenuContent({ open = true }: MenuContentProps) {
             <Box key={section.id} component="div">
               <ListItem disablePadding sx={{ display: 'block' }}>
                 <ListItemButton onClick={() => toggleSection(section.id)} sx={sectionSx}>
-                  <ListItemIcon className="menuIcon" sx={{ minWidth: 40, justifyContent: 'flex-start' }}>
-                    {section.icon}
-                  </ListItemIcon>
                   <ListItemText
-                    primary={section.label}
-                    sx={{ color: 'text.secondary' }}
-                    primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 400 }}
+                    primary={
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          fontSize: '0.68rem',
+                        }}
+                      >
+                        {section.label}
+                      </Typography>
+                    }
                   />
-                  {openSections[section.id] ? <ExpandLess /> : <ExpandMore />}
+                  {openSections[section.id] ? (
+                    <ExpandLess sx={{ fontSize: 18, color: 'text.secondary' }} />
+                  ) : (
+                    <ExpandMore sx={{ fontSize: 18, color: 'text.secondary' }} />
+                  )}
                 </ListItemButton>
               </ListItem>
               <Collapse in={!!openSections[section.id]} timeout="auto" unmountOnExit>
