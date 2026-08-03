@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from log_config import setup_logging, structured_extra
 from recent_alerts import list_alerts
+from rules.metrics import METRICS
 
 LOG = setup_logging(service=os.getenv("LOG_SERVICE", "detection-engine"), logger_name=__name__)
 
@@ -26,6 +27,20 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        if parsed.path == "/metrics":
+            snap = METRICS.snapshot()
+            self._json(
+                200,
+                {
+                    "events": snap.events,
+                    "rules_selected": snap.rules_selected,
+                    "rules_gated": snap.rules_gated,
+                    "rules_run": snap.rules_run,
+                    "alerts": snap.alerts,
+                    "avg_eval_ms": round(snap.avg_eval_ms, 4),
+                },
+            )
+            return
         if parsed.path != "/alerts":
             self._json(404, {"detail": "not found"})
             return

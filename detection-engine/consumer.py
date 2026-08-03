@@ -29,6 +29,7 @@ from rules.process_profile import (
     profile_keys_from_event,
 )
 from rules.state import StateStore
+from rules.metrics import METRICS
 
 SERVICE = os.getenv("LOG_SERVICE", "detection-engine")
 LOG = setup_logging(service=SERVICE, logger_name=__name__)
@@ -47,6 +48,10 @@ _profile_observe_seen: dict[str, float] = {}
 _PROFILE_DEBOUNCE_SECONDS = 5 * 60
 _PROFILE_DEBOUNCE_MAX = 20000
 
+# Log eval runtime stats periodically (gate hits / avg latency).
+_METRICS_LOG_EVERY = 200
+_events_since_metrics_log = 0
+
 
 def _handle_signal(signum: int, _frame: Any) -> None:
     global _shutdown
@@ -64,12 +69,20 @@ def _brokers() -> list[str]:
 
 
 def _create_consumer() -> KafkaConsumer:
+    # Agent-API publishes with key=device_id so partitions keep a device on one
+    # consumer (single-writer for that device's in-memory chain).
     topic = _env("KAFKA_TOPIC", "trustedge.agent.events")
     group_id = _env("KAFKA_GROUP_ID", "detection-engine")
     brokers = _brokers()
     LOG.info(
         "connecting to kafka",
-        extra=structured_extra("kafka_connect", brokers=brokers, topic=topic, group_id=group_id),
+        extra=structured_extra(
+            "kafka_connect",
+            brokers=brokers,
+            topic=topic,
+            group_id=group_id,
+            partition_key="device_id",
+        ),
     )
     return KafkaConsumer(
         topic,
@@ -257,6 +270,25 @@ def _process_event(raw: str) -> None:
     alerts = evaluate_event(payload, _state)
     # Learn process profile identities (and maybe novel_process) on every process_start.
     alerts = list(alerts) + _collect_profile_alerts(payload)
+
+    global _events_since_metrics_log
+    _events_since_metrics_log += 1
+    if _events_since_metrics_log >= _METRICS_LOG_EVERY:
+        _events_since_metrics_log = 0
+        snap = METRICS.snapshot()
+        LOG.info(
+            "detection eval metrics",
+            extra=structured_extra(
+                "eval_metrics",
+                events=snap.events,
+                rules_selected=snap.rules_selected,
+                rules_gated=snap.rules_gated,
+                rules_run=snap.rules_run,
+                alerts=snap.alerts,
+                avg_eval_ms=round(snap.avg_eval_ms, 4),
+            ),
+        )
+
     if not alerts:
         return
 

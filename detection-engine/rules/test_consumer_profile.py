@@ -45,8 +45,8 @@ def test_collect_profile_alerts_emits_novel_when_warm():
         alerts = consumer._collect_profile_alerts(_process_start())
     assert len(alerts) == 1
     assert alerts[0].alert_type == ALERT_NOVEL_PROCESS
-    # process_comm + process_chain observed
-    assert mocked.call_count == 2
+    # process_comm only (no process_chain)
+    assert mocked.call_count == 1
 
 
 def test_collect_profile_alerts_skips_when_cold():
@@ -78,11 +78,32 @@ def test_collect_profile_alerts_debounces_repeat():
         second = consumer._collect_profile_alerts(payload)
     assert first == []
     assert second == []
-    # First call observes both keys; second is fully debounced.
-    assert mocked.call_count == 2
+    # First call observes process_comm; second is fully debounced.
+    assert mocked.call_count == 1
 
 
 def test_filter_suppressed_drops_established_alert():
+    from rules.alerts import SecurityAlert
+
+    alert = SecurityAlert(
+        timestamp="2026-07-30T12:00:00Z",
+        device_id="dev_n",
+        event_id="e1",
+        event_type=TYPE_PROCESS_START,
+        alert_type="temp_path_execution",
+        severity="high",
+        message="Process started from suspicious path",
+        detail='{"executable":"/tmp/evil","comm":"evil"}',
+    )
+    with patch(
+        "consumer.observe_behavior",
+        return_value={"action": "suppress", "count": 25},
+    ):
+        kept = consumer._filter_suppressed([alert])
+    assert kept == []
+
+
+def test_filter_suppressed_keeps_chain_alerts_without_baseline():
     from rules.alerts import SecurityAlert
 
     alert = SecurityAlert(
@@ -95,9 +116,7 @@ def test_filter_suppressed_drops_established_alert():
         message="Shell spawned network downloader (curl)",
         detail='{"parent_comm":"zsh","child_comm":"curl"}',
     )
-    with patch(
-        "consumer.observe_behavior",
-        return_value={"action": "suppress", "count": 25},
-    ):
+    with patch("consumer.observe_behavior") as mocked:
         kept = consumer._filter_suppressed([alert])
-    assert kept == []
+    assert kept == [alert]
+    mocked.assert_not_called()

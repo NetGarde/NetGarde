@@ -1,4 +1,7 @@
-"""Build stable behavior keys from security alerts for baseline learning."""
+"""Build stable behavior keys from security alerts for baseline learning.
+
+Does not persist process_chain (parent>child) keys — only path/mismatch styles.
+"""
 
 from __future__ import annotations
 
@@ -8,22 +11,19 @@ from typing import Any, Optional
 from rules.alerts import SecurityAlert
 from rules.constants import (
     ALERT_BINARY_PATH_MISMATCH,
-    ALERT_SCRIPT_SPAWNS_SHELL,
-    ALERT_SHELL_SPAWNS_DOWNLOADER,
     ALERT_TEMP_PATH_EXECUTION,
 )
 
 # Alert types that participate in per-device frequency baselining.
+# Chain-style alerts (shell→downloader, script→shell) are intentionally excluded
+# so behavioral storage never saves parent>child keys.
 BASELINE_ALERT_TYPES = frozenset(
     {
-        ALERT_SHELL_SPAWNS_DOWNLOADER,
-        ALERT_SCRIPT_SPAWNS_SHELL,
         ALERT_TEMP_PATH_EXECUTION,
         ALERT_BINARY_PATH_MISMATCH,
     }
 )
 
-KIND_PROCESS_CHAIN = "process_chain"
 KIND_TEMP_PATH = "temp_path"
 KIND_BINARY_MISMATCH = "binary_mismatch"
 
@@ -52,15 +52,6 @@ def behavior_from_alert(alert: SecurityAlert) -> Optional[tuple[str, str, dict[s
 
     detail = _parse_detail(alert.detail)
     meta: dict[str, Any] = {"alert_type": alert.alert_type}
-
-    if alert.alert_type in {ALERT_SHELL_SPAWNS_DOWNLOADER, ALERT_SCRIPT_SPAWNS_SHELL}:
-        parent = _norm(detail.get("parent_comm"))
-        child = _norm(detail.get("child_comm"))
-        if not parent or not child:
-            return None
-        key = f"{parent}>{child}"
-        meta.update({"parent_comm": parent, "child_comm": child})
-        return KIND_PROCESS_CHAIN, key, meta
 
     if alert.alert_type == ALERT_TEMP_PATH_EXECUTION:
         exe = _norm(detail.get("executable") or detail.get("comm"))

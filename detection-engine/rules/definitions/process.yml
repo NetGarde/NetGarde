@@ -1,0 +1,82 @@
+version: 1
+
+sets:
+  shells: [sh, bash, zsh, fish, dash, ksh]
+  downloaders: [curl, wget, fetch]
+  scripts: [osascript, python, python3, perl, ruby, node]
+  system_comms: [curl, bash, sh, python, python3, ls, cat]
+  temp_path_markers:
+    - /tmp/
+    - /var/tmp/
+    - /downloads/
+    - /.hidden/
+    - /private/tmp/
+  system_path_prefixes:
+    - /usr/
+    - /system/
+    - /bin/
+
+rules:
+  - id: temp_path_execution
+    trigger: process_start
+    severity: high
+    message: "Process started from suspicious path: {child.executable}"
+    when:
+      child:
+        contains_any: { field: executable, set: temp_path_markers }
+    detail:
+      executable: child.executable
+      pid: child.pid
+      cmdline: child.cmdline
+
+  - id: shell_spawns_downloader
+    trigger: process_start
+    severity: high
+    message: "Shell spawned network downloader ({child.comm})"
+    when:
+      child:
+        basename_in: { field: comm, set: downloaders }
+      parent:
+        resolve: ppid
+        within: 5m
+        basename_in: { field: comm, set: shells }
+    detail:
+      child_comm: child.comm
+      parent_comm: parent.comm
+      child_pid: child.pid
+      parent_pid: child.ppid
+      parent_cmdline: parent.cmdline
+      child_cmdline: child.cmdline
+
+  - id: script_spawns_shell
+    trigger: process_start
+    severity: medium
+    message: "{parent.comm} spawned shell ({child.comm})"
+    when:
+      child:
+        basename_in: { field: comm, set: shells }
+      parent:
+        resolve: ppid
+        within: 5m
+        basename_in: { field: comm, set: scripts }
+    detail:
+      parent_comm: parent.comm
+      child_comm: child.comm
+      parent_pid: child.ppid
+      child_pid: child.pid
+      parent_cmdline: parent.cmdline
+      child_cmdline: child.cmdline
+
+  - id: binary_path_mismatch
+    trigger: process_start
+    severity: medium
+    message: "Process name {child.comm} running outside system paths ({child.executable})"
+    when:
+      child:
+        basename_in: { field: comm, set: system_comms }
+        not_startswith_any: { field: executable, set: system_path_prefixes }
+        field_ne: { left: comm, right: executable }
+    detail:
+      comm: child.comm
+      executable: child.executable
+      cmdline: child.cmdline
