@@ -14,12 +14,16 @@ from app.features.twin.schemas.security_alert import (
     SecurityAlertExplainResponse,
     SecurityAlertListResponse,
 )
+from app.features.twin.schemas.device_baseline import DeviceBaselineResponse
 from app.features.twin.services.alert_explain_service import explain_security_alert
 from app.features.twin.services.connected_agent_service import ConnectedAgentService
+from app.features.twin.services.detection_engine_client import fetch_device_baseline
 from app.features.twin.services.security_alert_service import SecurityAlertService
 from app.shared.admin_auth import verify_admin_api_token
+from app.shared.config import settings
 from app.shared.dependencies import get_db
 from app.shared.service_auth import verify_ingest_service
+
 
 router = APIRouter(prefix="/security", tags=["Security Observability"])
 
@@ -110,3 +114,21 @@ def list_connected_agent_events(
 ):
     """Recent telemetry event timeline for a device (newest first)."""
     return service.list_device_events(device_id, limit=limit)
+
+
+@router.get("/agents/{device_id}/baseline", response_model=DeviceBaselineResponse)
+def get_device_baseline(
+    device_id: str,
+    limit: int = Query(default=100, ge=1, le=500),
+    _: None = Depends(verify_admin_api_token),
+):
+    """In-memory behavioral baseline for a device (from detection-engine)."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_device_baseline(device_id=device_id, limit=limit)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"detection-engine baseline unavailable: {exc}") from exc

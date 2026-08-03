@@ -16,12 +16,21 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import { useMemo, useState } from 'react';
 import { useAgentDetail } from './hooks/useAgentDetail';
 import { useSecurityAlerts } from '../twin/hooks/useSecurityAlerts';
+import { useDeviceBaseline } from '../twin/hooks/useDeviceBaseline';
 import { isAgentOnline } from './utils/presence';
+import {
+  displayBaselineKey,
+  prepareBaselineItems,
+} from './utils/baselineDisplay';
 import { formatShortDateTime } from '../../shared/utils/dateUtils';
 import { AgentTelemetryEvent, ConnectedAgent } from '../twin/types/connectedAgent';
 import { SecurityAlert } from '../twin/types/securityAlert';
+import { DeviceBaselineItem, DeviceBaselineResponse } from '../twin/types/deviceBaseline';
 
 const SEVERITY_COLOR: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   high: 'error',
@@ -284,20 +293,160 @@ function TimelineCard({ events }: { events: AgentTelemetryEvent[] }) {
   );
 }
 
+const KIND_LABEL: Record<string, string> = {
+  process_comm: 'Process',
+  temp_path: 'Temp path',
+  binary_mismatch: 'Binary mismatch',
+};
+
+function BaselineCard({
+  data,
+  loading,
+  error,
+}: {
+  data: DeviceBaselineResponse;
+  loading: boolean;
+  error: string | null;
+}) {
+  const [includeSystem, setIncludeSystem] = useState(false);
+  const visible = useMemo(
+    () => prepareBaselineItems(data.items, { includeSystem }),
+    [data.items, includeSystem]
+  );
+  const hiddenCount = Math.max(0, data.items.length - visible.length);
+
+  if (loading && data.items.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+        <CircularProgress size={24} />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert severity="warning" variant="outlined">
+        Baseline unavailable. Detection-engine must be running with DETECTION_ENGINE_URL configured.
+      </Alert>
+    );
+  }
+
+  if (data.total === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        No learned behaviors yet for this device. Profile builds as process events are observed
+        (in-memory; cleared on detection-engine restart).
+      </Typography>
+    );
+  }
+
+  return (
+    <Stack spacing={1.5}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        flexWrap="wrap"
+        useFlexGap
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        justifyContent="space-between"
+      >
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+          <Chip
+            size="small"
+            label={data.profile_warm ? 'profile warm' : 'profile cold'}
+            color={data.profile_warm ? 'success' : 'default'}
+            variant="outlined"
+          />
+          <Typography variant="caption" color="text.secondary">
+            Showing {visible.length} of {data.total} · sorted by frequency
+            {!includeSystem && hiddenCount > 0 ? ` · ${hiddenCount} system hidden` : ''}
+          </Typography>
+        </Stack>
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              checked={includeSystem}
+              onChange={(_e, checked) => setIncludeSystem(checked)}
+            />
+          }
+          label={<Typography variant="caption">Show system processes</Typography>}
+        />
+      </Stack>
+      {visible.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No application-like processes yet. Quit/reopen apps (Chrome, Terminal) or enable “Show
+          system processes”.
+        </Typography>
+      ) : (
+        <List dense disablePadding>
+          {visible.map((item: DeviceBaselineItem, index: number) => (
+            <Box key={`${item.behavior_kind}:${item.behavior_key}`}>
+              {index > 0 && <Divider />}
+              <ListItem
+                alignItems="flex-start"
+                sx={{ px: 0, py: 1.25 }}
+                secondaryAction={
+                  <Chip
+                    size="small"
+                    label={item.established ? 'established' : 'learning'}
+                    color={item.established ? 'success' : 'default'}
+                    variant="outlined"
+                  />
+                }
+              >
+                <ListItemText
+                  primary={
+                    <Typography
+                      variant="body2"
+                      sx={{ fontWeight: 600, pr: 10, fontFamily: 'monospace' }}
+                    >
+                      {displayBaselineKey(item.behavior_key)}
+                    </Typography>
+                  }
+                  secondary={
+                    <Stack spacing={0.25} sx={{ mt: 0.25, pr: 10 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {KIND_LABEL[item.behavior_kind] || item.behavior_kind}
+                        {displayBaselineKey(item.behavior_key) !== item.behavior_key
+                          ? ` · ${item.behavior_key}`
+                          : ''}{' '}
+                        · seen {item.count}× · last {formatShortDateTime(item.last_seen_at)}
+                      </Typography>
+                    </Stack>
+                  }
+                />
+              </ListItem>
+            </Box>
+          ))}
+        </List>
+      )}
+    </Stack>
+  );
+}
+
 export default function AgentDetail({ agentId }: { agentId: string }) {
-  const { agent, live, events, loading, error, liveMissing, refresh } = useAgentDetail(agentId);
+  const { agent, live, events, loading, error, liveMissing, refresh, refreshEvents } =
+    useAgentDetail(agentId);
   const {
     items: alerts,
     total: alertTotal,
     loading: alertsLoading,
     refetch: refetchAlerts,
   } = useSecurityAlerts({ deviceId: agentId, pageSize: 15 });
+  const {
+    data: baseline,
+    loading: baselineLoading,
+    error: baselineError,
+    refetch: refetchBaseline,
+  } = useDeviceBaseline(agentId);
 
   const online = isAgentOnline(agent?.last_seen_at);
 
   const onRefresh = () => {
     refresh();
     refetchAlerts();
+    refetchBaseline();
   };
 
   if (loading && !agent) {
@@ -370,7 +519,7 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
           </Stack>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton onClick={onRefresh} disabled={loading || alertsLoading}>
+          <IconButton onClick={onRefresh} disabled={loading || alertsLoading || baselineLoading}>
             <RefreshIcon />
           </IconButton>
         </Tooltip>
@@ -430,10 +579,57 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
         </Grid>
       </Grid>
 
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 1.5 }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Behavioral baseline
+          </Typography>
+          <Tooltip title="Refresh baseline">
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => refetchBaseline()}
+                disabled={baselineLoading}
+                aria-label="Refresh behavioral baseline"
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+        <BaselineCard data={baseline} loading={baselineLoading} error={baselineError} />
+      </Paper>
+
       <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5 }}>
-          Host timeline
-        </Typography>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 1.5 }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Host timeline
+          </Typography>
+          <Tooltip title="Refresh timeline">
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => refreshEvents()}
+                disabled={loading}
+                aria-label="Refresh host timeline"
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
         <TimelineCard events={events} />
       </Paper>
     </Box>

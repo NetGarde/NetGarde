@@ -15,6 +15,10 @@ class EvalSnapshot:
     rules_run: int
     alerts: int
     total_eval_ns: int
+    hits_rule: int = 0
+    hits_behavioral: int = 0
+    hits_threat_intel: int = 0
+    scored_events: int = 0
 
     @property
     def avg_eval_ms(self) -> float:
@@ -32,6 +36,10 @@ class EvalMetrics:
         self.rules_run = 0
         self.alerts = 0
         self.total_eval_ns = 0
+        self.hits_rule = 0
+        self.hits_behavioral = 0
+        self.hits_threat_intel = 0
+        self.scored_events = 0
 
     def record_event(
         self,
@@ -50,6 +58,22 @@ class EvalMetrics:
             self.alerts += alerts
             self.total_eval_ns += max(0, elapsed_ns)
 
+    def record_pipeline(
+        self,
+        *,
+        hits_rule: int,
+        hits_behavioral: int,
+        hits_threat_intel: int,
+    ) -> None:
+        with self._lock:
+            self.hits_rule += max(0, hits_rule)
+            self.hits_behavioral += max(0, hits_behavioral)
+            self.hits_threat_intel += max(0, hits_threat_intel)
+
+    def record_scored(self) -> None:
+        with self._lock:
+            self.scored_events += 1
+
     def snapshot(self) -> EvalSnapshot:
         with self._lock:
             return EvalSnapshot(
@@ -59,6 +83,10 @@ class EvalMetrics:
                 rules_run=self.rules_run,
                 alerts=self.alerts,
                 total_eval_ns=self.total_eval_ns,
+                hits_rule=self.hits_rule,
+                hits_behavioral=self.hits_behavioral,
+                hits_threat_intel=self.hits_threat_intel,
+                scored_events=self.scored_events,
             )
 
     def reset(self) -> None:
@@ -69,6 +97,10 @@ class EvalMetrics:
             self.rules_run = 0
             self.alerts = 0
             self.total_eval_ns = 0
+            self.hits_rule = 0
+            self.hits_behavioral = 0
+            self.hits_threat_intel = 0
+            self.scored_events = 0
 
 
 METRICS = EvalMetrics()
