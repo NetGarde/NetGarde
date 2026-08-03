@@ -53,20 +53,40 @@ export const surfacesCustomizations: Components<Theme> = {
     defaultProps: {
       elevation: 0,
     },
+    styleOverrides: {
+      root: ({ theme }) => ({
+        backgroundImage: 'none',
+        variants: [
+          {
+            props: { variant: 'outlined' },
+            style: {
+              border: `1px solid ${(theme.vars || theme).palette.divider}`,
+              borderRadius: 12,
+              backgroundColor: (theme.vars || theme).palette.background.paper,
+              boxShadow: '0px 1px 2px rgba(16, 24, 40, 0.04)',
+              ...theme.applyStyles('dark', {
+                boxShadow: 'none',
+              }),
+            },
+          },
+        ],
+      }),
+    },
   },
   MuiCard: {
     styleOverrides: {
       root: ({ theme }) => {
         return {
-          padding: 16,
+          padding: 20,
           gap: 16,
           transition: 'all 100ms ease',
-          backgroundColor: gray[50],
-          borderRadius: (theme.vars || theme).shape.borderRadius,
+          backgroundColor: (theme.vars || theme).palette.background.paper,
+          borderRadius: 12,
           border: `1px solid ${(theme.vars || theme).palette.divider}`,
-          boxShadow: 'none',
+          boxShadow: '0px 1px 2px rgba(16, 24, 40, 0.04)',
           ...theme.applyStyles('dark', {
             backgroundColor: gray[800],
+            boxShadow: 'none',
           }),
           variants: [
             {
@@ -75,10 +95,11 @@ export const surfacesCustomizations: Components<Theme> = {
               },
               style: {
                 border: `1px solid ${(theme.vars || theme).palette.divider}`,
-                boxShadow: 'none',
-                background: 'hsl(0, 0%, 100%)',
+                boxShadow: '0px 1px 2px rgba(16, 24, 40, 0.04)',
+                background: (theme.vars || theme).palette.background.paper,
                 ...theme.applyStyles('dark', {
                   background: alpha(gray[900], 0.4),
+                  boxShadow: 'none',
                 }),
               },
             },

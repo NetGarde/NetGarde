@@ -21,16 +21,40 @@ export default function AgentsList() {
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
         <Box>
-          <Typography component="h1" variant="h5" sx={{ mb: 0.5 }}>
+          <Typography
+            component="h1"
+            sx={{
+              fontWeight: 700,
+              fontSize: { xs: '1.5rem', md: '1.75rem' },
+              letterSpacing: '-0.03em',
+              color: 'text.primary',
+              lineHeight: 1.2,
+              mb: 0.75,
+            }}
+          >
             Agents
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Registered TrustEdge Agent installs. Online means last seen within the last 5 minutes.
           </Typography>
         </Box>
-        <Button size="small" onClick={refresh} disabled={loading}>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={refresh}
+          disabled={loading}
+          sx={{
+            borderColor: 'divider',
+            color: 'text.primary',
+            bgcolor: 'background.paper',
+            textTransform: 'none',
+            fontWeight: 500,
+            borderRadius: '8px',
+            '&:hover': { borderColor: 'grey.400', bgcolor: 'grey.50' },
+          }}
+        >
           Refresh
         </Button>
       </Stack>

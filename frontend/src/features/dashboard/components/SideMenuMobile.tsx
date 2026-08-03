@@ -4,17 +4,15 @@ import Divider from '@mui/material/Divider';
 import Drawer, { drawerClasses } from '@mui/material/Drawer';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
-import MenuButton from './MenuButton';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import MenuContent from './MenuContent';
-import CardAlert from './CardAlert';
 
 interface SideMenuMobileProps {
   open: boolean;
   toggleDrawer: (newOpen: boolean) => () => void;
 }
-
 
 export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobileProps) {
   return (
@@ -27,42 +25,46 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
         [`& .${drawerClasses.paper}`]: {
           backgroundImage: 'none',
           backgroundColor: 'background.paper',
+          width: 280,
         },
       }}
     >
-      <Stack
-        sx={{
-          maxWidth: '70dvw',
-          height: '100%',
-        }}
-      >
-        <Stack direction="row" sx={{ p: 2, pb: 0, gap: 1 }}>
-          <Stack
-            direction="row"
-            sx={{ gap: 1, alignItems: 'center', flexGrow: 1, p: 1 }}
+      <Stack sx={{ height: '100%' }}>
+        <Stack direction="row" sx={{ p: 2, gap: 1.25, alignItems: 'center' }}>
+          <Box
+            sx={{
+              width: 28,
+              height: 28,
+              borderRadius: '8px',
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Avatar
-              sizes="small"
-              alt="Riley Carter"
-              sx={{ width: 24, height: 24 }}
-            />
-            <Typography component="p" variant="h6">
-              Riley Carter
-            </Typography>
-          </Stack>
-          <MenuButton showBadge>
-            <NotificationsRoundedIcon />
-          </MenuButton>
+            <ShieldOutlinedIcon sx={{ color: '#fff', fontSize: 16 }} />
+          </Box>
+          <Typography sx={{ fontWeight: 700, flex: 1 }}>TrustEdge</Typography>
         </Stack>
         <Divider />
-        <Stack sx={{ flexGrow: 1 }}>
+        <Stack sx={{ flexGrow: 1, overflow: 'auto' }}>
           <MenuContent />
-          <Divider />
         </Stack>
-        <CardAlert />
-        <Stack sx={{ p: 2 }}>
-          <Button variant="outlined" fullWidth startIcon={<LogoutRoundedIcon />}>
-            Logout
+        <Divider />
+        <Stack direction="row" spacing={1.25} sx={{ p: 2, alignItems: 'center' }}>
+          <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.8rem' }}>TE</Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Admin
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              admin@trustedge.local
+            </Typography>
+          </Box>
+        </Stack>
+        <Stack sx={{ px: 2, pb: 2 }}>
+          <Button variant="outlined" fullWidth startIcon={<LogoutRoundedIcon />} sx={{ textTransform: 'none' }}>
+            Sign out
           </Button>
         </Stack>
       </Stack>

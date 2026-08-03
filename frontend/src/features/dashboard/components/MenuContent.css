@@ -4,32 +4,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
 }
 
 .menuIcon svg {
-  font-size: 1.25rem;
-  transition: transform 0.2s ease, color 0.2s ease;
-  color: var(--template-palette-text-secondary, rgba(0, 0, 0, 0.6));
-}
-
-.menuIcon.homeIcon svg,
-.menuIcon.settingsIcon svg,
-.menuIcon.aboutIcon svg,
-.menuIcon.feedbackIcon svg {
-  color: var(--template-palette-text-secondary, rgba(0, 0, 0, 0.6));
+  font-size: 1.15rem;
+  transition: color 0.15s ease;
+  color: var(--template-palette-text-secondary, #6B7280);
 }
 
 .MuiListItemButton-selected .menuIcon svg {
-  color: var(--template-palette-text-primary, rgba(0, 0, 0, 0.87)) !important;
-  transform: scale(1.1);
+  color: var(--template-palette-text-primary, #111827) !important;
 }
 
 .azure-sidebar-item {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition: background-color 0.15s ease !important;
 }
 
 .MuiListItemButton-root:hover .menuIcon svg {
-  transform: scale(1.05);
-  color: var(--template-palette-text-primary, rgba(0, 0, 0, 0.87));
+  color: var(--template-palette-text-primary, #111827);
 }
