@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import Header, HTTPException
 
 from app.shared.config import settings
 from app.shared.device_auth import hmac_compare
 
 
-def _extract_bearer(authorization: str | None) -> str:
+def _extract_bearer(authorization: Optional[str]) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing Bearer token")
     token = authorization[7:].strip()
@@ -17,7 +19,7 @@ def _extract_bearer(authorization: str | None) -> str:
     return token
 
 
-def verify_admin_api_token(authorization: str | None = Header(default=None)) -> None:
+def verify_admin_api_token(authorization: Optional[str] = Header(default=None)) -> None:
     """
     Require ADMIN_API_TOKEN when configured.
     If ADMIN_API_TOKEN is empty, admin auth is disabled (dev convenience).

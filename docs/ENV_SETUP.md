@@ -25,13 +25,8 @@ LOG_LEVEL=INFO
 ENVIRONMENT=production
 
 ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
-DNS_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
-DEVICE_TOKEN_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
-WG_AGENT_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
-
-VPN_ENDPOINT=your-ec2-ip:51820
-VPN_SERVER_PUBLIC_KEY=REPLACE_WITH_wg0_PUBLIC_KEY
-WG_AGENT_URL=http://172.17.0.1:9109
+TRUSTEDGE_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
+REDIS_URL=redis://redis:6379/0
 ```
 
 Full catalog: [backend/.env.production.example](../backend/.env.production.example).
@@ -57,7 +52,7 @@ GENERATE_SOURCEMAP=false
 
 1. **Never commit `.env` files** — they are in `.gitignore`
 2. **Set all security tokens** in production — empty `ADMIN_API_TOKEN` disables admin auth
-3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), flow/alert ingest services, and host agent
+3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), and flow/alert ingest services
 4. **Use strong random secrets** — store in `/etc/trustedge/backend.env` with `chmod 640`
 
 ## Environment variable reference
@@ -75,74 +70,33 @@ GENERATE_SOURCEMAP=false
 
 | Variable | Used by | Notes |
 |----------|---------|-------|
-| `ADMIN_API_TOKEN` | Dashboard, device admin APIs | **Required** in production |
-| `DNS_INGEST_TOKEN` | Flow ingest, twin alert ingest | Shared service token (name is historical) |
-| `WG_AGENT_TOKEN` | Backend → `trustedge-wg-agent` | Must match host agent token |
-| `DEVICE_TOKEN_SECRET` | VPN client device tokens | Signs tokens issued at enroll |
-| `ENROLL_BOOTSTRAP_TOKEN` | `POST /v1/enroll` (optional) | TrustEdgeClient `--api-token` |
+| `ADMIN_API_TOKEN` | Dashboard admin APIs | **Required** in production |
+| `TRUSTEDGE_INGEST_TOKEN` | Agent-API upsert, detection-engine, flow ingest | Shared service-to-service bearer |
 
 Frontend: set `REACT_APP_ADMIN_API_TOKEN` to the same value as `ADMIN_API_TOKEN`.
 
-Host agent: set `TRUSTEDGE_WG_AGENT_TOKEN` in the systemd unit — see [host-agent/README.md](../host-agent/README.md).
-
-### VPN & host agent (backend)
-
-| Variable | Description |
-|----------|-------------|
-| `VPN_ENDPOINT` | Public `host:51820` returned in enroll config |
-| `VPN_SERVER_PUBLIC_KEY` | WireGuard server public key |
-| `WG_AGENT_URL` | Host agent URL from Docker (`http://172.17.0.1:9109`) |
-
-### Real-time usage (backend)
+### Redis (backend)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `REDIS_URL` | Redis for live throughput | `redis://redis:6379/0` |
-| `USAGE_REDIS_ENABLED` | Enable Redis usage window | `true` |
-| `USAGE_HISTORY_MINUTES` | Chart history window | `60` |
-| `BANDWIDTH_ALERT_MIB_PER_SEC` | Throughput alert threshold | `50` |
+| `REDIS_URL` | Redis for TrustEdge Agent live state / twin keys | `redis://redis:6379/0` |
 
-### Behavior (backend)
-
-Key tuning variables — full list in [backend/.env.example](../backend/.env.example):
+### Network review (backend)
 
 | Variable | Description |
 |----------|-------------|
-| `BEHAVIOR_ALERT_THRESHOLD` | Score above which alerts fire |
-| `BEHAVIOR_AUTO_BLOCK_THRESHOLD` | Score above which auto-actions trigger |
 | `NETWORK_REVIEW_MODE` | Dashboard AI review: `template` \| `openai` \| `ollama` |
-
-### Network attribution (backend + client)
-
-Endpoint / VPN foreground app time for network map device→app edges.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NETWORK_ATTRIBUTION_ENABLED` | Enable ingest and map attribution | `true` |
-| `NETWORK_ATTRIBUTION_MAX_AGE_SEC` | Max age of app context | `120` |
-| `NETWORK_ATTRIBUTION_RETENTION_DAYS` | Rollup retention (cleanup TBD) | `30` |
-| `CLIENT_ATTRIBUTION_PATH` | Client POST path | `/v1/network-attribution` |
-| `CLIENT_ATTRIBUTION_POLL_SEC` | Foreground app poll interval | `30` |
-| `CLIENT_ATTRIBUTION_REPORT_SEC` | Batch report interval | `60` |
 
 ### Network flows (backend)
 
-Optional L4 session visibility from conntrack on the WireGuard host.
+Optional L4 session visibility from host conntrack.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NETWORK_FLOWS_ENABLED` | Enable flow ingest and map merge | `true` |
+| `NETWORK_FLOWS_ENABLED` | Enable flow ingest | `true` |
 | `NETWORK_FLOWS_MAX_AGE_SEC` | Drop flow samples older than this | `300` |
 | `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP cache TTL | `600` |
 | `NETWORK_FLOWS_MAP_LIMIT` | Max flow nodes merged into map | `80` |
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `VPN_POOL_CIDR` | WireGuard client subnet to filter conntrack | `10.0.0.0/24` |
-| `FLOW_POLL_INTERVAL` | Seconds between conntrack samples | `5` |
-| `FLOW_BATCH_SIZE` | Max flows per POST | `100` |
-| `DNS_INGEST_TOKEN` | Same as backend service token | — |
-| `API_BASE_URL` | Backend URL | `http://localhost:8000` |
 
 Requires `conntrack` on the host (`apt install conntrack`) when flow watching is enabled.
 
@@ -176,7 +130,6 @@ Requires `conntrack` on the host (`apt install conntrack`) when flow watching is
 - Set `ADMIN_API_TOKEN` in backend and `REACT_APP_ADMIN_API_TOKEN` in frontend to the same value
 - Redeploy frontend after changing build-time env
 
-### Quarantine not applying on EC2
+### Quarantine
 
-- Verify `WG_AGENT_TOKEN` matches `trustedge-wg-agent` — see [host-agent/README.md](../host-agent/README.md)
-- Check `curl http://172.17.0.1:9109/health` from the host
+Quarantine is a soft dashboard/API flag after VPN removal. Agent-side network isolation is not yet enforced.

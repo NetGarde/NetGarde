@@ -128,7 +128,7 @@
     <rect x="18" y="180" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
     <text class="b" x="90" y="203" text-anchor="middle">Attack alerts</text>
     <rect x="18" y="228" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
-    <text class="b" x="90" y="251" text-anchor="middle">Network map</text>
+    <text class="b" x="90" y="251" text-anchor="middle">Agents</text>
     <rect x="18" y="276" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
     <text class="b" x="90" y="299" text-anchor="middle">Behavior</text>
     <text class="s" x="90" y="340" text-anchor="middle">S3 / CloudFront</text>

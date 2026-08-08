@@ -10,7 +10,7 @@ Component topology and data flows for the TrustEdge **security observability pla
   <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="assets/architecture.png" />
 </p>
 
-**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine → `/twin/alerts/ingest` → FastAPI → React dashboard.
+**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine (in-memory alerts + `GET /alerts`) → FastAPI `GET /security/alerts` (proxy) → React dashboard.
 
 ---
 
@@ -18,10 +18,10 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 | Layer | Components | Role |
 |-------|------------|------|
-| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
-| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, twin/alerts, endpoint ingest, rules engine |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, activity, network posture, and AI tools inventory telemetry |
+| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, alerts, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
-| **Redis** | TrustEdge Agent live state (EC2) | Endpoint agent mirror for observability graph |
+| **Redis** | Optional live agent keys (EC2) | Connected-agent APIs / overview helpers |
 | **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
 
 ---
@@ -31,17 +31,15 @@ Component topology and data flows for the TrustEdge **security observability pla
 ### Endpoint telemetry path
 
 ```
-TrustEdge Agent → POST /v1/events → trustedge-agent-api → Redis + Kafka (trustedge.agent.events)
-                 → detection-engine → POST /twin/alerts/ingest → Backend
-                 → observability graph + dashboard alerts
+TrustEdge Agent → POST /v1/events → trustedge-agent-api → Kafka (trustedge.agent.events)
+                 → detection-engine → POST /security/alerts/ingest → Backend
+                 → Agent-API upsert → Postgres agents registry → dashboard Agents
 ```
 
-### Network map path
+### L4 flow ingest (optional)
 
 ```
-Foreground app reports (POST /v1/network-attribution)
-  + optional L4 flow samples (POST /network-flows/bulk)
-  → Backend → GET /network-attribution/map → Dashboard
+Host conntrack watcher → POST /network-flows/bulk → Backend Redis window → GET /network-flows/live
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 Previous NetGarde / DNS / VPN UI captures were removed — they no longer match the endpoint-detection product.
 
-Add new PNG/WebP captures here when ready (attack alerts home, network map, behavior profile), then link them from the root [README](../README.md).
+Add new PNG/WebP captures here when ready (attack alerts home, agents list), then link them from the root [README](../README.md).
 
 ## Capture tips
 

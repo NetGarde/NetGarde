@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Optional, Union
+
 import ipaddress
 
 from starlette.requests import Request
 
 
-def _parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+def _parse_ip(value: str) -> Optional[Union[ipaddress.IPv4Address, ipaddress.IPv6Address]]:
     value = value.strip()
     if not value:
         return None
@@ -30,7 +32,7 @@ def is_public_ip(ip: str) -> bool:
     )
 
 
-def _first_public_from_csv(header_value: str) -> str | None:
+def _first_public_from_csv(header_value: str) -> Optional[str]:
     for part in header_value.split(","):
         candidate = part.strip()
         if is_public_ip(candidate):
@@ -38,7 +40,7 @@ def _first_public_from_csv(header_value: str) -> str | None:
     return None
 
 
-def client_ip_from_request(request: Request) -> str | None:
+def client_ip_from_request(request: Request) -> Optional[str]:
     """
     Best-effort public client IP.
 

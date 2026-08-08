@@ -2,13 +2,28 @@
 # Usage: ./scripts/dev-up.sh
 #        docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
 #
-# Local/dev compose. WireGuard host agents run on the EC2 host outside Docker.
+# Local/dev compose for API, Postgres, Redis, and agent ingest.
 # Frontend runs on the host: cd frontend && npm start
-# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent repo (see TrustEdgeOrg/TrustEdge-Agent).
+# TrustEdge Agent ingest API: build from sibling ../TrustEdge-Agent-API (see TrustEdgeOrg/TrustEdge-Agent-API).
 
 name: trustedge-dev
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: trustedge-dev-ollama
+    ports:
+      - "${DEV_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - trustedge-dev-ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   postgres:
     image: postgres:16-alpine
     container_name: trustedge-dev-postgres
@@ -60,10 +75,11 @@ services:
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_SERVICE: backend
       ENVIRONMENT: development
-      USAGE_REDIS_ENABLED: "true"
-      POLICY_PACK_SNAPSHOT_DIR: /var/lib/trustedge/policy-snapshots
-      POLICY_PACK_FETCH_ENABLED: "${POLICY_PACK_FETCH_ENABLED:-false}"
-      POLICY_PACK_REFRESH_ON_STARTUP: "${POLICY_PACK_REFRESH_ON_STARTUP:-false}"
+      DETECTION_ENGINE_URL: ${DETECTION_ENGINE_URL:-http://detection-engine:9090}
+      OLLAMA_BASE_URL: http://ollama:11434
+      BEHAVIOR_SUPPRESS_COUNT: ${BEHAVIOR_SUPPRESS_COUNT:-20}
+      BEHAVIOR_SUPPRESS_AGE_HOURS: ${BEHAVIOR_SUPPRESS_AGE_HOURS:-0}
+      BEHAVIOR_PROFILE_MIN_KEYS: ${BEHAVIOR_PROFILE_MIN_KEYS:-5}
     depends_on:
       postgres:
         condition: service_healthy
@@ -71,7 +87,6 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - trustedge-dev-policy-snapshots:/var/lib/trustedge/policy-snapshots
     command: >
       bash -c "
       alembic upgrade head &&
@@ -118,8 +133,11 @@ services:
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
       KAFKA_GROUP_ID: detection-engine
+      ALERT_API_PORT: "9090"
+      TRUSTEDGE_POST_ALERTS_TO_BACKEND: "0"
       API_BASE_URL: http://backend:8000
-      DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
+      TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
+      TRUSTEDGE_BEHAVIOR_BASELINE: "1"
       LOG_JSON: "1"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
       LOG_SERVICE: detection-engine
@@ -133,7 +151,7 @@ services:
   trustedge-agent-api:
     image: ${TRUSTEDGE_AGENT_API_IMAGE:-trustedge-agent-api:local}
     build:
-      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent}
+      context: ${TRUSTEDGE_AGENT_BUILD_CONTEXT:-../TrustEdge-Agent-API}
       dockerfile: Dockerfile
     container_name: trustedge-dev-agent-api
     # Fresh named volumes are root-owned; run as root in local dev only.
@@ -145,6 +163,8 @@ services:
       TRUSTEDGE_AGENT_DATA_DIR: /data
       TRUSTEDGE_AGENT_ENROLL_TOKEN: ${TRUSTEDGE_AGENT_ENROLL_TOKEN:-}
       TRUSTEDGE_AGENT_PRODUCTION: "0"
+      TRUSTEDGE_BACKEND_URL: ${TRUSTEDGE_BACKEND_URL:-http://backend:8000}
+      TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
       REDIS_URL: redis://redis:6379/0
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
@@ -154,6 +174,8 @@ services:
       redis:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/healthz"]
@@ -165,6 +187,6 @@ services:
 
 volumes:
   trustedge-dev-pg:
-  trustedge-dev-policy-snapshots:
   trustedge-dev-agent-data:
   trustedge-dev-redpanda-data:
+  trustedge-dev-ollama-data:

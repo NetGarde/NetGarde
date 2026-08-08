@@ -1,0 +1,26 @@
+version: 1
+
+rules:
+  - id: driver_load
+    kind: emit
+    trigger: driver_load
+    severity: high
+    message: "Driver or kernel extension loaded"
+    label_fields: [display_name, name, path]
+    detail: payload
+
+  - id: service_install
+    kind: emit
+    trigger: service_install
+    severity: medium
+    message: "Service or LaunchDaemon installed/changed"
+    label_fields: [display_name, name, path, program]
+    detail: payload
+
+  - id: registry_persistence
+    kind: emit
+    trigger: registry_persistence
+    severity: high
+    message: "Persistence artifact installed/changed"
+    label_fields: [value_name, path, value]
+    detail: payload

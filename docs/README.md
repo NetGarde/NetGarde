@@ -10,7 +10,6 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 |---|----------|----------|----------|
 | <img src="assets/icons/flow.svg" width="18" height="18" align="absmiddle" alt="" /> | [DESIGN.md](DESIGN.md) | Engineers | Domain model, topology, frontend/backend patterns |
 | <img src="assets/icons/architecture.svg" width="18" height="18" align="absmiddle" alt="" /> | [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Engineers | Architecture diagram, data flows, trust boundaries |
-| <img src="assets/icons/collection.svg" width="18" height="18" align="absmiddle" alt="" /> | [GRAPH_ENGINE.md](GRAPH_ENGINE.md) | Engineers | Observability graph model and projections |
 | <img src="assets/icons/platforms.svg" width="18" height="18" align="absmiddle" alt="" /> | [DEPLOY.md](DEPLOY.md) | Operators | AWS layout, CI/CD, EC2 host services |
 | <img src="assets/icons/config.svg" width="18" height="18" align="absmiddle" alt="" /> | [ENV_SETUP.md](ENV_SETUP.md) | Operators | Environment variables and troubleshooting |
 | <img src="assets/icons/api.svg" width="18" height="18" align="absmiddle" alt="" /> | [API.md](API.md) | Integrators | REST and WebSocket reference |
@@ -23,9 +22,8 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Path | Role |
 |------|------|
 | `frontend/` | React 19 dashboard (feature modules) |
-| `backend/` | FastAPI API, WebSocket, devices, twin, VPN |
+| `backend/` | FastAPI API, devices, security graph, detection |
 | `detection-engine/` | Rules engine on agent event stream |
-| `host-agent/` | EC2 host service — WireGuard peers, quarantine |
 | `scripts/` | EC2 setup helpers |
 | `.github/workflows/` | CI test, ECR build, S3/EC2 deploy |
 
@@ -43,8 +41,7 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 
 1. [DEPLOY.md](DEPLOY.md)  
 2. [ENV_SETUP.md](ENV_SETUP.md)  
-3. [../host-agent/README.md](../host-agent/README.md)  
-4. [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)  
+3. [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)  
 
 ---
 
@@ -58,5 +55,4 @@ Engineering docs for the [TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge) 
 | Screenshot assets | [images/README.md](images/README.md) |
 | Endpoint agent | [TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) |
 | Agent API | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) |
-| VPN enroll client | [TrustEdgeClient](https://github.com/TrustEdgeOrg/TrustEdgeClient) |
 | Organization | [TrustEdgeOrg](https://github.com/TrustEdgeOrg) |

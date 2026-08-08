@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""TrustEdge Agent event consumer — evaluates rules and posts twin alerts to the API."""
+"""TrustEdge Agent event consumer — pipeline evaluate + scored alerts over HTTP."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 import time
 from typing import Any
 
@@ -15,16 +16,33 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 
 from api_client import post_alerts
+from baseline_view import bind as bind_baseline
+from ai_activity.view import bind as bind_ai_activity
+from http_api import serve_forever
 from log_config import setup_logging, structured_extra
-from rules.engine import evaluate_event
-from rules.state import StateStore
+from pipeline.orchestrator import Pipeline
+from recent_alerts import append as remember_alert
+from rules.alerts import SecurityAlert
+from rules.constants import SEVERITY_HIGH
+from rules.metrics import METRICS
 
 SERVICE = os.getenv("LOG_SERVICE", "detection-engine")
 LOG = setup_logging(service=SERVICE, logger_name=__name__)
 logging.getLogger("kafka").setLevel(logging.WARNING)
 
 _shutdown = False
-_state = StateStore()
+_pipeline = Pipeline()
+bind_baseline(_pipeline.baseline, _pipeline.behavioral)
+bind_ai_activity(_pipeline.ai_activity.sessions)
+# Fingerprints already posted this process lifetime, to avoid re-emitting the
+# same alert while its source event stays inside the evaluation window.
+_seen_fingerprints: dict[str, float] = {}
+_SEEN_TTL_SECONDS = 30 * 60
+_SEEN_MAX = 10000
+
+# Log eval runtime stats periodically (gate hits / avg latency).
+_METRICS_LOG_EVERY = 200
+_events_since_metrics_log = 0
 
 
 def _handle_signal(signum: int, _frame: Any) -> None:
@@ -43,12 +61,20 @@ def _brokers() -> list[str]:
 
 
 def _create_consumer() -> KafkaConsumer:
+    # Agent-API publishes with key=device_id so partitions keep a device on one
+    # consumer (single-writer for that device's in-memory chain).
     topic = _env("KAFKA_TOPIC", "trustedge.agent.events")
     group_id = _env("KAFKA_GROUP_ID", "detection-engine")
     brokers = _brokers()
     LOG.info(
         "connecting to kafka",
-        extra=structured_extra("kafka_connect", brokers=brokers, topic=topic, group_id=group_id),
+        extra=structured_extra(
+            "kafka_connect",
+            brokers=brokers,
+            topic=topic,
+            group_id=group_id,
+            partition_key="device_id",
+        ),
     )
     return KafkaConsumer(
         topic,
@@ -59,6 +85,50 @@ def _create_consumer() -> KafkaConsumer:
         consumer_timeout_ms=1000,
         value_deserializer=lambda v: v.decode("utf-8"),
     )
+
+
+def _prune_seen(now: float) -> None:
+    if len(_seen_fingerprints) < _SEEN_MAX:
+        expired = [fp for fp, ts in _seen_fingerprints.items() if now - ts > _SEEN_TTL_SECONDS]
+    else:
+        expired = list(_seen_fingerprints.keys())
+    for fp in expired:
+        _seen_fingerprints.pop(fp, None)
+
+
+def _mark_seen(fingerprint: str, now: float) -> bool:
+    """Return True if this fingerprint is new (and record it); False if already seen."""
+    if fingerprint in _seen_fingerprints:
+        return False
+    _seen_fingerprints[fingerprint] = now
+    return True
+
+
+def _post_alerts_to_backend() -> bool:
+    return _env("TRUSTEDGE_POST_ALERTS_TO_BACKEND", "0").lower() in ("1", "true", "yes")
+
+
+def _emit_alert(alert: SecurityAlert) -> None:
+    now = time.time()
+    _prune_seen(now)
+    if not _mark_seen(alert.fingerprint(), now):
+        return
+
+    api = alert.to_api()
+    remember_alert(api)
+    LOG.warning(
+        "security alert raised",
+        extra=structured_extra(
+            "alert_raised",
+            alert_type=alert.alert_type,
+            device_id=alert.device_id,
+            severity=alert.severity,
+            score=alert.score,
+        ),
+    )
+    # Optional Postgres ingest still stores high-severity only when enabled.
+    if _post_alerts_to_backend() and (alert.severity or "").strip().lower() == SEVERITY_HIGH:
+        post_alerts([api])
 
 
 def _process_event(raw: str) -> None:
@@ -79,26 +149,41 @@ def _process_event(raw: str) -> None:
         ),
     )
 
-    alerts = evaluate_event(payload, _state)
-    if not alerts:
-        return
-    api_alerts = [alert.to_api() for alert in alerts]
-    for alert in alerts:
-        LOG.warning(
-            "twin alert raised",
+    finding = _pipeline.process_event(payload)
+
+    global _events_since_metrics_log
+    _events_since_metrics_log += 1
+    if _events_since_metrics_log >= _METRICS_LOG_EVERY:
+        _events_since_metrics_log = 0
+        snap = METRICS.snapshot()
+        LOG.info(
+            "detection eval metrics",
             extra=structured_extra(
-                "twin_alert_raised",
-                alert_type=alert.alert_type,
-                device_id=alert.device_id,
-                severity=alert.severity,
+                "eval_metrics",
+                events=snap.events,
+                rules_selected=snap.rules_selected,
+                rules_gated=snap.rules_gated,
+                rules_run=snap.rules_run,
+                alerts=snap.alerts,
+                avg_eval_ms=round(snap.avg_eval_ms, 4),
+                hits_rule=snap.hits_rule,
+                hits_behavioral=snap.hits_behavioral,
+                hits_threat_intel=snap.hits_threat_intel,
+                scored_events=snap.scored_events,
             ),
         )
-    post_alerts(api_alerts)
+
+    if finding is None:
+        return
+    _emit_alert(finding)
 
 
 def run() -> int:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    api_thread = threading.Thread(target=serve_forever, name="alert-api", daemon=True)
+    api_thread.start()
 
     retries = 0
     consumer: KafkaConsumer | None = None

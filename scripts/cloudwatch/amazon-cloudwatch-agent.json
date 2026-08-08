@@ -15,12 +15,6 @@
             "log_group_name": "/trustedge/prod/log-watcher",
             "log_stream_name": "{instance_id}",
             "retention_in_days": 14
-          },
-          {
-            "unit": "trustedge-wg-agent.service",
-            "log_group_name": "/trustedge/prod/wg-agent",
-            "log_stream_name": "{instance_id}",
-            "retention_in_days": 14
           }
         ]
       },

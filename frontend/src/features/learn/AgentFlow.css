@@ -1,0 +1,123 @@
+.agent-flow-hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+  opacity: 0.55;
+  animation: agent-flow-float 9s ease-in-out infinite;
+}
+
+.agent-flow-hero-orb--a {
+  width: 180px;
+  height: 180px;
+  right: -40px;
+  top: -50px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.35), transparent 70%);
+}
+
+.agent-flow-hero-orb--b {
+  width: 140px;
+  height: 140px;
+  right: 120px;
+  bottom: -60px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.28), transparent 70%);
+  animation-delay: -3s;
+}
+
+@keyframes agent-flow-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(10px);
+  }
+}
+
+.agent-flow-rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  overflow-x: auto;
+  padding: 8px 4px 16px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.agent-flow-rail-item {
+  display: flex;
+  align-items: flex-start;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.agent-flow-connector {
+  width: 28px;
+  height: 2px;
+  margin-top: 22px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.agent-flow-step {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 96px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: transform 160ms ease;
+}
+
+.agent-flow-step:hover {
+  transform: translateY(-2px);
+}
+
+.agent-flow-step:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.agent-flow-step-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.agent-flow-step.is-active .agent-flow-step-icon {
+  transform: scale(1.06);
+}
+
+.agent-flow-detail {
+  animation: agent-flow-in 220ms ease;
+}
+
+@keyframes agent-flow-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-flow-hero-orb,
+  .agent-flow-detail,
+  .agent-flow-step,
+  .agent-flow-step-icon {
+    animation: none !important;
+    transition: none !important;
+  }
+}

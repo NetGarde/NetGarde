@@ -4,12 +4,11 @@ from typing import Any, Literal, Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.features.alerts.models.alert import Alert
-from app.features.client_behavior.models.client_behavior_profile import ClientBehaviorProfile
 from app.features.dashboard.schemas.network_overview import NetworkOverviewRead, NetworkOverviewStats
 from app.features.dashboard.services import network_overview_cache
 from app.features.dashboard.services.overview_templates import build_network_overview_bullets
-from app.features.vpn.services.usage_service import UsageService
+from app.features.twin.models.security_alert import SecurityAlert
+from app.features.twin.services import trusttwin_store
 from app.shared.config import settings
 from app.shared.logging_context import structured_extra
 from app.shared.utils.logging import get_logger
@@ -22,7 +21,6 @@ OverviewSource = Literal["template", "llm"]
 class NetworkOverviewService:
     def __init__(self, db: Session):
         self.db = db
-        self.usage_service = UsageService(db)
 
     def build_overview(self, *, period_minutes: int = 60, refresh: bool = False) -> NetworkOverviewRead:
         period = max(5, min(period_minutes, 24 * 60))
@@ -38,12 +36,9 @@ class NetworkOverviewService:
 
         stats = NetworkOverviewStats(
             reporting_clients=int(snapshot["live"]["reporting"]),
-            live_total_mib_per_sec=float(snapshot["live"]["total_mib_per_sec"]),
-            peak_mib_per_sec=float(snapshot["history"]["peak_mib_per_sec"]),
+            live_total_mib_per_sec=0.0,
+            peak_mib_per_sec=0.0,
             alerts_total=int(snapshot["alerts"]["total"]),
-            blocked_queries=0,
-            enabled_policy_packs=0,
-            elevated_behavior_clients=int(snapshot["behavior"]["elevated_count"]),
         )
 
         overview = NetworkOverviewRead(
@@ -63,43 +58,26 @@ class NetworkOverviewService:
         return overview
 
     def _build_snapshot(self, *, period: int, now: datetime) -> dict[str, Any]:
-        since = now - timedelta(minutes=period)
-
-        live = self.usage_service.list_live_bandwidth()
-        reporting = len(live.items)
-        live_total = round(sum(item.total_mib_per_sec for item in live.items), 3)
-
-        history = self.usage_service.list_usage_history(minutes=period)
-        peak = 0.0
-        for point in history.points:
-            peak = max(peak, point.total_mib_per_sec)
-        peak = round(peak, 3)
+        cutoff = now - timedelta(minutes=period)
+        reporting = 0
+        for row in trusttwin_store.list_latest():
+            if row.last_seen_at and row.last_seen_at >= cutoff:
+                reporting += 1
 
         alert_rows = (
-            self.db.query(Alert.alert_type, func.count(Alert.id))
-            .filter(Alert.timestamp >= since)
-            .group_by(Alert.alert_type)
+            self.db.query(SecurityAlert.alert_type, func.count(SecurityAlert.id))
+            .filter(SecurityAlert.timestamp >= cutoff)
+            .group_by(SecurityAlert.alert_type)
             .all()
         )
         alerts_by_type = {alert_type: int(count) for alert_type, count in alert_rows}
         alerts_total = sum(alerts_by_type.values())
 
-        threshold = settings.BEHAVIOR_ALERT_THRESHOLD
-        elevated_count = (
-            self.db.query(ClientBehaviorProfile)
-            .filter(ClientBehaviorProfile.last_score.isnot(None))
-            .filter(ClientBehaviorProfile.last_score >= threshold)
-            .count()
-        )
-
         return {
             "period_minutes": period,
-            "live": {"reporting": reporting, "total_mib_per_sec": live_total},
-            "history": {"peak_mib_per_sec": peak},
+            "live": {"reporting": reporting, "total_mib_per_sec": 0.0},
+            "history": {"peak_mib_per_sec": 0.0},
             "alerts": {"total": alerts_total, "by_type": alerts_by_type},
-            "blocked": {"count": 0, "top_domains": []},
-            "policy": {"enabled_pack_names": []},
-            "behavior": {"elevated_count": elevated_count, "threshold": threshold},
         }
 
     def _resolve_review(

@@ -3,9 +3,6 @@ export interface NetworkOverviewStats {
   live_total_mib_per_sec: number;
   peak_mib_per_sec: number;
   alerts_total: number;
-  blocked_queries: number;
-  enabled_policy_packs: number;
-  elevated_behavior_clients: number;
 }
 
 export type NetworkOverviewSource = 'template' | 'llm';

@@ -44,18 +44,8 @@ services:
       LOG_JSON: "1"
       LOG_LEVEL: "INFO"
       LOG_SERVICE: "backend"
-      # VPN enroll settings (required for POST /v1/enroll)
-      VPN_ENDPOINT: ${VPN_ENDPOINT:-44.218.45.174:51820}
-      VPN_SERVER_PUBLIC_KEY: ${VPN_SERVER_PUBLIC_KEY:-ooeDpLVJvX8OaNz13CPNAuZXFMMzMx3nV7Kvg0LPy1c=}
-      # Host WireGuard agent (must match systemd service on EC2)
-      WG_AGENT_URL: ${WG_AGENT_URL:-http://172.17.0.1:9109}
-      # Required: set WG_AGENT_TOKEN in repo-root `.env` (see `.env.production.example`) or export it in your shell.
-      WG_AGENT_TOKEN: ${WG_AGENT_TOKEN:?WG_AGENT_TOKEN is required (set in .env or environment)}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      USAGE_REDIS_ENABLED: ${USAGE_REDIS_ENABLED:-true}
-      USAGE_HISTORY_MINUTES: ${USAGE_HISTORY_MINUTES:-60}
-      USAGE_PERSIST_SAMPLES: ${USAGE_PERSIST_SAMPLES:-false}
-      POLICY_PACK_SNAPSHOT_DIR: /var/lib/trustedge/policy-snapshots
+      DETECTION_ENGINE_URL: ${DETECTION_ENGINE_URL:-http://detection-engine:9090}
       # AI review settings: use /etc/trustedge/backend.env only (compose env would override env_file)
     depends_on:
       redis:
@@ -69,7 +59,6 @@ services:
       start_period: 40s
     volumes:
       - ./backend:/app
-      - policy-pack-snapshots:/var/lib/trustedge/policy-snapshots
     command: >
       bash -c "
       alembic upgrade head &&
@@ -107,8 +96,10 @@ services:
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
       KAFKA_GROUP_ID: detection-engine
+      ALERT_API_PORT: "9090"
+      TRUSTEDGE_POST_ALERTS_TO_BACKEND: "0"
       API_BASE_URL: http://backend:8000
-      DNS_INGEST_TOKEN: ${DNS_INGEST_TOKEN:-}
+      TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
       LOG_JSON: "1"
       LOG_LEVEL: INFO
       LOG_SERVICE: detection-engine
@@ -130,6 +121,9 @@ services:
       TRUSTEDGE_AGENT_DATA_DIR: /data
       TRUSTEDGE_AGENT_ENROLL_TOKEN: ${TRUSTEDGE_AGENT_ENROLL_TOKEN:-}
       TRUSTEDGE_AGENT_PRODUCTION: ${TRUSTEDGE_AGENT_PRODUCTION:-1}
+      # Upsert agents into TrustEdge Postgres (fail-open if backend unreachable)
+      TRUSTEDGE_BACKEND_URL: ${TRUSTEDGE_BACKEND_URL:-http://backend:8000}
+      TRUSTEDGE_INGEST_TOKEN: ${TRUSTEDGE_INGEST_TOKEN:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       KAFKA_BROKERS: redpanda:9092
       KAFKA_TOPIC: trustedge.agent.events
@@ -139,6 +133,8 @@ services:
       redis:
         condition: service_healthy
       redpanda:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     restart: always
     healthcheck:
@@ -150,7 +146,6 @@ services:
 
 volumes:
   ollama-data:
-  policy-pack-snapshots:
   trustedge-agent-data:
   redpanda-data:
 

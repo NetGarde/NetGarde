@@ -98,21 +98,6 @@ export default function NetworkOverviewCard() {
             color={stats.alerts_total > 0 ? 'warning' : 'default'}
             variant="outlined"
           />
-          <Chip
-            size="small"
-            label={`${stats.blocked_queries} blocked`}
-            color={stats.blocked_queries > 0 ? 'error' : 'default'}
-            variant="outlined"
-          />
-          <Chip size="small" label={`${stats.enabled_policy_packs} packs`} variant="outlined" />
-          {stats.elevated_behavior_clients > 0 && (
-            <Chip
-              size="small"
-              label={`${stats.elevated_behavior_clients} behavior`}
-              color="warning"
-              variant="outlined"
-            />
-          )}
         </Stack>
       )}
 
