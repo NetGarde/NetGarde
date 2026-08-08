@@ -1,135 +1,153 @@
-# <img src="assets/icons/config.svg" width="28" height="28" align="absmiddle" alt="" /> Environment variables
+# Environment variables
 
-How to configure TrustEdge for production.
+Operator configuration for TrustEdge.
 
-**Canonical references:** [backend/.env.production.example](../backend/.env.production.example), [backend/.env.example](../backend/.env.example), and [frontend/.env.example](../frontend/.env.example).
+**Canonical catalogs:** [backend/.env.production.example](../backend/.env.production.example) · [backend/.env.example](../backend/.env.example) · [frontend/.env.example](../frontend/.env.example)
+
+---
 
 ## Overview
 
-| Environment | Backend file | Frontend file |
-|-------------|--------------|---------------|
-| Production (EC2 host) | `/etc/trustedge/backend.env` | Built into S3 deploy via CI |
-| Production (Docker) | `backend/.env.production` | `frontend/.env.production` |
+| Environment | Backend file | Frontend |
+|-------------|--------------|----------|
+| Production (EC2) | `/etc/trustedge/backend.env` | Built in CI (`REACT_APP_*` secrets / workflow env) |
+| Local / Docker | `backend/.env` or compose env | `frontend/.env` / `.env.development` |
 
-`.env` files are gitignored. Copy from `.env.example` / `.env.production.example` templates.
+`.env` files are gitignored. Copy from the example templates. On EC2, prefer `/etc/trustedge/backend.env` — deploy merges `DB_URL` via `scripts/ec2-sync-backend-env.sh`.
+
+---
 
 ## Backend (production)
-
-On EC2 the live file is `/etc/trustedge/backend.env` (see [DEPLOY.md](DEPLOY.md)). Minimum required groups:
 
 ```env
 DB_URL=postgresql+psycopg2://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
 
+LOG_TO_FILE=0
 LOG_JSON=1
 LOG_LEVEL=INFO
-ENVIRONMENT=production
+LOG_SERVICE=backend
+PYTHONUNBUFFERED=1
 
 ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 TRUSTEDGE_INGEST_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 REDIS_URL=redis://redis:6379/0
+
+# Compose sets this by default; override only if needed
+# DETECTION_ENGINE_URL=http://detection-engine:9090
+
+NETWORK_REVIEW_MODE=template
+NETWORK_REVIEW_CACHE_TTL_SEC=90
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_MODEL=llama3.2:3b
+LLM_TIMEOUT_SEC=180
 ```
 
-Full catalog: [backend/.env.production.example](../backend/.env.production.example).
+Full list: [backend/.env.production.example](../backend/.env.production.example).
+
+---
 
 ## Frontend (production)
 
-Set at build time in CI or `frontend/.env.production`:
+Set at **build time** in CI (or `frontend/.env.production`):
 
 ```env
-REACT_APP_API_BASE_URL=http://your-ec2-ip:8000
+# Must be the FastAPI origin. When the UI is on CloudFront HTTPS, use the HTTPS API CloudFront URL
+# (browsers block mixed content to plain http://EC2:8000).
+REACT_APP_API_BASE_URL=https://your-api-cloudfront.example
 REACT_APP_ADMIN_API_TOKEN=REPLACE_WITH_LONG_RANDOM_SECRET
 REACT_APP_ENVIRONMENT=production
 GENERATE_SOURCEMAP=false
 ```
 
-`REACT_APP_API_BASE_URL` must be the **FastAPI origin** (EC2 `:8000`), not the CloudFront dashboard URL.
+Do **not** point `REACT_APP_API_BASE_URL` at the dashboard CloudFront URL — only the API origin.
 
-## Docker Compose
-
-`docker-compose.yml` loads `/etc/trustedge/backend.env` on EC2. See [DEPLOY.md](DEPLOY.md).
+---
 
 ## Important notes
 
-1. **Never commit `.env` files** — they are in `.gitignore`
-2. **Set all security tokens** in production — empty `ADMIN_API_TOKEN` disables admin auth
-3. **Match tokens** across backend, frontend (`REACT_APP_ADMIN_API_TOKEN`), and flow/alert ingest services
-4. **Use strong random secrets** — store in `/etc/trustedge/backend.env` with `chmod 640`
+1. Never commit `.env` files
+2. Empty `ADMIN_API_TOKEN` disables admin auth — always set in production
+3. Match `ADMIN_API_TOKEN` and `REACT_APP_ADMIN_API_TOKEN` (GitHub secret `ADMIN_API_TOKEN` for frontend CI)
+4. Match `TRUSTEDGE_INGEST_TOKEN` across backend, Agent-API, and detection-engine (`scripts/ec2-sync-service-tokens.sh`)
+5. `chmod 640` on `/etc/trustedge/backend.env` (`root:docker`)
 
-## Environment variable reference
+---
 
-### Core (backend)
+## Reference
+
+### Core
 
 | Variable | Description | Production |
 |----------|-------------|------------|
-| `DB_URL` | PostgreSQL connection string | RDS URL with `sslmode=require` |
-| `ENVIRONMENT` | Environment name | `production` |
-| `LOG_LEVEL` | Logging verbosity | `INFO` |
-| `LOG_JSON` | Structured JSON logs | `1` (see [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)) |
+| `DB_URL` | PostgreSQL URL | RDS with `sslmode=require` |
+| `LOG_LEVEL` | Verbosity | `INFO` |
+| `LOG_JSON` | Structured JSON logs | `1` (see [DEPLOY.md](DEPLOY.md#cloudwatch-logging)) |
+| `LOG_SERVICE` | Log field `service` | `backend` |
+| `DETECTION_ENGINE_URL` | detection-engine HTTP base | Compose default `http://detection-engine:9090` |
+| `CORS_ORIGINS` | Extra allowed origins (CSV) | Add dashboard CloudFront if needed |
 
-### Security tokens (backend)
+### Security
 
 | Variable | Used by | Notes |
 |----------|---------|-------|
-| `ADMIN_API_TOKEN` | Dashboard admin APIs | **Required** in production |
-| `TRUSTEDGE_INGEST_TOKEN` | Agent-API upsert, detection-engine, flow ingest | Shared service-to-service bearer |
+| `ADMIN_API_TOKEN` | Dashboard / admin APIs | **Required** in production |
+| `TRUSTEDGE_INGEST_TOKEN` | Agent-API upsert, alert ingest, behavior observe, flow ingest | Shared service bearer |
 
-Frontend: set `REACT_APP_ADMIN_API_TOKEN` to the same value as `ADMIN_API_TOKEN`.
-
-### Redis (backend)
+### Redis
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `REDIS_URL` | Redis for TrustEdge Agent live state / twin keys | `redis://redis:6379/0` |
+| `REDIS_URL` | Live twin / agent state | `redis://redis:6379/0` |
 
-### Network review (backend)
+### Network review / LLM
 
 | Variable | Description |
 |----------|-------------|
-| `NETWORK_REVIEW_MODE` | Dashboard AI review: `template` \| `openai` \| `ollama` |
+| `NETWORK_REVIEW_MODE` | `template` \| `openai` \| `ollama` |
+| `NETWORK_REVIEW_CACHE_TTL_SEC` | Overview review cache TTL |
+| `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Local explain path |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` / `OPENAI_BASE_URL` | OpenAI path |
+| `LLM_TIMEOUT_SEC` | LLM call timeout |
 
-### Network flows (backend)
-
-Optional L4 session visibility from host conntrack.
+### Network flows (optional)
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `NETWORK_FLOWS_ENABLED` | Enable flow ingest | `true` |
-| `NETWORK_FLOWS_MAX_AGE_SEC` | Drop flow samples older than this | `300` |
-| `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP cache TTL | `600` |
-| `NETWORK_FLOWS_MAP_LIMIT` | Max flow nodes merged into map | `80` |
+| `NETWORK_FLOWS_MAX_AGE_SEC` | Drop older samples | `300` |
+| `NETWORK_FLOWS_DNS_RESOLUTION_TTL_SEC` | Name → IP TTL | `600` |
+| `NETWORK_FLOWS_MAP_LIMIT` | Cap for map payloads | `80` |
 
-Requires `conntrack` on the host (`apt install conntrack`) when flow watching is enabled.
+Requires `conntrack` on the host when flow watching is enabled.
 
 ### Frontend
 
 | Variable | Description | Production |
 |----------|-------------|------------|
-| `REACT_APP_API_BASE_URL` | FastAPI origin (not CloudFront UI URL) | `http://<ec2-ip>:8000` |
-| `REACT_APP_ADMIN_API_TOKEN` | Admin bearer token | **required** |
-| `REACT_APP_ENVIRONMENT` | Environment label | `production` |
+| `REACT_APP_API_BASE_URL` | FastAPI origin (HTTPS if UI is HTTPS) | API CloudFront or EC2 |
+| `REACT_APP_ADMIN_API_TOKEN` | Admin bearer | **required** |
+| `REACT_APP_ENVIRONMENT` | Label | `production` |
 | `GENERATE_SOURCEMAP` | Source maps | `false` |
+
+---
 
 ## Troubleshooting
 
-### Environment variables not loading
+### Env not loading
 
-1. On EC2, verify `/etc/trustedge/backend.env` exists and is readable by Docker
-2. Restart containers after changing env files:
-   ```bash
-   docker compose down
-   docker compose up -d
-   ```
+1. Verify `/etc/trustedge/backend.env` exists and is readable by Docker
+2. Restart: `docker compose down && docker compose up -d`
 
-### Frontend variables not working
+### Frontend env unchanged
 
-- React requires variables to start with `REACT_APP_`
-- Rebuild and redeploy the frontend after changing production env
+- Variables must start with `REACT_APP_`
+- Rebuild and redeploy after changing production build env / GitHub secrets
 
-### Admin API returns 401
+### Admin API 401
 
-- Set `ADMIN_API_TOKEN` in backend and `REACT_APP_ADMIN_API_TOKEN` in frontend to the same value
-- Redeploy frontend after changing build-time env
+- Align backend `ADMIN_API_TOKEN` and frontend `REACT_APP_ADMIN_API_TOKEN`
+- Redeploy frontend after changing the build-time secret
 
-### Quarantine
+### Mixed content / blocked API
 
-Quarantine is a soft dashboard/API flag after VPN removal. Agent-side network isolation is not yet enforced.
+- UI on CloudFront HTTPS cannot call `http://…:8000` — use the HTTPS API CloudFront distribution

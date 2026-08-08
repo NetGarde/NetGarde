@@ -24,21 +24,40 @@ Detection is multi-engine and deterministic:
 
 Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summarize network state — they never decide what is malicious.
 
-<p align="center">
-  <img width="100%" alt="TrustEdge overview dashboard — network health, agents, recent alerts, and severity" src="docs/assets/screenshot-overview.png" />
-</p>
+---
+
+## Screenshots
+
+### Overview
 
 <p align="center">
-  <img width="100%" alt="TrustEdge agent detail — process baseline, AI tools inventory, and AI sessions" src="docs/assets/screenshot-agent-detail.png" />
+  <img width="100%" alt="TrustEdge overview dashboard" src="docs/assets/screenshot-overview.png" />
 </p>
 
-<p align="center">
-  <img width="100%" alt="TrustEdge alerts — AI tool, novel process, and idle network detections" src="docs/assets/screenshot-alerts.png" />
-</p>
+<p align="center"><em>Network health, live agents, recent alerts, and severity at a glance.</em></p>
+
+### Agent detail
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
+  <img width="100%" alt="TrustEdge agent detail — AI tools inventory and sessions" src="docs/assets/screenshot-agent-detail.png" />
 </p>
+
+<p align="center"><em>Behavior baseline, AI tools inventory, and AI sessions on a single endpoint.</em></p>
+
+### Alerts
+
+<p align="center">
+  <img width="100%" alt="TrustEdge alerts" src="docs/assets/screenshot-alerts.png" />
+</p>
+
+<p align="center"><em>AI tool starts, novel processes, and idle network activity — with expandable evidence.</em></p>
+
+| Surface | What you get |
+|---------|--------------|
+| **Home** | Health, recent alerts, agent status, AI network overview |
+| **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
+| **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
+| **Learn** | How it works · Detection engine |
 
 ---
 
@@ -47,8 +66,16 @@ Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summa
 TrustEdge separates **collection** on the endpoint, **ingest and detection** in the stream path, and **operator views** in FastAPI + React.
 
 <p align="center">
+  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
+</p>
+
+<p align="center"><em>Delivery path — collect → upload → detect → alert</em></p>
+
+<p align="center">
   <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.svg" />
 </p>
+
+<p align="center"><em>Five stages — Edge → Ingest → Stream → Detect → Operate</em></p>
 
 | Stage | Components | Responsibility |
 |-------|------------|----------------|
@@ -59,7 +86,7 @@ TrustEdge separates **collection** on the endpoint, **ingest and detection** in 
 | **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI inventory, behavior, sessions |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth · live twin state |
 
-More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
@@ -79,17 +106,6 @@ Self-hosted on **EC2 + Docker Compose**, with **RDS**, **S3 + CloudFront**, **EC
 | **ECR + Actions** | Image build/push · EC2 deploy · frontend sync |
 
 Deploy guide: [docs/DEPLOY.md](docs/DEPLOY.md)
-
----
-
-## Operator surfaces
-
-| Surface | What you get |
-|---------|--------------|
-| **Home** | Health, recent alerts, agent status, AI network overview |
-| **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
-| **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
-| **Learn** | How it works · Detection engine |
 
 ---
 
@@ -151,7 +167,7 @@ cd TrustEdge
 | Document | Description |
 |----------|-------------|
 | [docs/README.md](docs/README.md) | Documentation index |
-| [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, flows, contributor patterns |
 | [docs/API.md](docs/API.md) | REST reference |
 | [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
