@@ -1,6 +1,6 @@
 # <img src="docs/assets/trustedge-icon.svg" alt="" width="36" height="36" align="absmiddle" /> TrustEdge
 
-**Self-hosted security observability** — endpoint telemetry, rules-based detection, and attack alerts.
+**Self-hosted security observability** — endpoint telemetry, multi-engine detection, and attack alerts.
 
 React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) · [Agent API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) · AWS deploy with CI/CD.
 
@@ -12,11 +12,17 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 TrustEdge is a **self-hosted security observability platform**. It gives teams real endpoint signal and actionable detection without a heavyweight enterprise EDR stack.
 
-A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network, security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
+A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network (summary + connection samples), security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed (**zstd**) and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-Kafka streams those events to detection. This control plane surfaces **attack alerts**, the agents registry, **installed AI software**, and **behavior** views in a React dashboard.
+Kafka streams those events into detection. This control plane surfaces **attack alerts**, the **agents** registry, **installed AI software**, **behavior** baselines, and **AI activity sessions** in a React dashboard.
 
-Detection combines **YAML attack/chain rules** with a **behavioral engine** (device baselines and novel-process alerts). Both are deterministic. Optional LLMs can explain state to operators — they never decide what is malicious.
+Detection is multi-engine and deterministic:
+
+- **YAML attack/chain rules** — process, network, and security lifecycle patterns  
+- **Behavioral engine** — per-device baselines and novel-process alerts  
+- **AI activity engine** — agentic session reconstruction and AI-tool findings  
+
+Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summarize network state — they never decide what is malicious.
 
 <p align="center">
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
@@ -34,14 +40,25 @@ TrustEdge separates **collection** on the endpoint, **ingest and detection** in 
 
 | Stage | Components | Responsibility |
 |-------|------------|----------------|
-| **1 · Edge** | TrustEdge Agent (Go) | Collect · durable queue · compress · HTTPS |
-| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (FastAPI) | Device auth · validate · publish |
+| **1 · Edge** | TrustEdge Agent (Go) | Collect · durable queue · zstd · HTTPS |
+| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (FastAPI) | Device auth · validate · publish · live twin |
 | **3 · Stream** | Kafka / Redpanda | Durable `trustedge.agent.events` bus |
-| **4 · Detect** | `detection-engine` | Attack/chain rules + behavior baselines / novelty → alerts |
-| **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI software, behavior |
-| **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
+| **4 · Detect** | `detection-engine` | Rules · behavior / novelty · AI activity → alerts |
+| **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI inventory, behavior, sessions |
+| **Data** | PostgreSQL (RDS), Redis | Source of truth · live twin state |
 
 More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
+
+---
+
+## Operator surfaces
+
+| Surface | What you get |
+|---------|--------------|
+| **Home** | Health, recent alerts, agent status, AI network overview |
+| **Agents** | Registry + per-agent twin, timeline, AI software, behavior, AI sessions |
+| **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
+| **Learn** | How the agent pipeline works · how detection works |
 
 ---
 
@@ -51,7 +68,7 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 2. **Collect → durable queue → compress** — local telemetry, no collector HTTP  
 3. **Secure upload** — HTTPS to Agent API with a device token  
 4. **Ingest → stream** — validate and publish to Kafka  
-5. **Detect → operate** — attack/chain rules and behavior engines create alerts; the dashboard shows them  
+5. **Detect → operate** — rules, behavior, and AI activity create alerts; the dashboard shows them  
 
 ---
 
@@ -59,11 +76,11 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 | Capability | Implementation |
 |------------|----------------|
-| Endpoint telemetry | Process, activity, network, security lifecycle, AI tools inventory |
-| Reliable delivery | Durable queue · compress · HTTPS · retry with backoff |
-| Detection | Kafka-backed attack/chain rules + behavior baselines / novelty |
-| Observability | Attack alerts, agents registry, installed AI software, behavior |
-| AI operations | Optional summaries (OpenAI / Ollama / templates) |
+| Endpoint telemetry | Process, activity, network summary + connections, security lifecycle, AI tools |
+| Reliable delivery | Durable queue · zstd · HTTPS · retry with backoff |
+| Detection | YAML rules · behavior baselines / novelty · AI activity sessions |
+| Observability | Alerts · agents · AI inventory · behavior · AI sessions · twin |
+| Operator assist | Optional Ollama / OpenAI / template explain & overview |
 | Production ops | EC2 + Docker Compose, RDS, S3/CloudFront, ECR, GitHub Actions |
 
 ---
@@ -114,7 +131,7 @@ cd TrustEdge
 |------------|------|
 | **[TrustEdge](https://github.com/TrustEdgeOrg/TrustEdge)** | This control plane |
 | **[TrustEdge-Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent)** | Endpoint collector |
-| **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka |
+| **[TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API)** | Ingest · validate · Kafka · twin |
 
 ---
 

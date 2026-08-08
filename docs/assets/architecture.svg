@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 520" role="img" aria-labelledby="arch-title arch-desc">
   <title id="arch-title">TrustEdge architecture</title>
-  <desc id="arch-desc">Edge agent collects local telemetry into a durable queue and uploads over HTTPS; Agent API authenticates and publishes to Kafka; detection runs attack/chain rules and behavior baselines; React dashboard and FastAPI operate on alerts, agents, and AI inventory.</desc>
+  <desc id="arch-desc">Edge agent collects local telemetry into a durable queue and uploads over HTTPS; Agent API authenticates and publishes to Kafka; detection runs attack/chain rules, behavior baselines, and AI activity analysis; React dashboard and FastAPI operate on alerts, agents, AI inventory, and sessions.</desc>
   <defs>
     <linearGradient id="arch-bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F8FAFC"/>
@@ -100,17 +100,17 @@
     <circle cx="28" cy="18" r="14" fill="#E11D48"/>
     <text class="num" x="28" y="23" text-anchor="middle">4</text>
     <text class="step" x="52" y="14" fill="#BE123C">DETECT</text>
-    <text class="h" x="52" y="36">Rules engine</text>
+    <text class="h" x="52" y="36">Detection</text>
     <rect y="52" width="228" height="300" rx="16" fill="#FFFFFF" stroke="#FECDD3" stroke-width="1.5"/>
     <rect y="52" width="228" height="5" rx="2.5" fill="#E11D48"/>
-    <text class="h" x="114" y="96" text-anchor="middle">Detection</text>
-    <text class="s" x="114" y="118" text-anchor="middle">rules + behavior</text>
+    <text class="h" x="114" y="96" text-anchor="middle">Multi-engine</text>
+    <text class="s" x="114" y="118" text-anchor="middle">rules · behavior · AI</text>
     <rect x="24" y="140" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
     <text class="b" x="114" y="164" text-anchor="middle">Attack / chain rules</text>
     <rect x="24" y="190" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
-    <text class="b" x="114" y="214" text-anchor="middle">Behavior baselines</text>
+    <text class="b" x="114" y="214" text-anchor="middle">Behavior / novelty</text>
     <rect x="24" y="240" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
-    <text class="b" x="114" y="264" text-anchor="middle">Novel process alerts</text>
+    <text class="b" x="114" y="264" text-anchor="middle">AI activity sessions</text>
     <text class="s" x="114" y="320" text-anchor="middle">not LLM judgment</text>
   </g>
   <path d="M1112 280 H1142" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
@@ -126,11 +126,11 @@
     <text class="h" x="104" y="96" text-anchor="middle">TrustEdge</text>
     <text class="s" x="104" y="118" text-anchor="middle">FastAPI + React</text>
     <rect x="18" y="140" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
-    <text class="b" x="104" y="164" text-anchor="middle">Attack alerts</text>
+    <text class="b" x="104" y="164" text-anchor="middle">Alerts · explain</text>
     <rect x="18" y="190" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
-    <text class="b" x="104" y="214" text-anchor="middle">Agents · AI tools</text>
+    <text class="b" x="104" y="214" text-anchor="middle">Agents · AI inventory</text>
     <rect x="18" y="240" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
-    <text class="b" x="104" y="264" text-anchor="middle">Behavior</text>
+    <text class="b" x="104" y="264" text-anchor="middle">Behavior · sessions</text>
     <text class="s" x="104" y="310" text-anchor="middle">S3 / CloudFront</text>
     <text class="s" x="104" y="330" text-anchor="middle">EC2 APIs</text>
   </g>
