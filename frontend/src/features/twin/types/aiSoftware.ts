@@ -17,6 +17,13 @@ export type AiSoftwareItem = {
   signature_valid?: boolean | null;
   matched_evidence?: string[];
   failed_evidence?: string[];
+  /** CLI agent fields (empty for GUI .app inventory). */
+  invocation_path?: string;
+  resolved_path?: string;
+  package_manager?: string;
+  package_identifier?: string;
+  entry_point?: string;
+  interpreter?: string;
 };
 
 export type AiSoftwareListResponse = {

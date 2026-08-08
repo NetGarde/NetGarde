@@ -147,6 +147,12 @@ class ConnectedAgentService:
                     ),
                     matched_evidence=[str(x) for x in matched] if isinstance(matched, list) else [],
                     failed_evidence=[str(x) for x in failed] if isinstance(failed, list) else [],
+                    invocation_path=str(payload.get("invocation_path") or ""),
+                    resolved_path=str(payload.get("resolved_path") or ""),
+                    package_manager=str(payload.get("package_manager") or ""),
+                    package_identifier=str(payload.get("package_identifier") or ""),
+                    entry_point=str(payload.get("entry_point") or ""),
+                    interpreter=str(payload.get("interpreter") or ""),
                 )
             )
         items.sort(key=lambda x: (x.product_name or x.product_id or x.id).lower())

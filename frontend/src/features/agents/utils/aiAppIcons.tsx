@@ -1,6 +1,7 @@
 import type { SvgIconProps } from '@mui/material/SvgIcon';
 import SvgIcon from '@mui/material/SvgIcon';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import TerminalIcon from '@mui/icons-material/Terminal';
 
 /** Cursor brand mark (cube) — fill follows currentColor. */
 export function CursorIcon(props: SvgIconProps) {
@@ -14,10 +15,27 @@ export function CursorIcon(props: SvgIconProps) {
   );
 }
 
-export function aiAppIcon(productId: string, props?: SvgIconProps) {
+const CLI_PRODUCT_IDS = new Set([
+  'claude_code',
+  'codex_cli',
+  'gemini_cli',
+  'copilot_cli',
+  'opencode',
+]);
+
+export function isCliAgent(productId: string, category?: string): boolean {
+  const id = productId.trim().toLowerCase();
+  if (CLI_PRODUCT_IDS.has(id)) return true;
+  return (category || '').trim().toLowerCase() === 'cli_agent';
+}
+
+export function aiAppIcon(productId: string, props?: SvgIconProps, category?: string) {
   const id = productId.trim().toLowerCase();
   if (id === 'cursor') {
     return <CursorIcon fontSize="small" {...props} />;
+  }
+  if (isCliAgent(id, category)) {
+    return <TerminalIcon fontSize="small" color="action" {...props} />;
   }
   return <AutoAwesomeIcon fontSize="small" color="action" {...props} />;
 }

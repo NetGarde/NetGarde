@@ -26,6 +26,13 @@ class AiSoftwareItem(BaseModel):
     signature_valid: Optional[bool] = None
     matched_evidence: List[str] = Field(default_factory=list)
     failed_evidence: List[str] = Field(default_factory=list)
+    # CLI agent fields (empty for GUI .app inventory).
+    invocation_path: str = ""
+    resolved_path: str = ""
+    package_manager: str = ""
+    package_identifier: str = ""
+    entry_point: str = ""
+    interpreter: str = ""
 
 
 class AiSoftwareListResponse(BaseModel):

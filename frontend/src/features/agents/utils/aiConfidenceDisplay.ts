@@ -8,6 +8,12 @@ const EVIDENCE_LABEL: Record<string, string> = {
   team_id: 'Apple Team ID',
   signature_valid: 'Valid code signature',
   sha256: 'Binary hash',
+  command: 'Command name',
+  package_manager: 'Package manager',
+  package_identity: 'Package identity',
+  package_provenance: 'Package provenance',
+  entry_point: 'Entry point',
+  invocation_path: 'Invocation path',
 };
 
 export function evidenceLabel(key: string): string {
