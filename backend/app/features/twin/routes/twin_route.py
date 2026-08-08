@@ -14,10 +14,31 @@ from app.features.twin.schemas.security_alert import (
     SecurityAlertExplainResponse,
     SecurityAlertListResponse,
 )
-from app.features.twin.schemas.device_baseline import DeviceBaselineResponse
+from app.features.twin.schemas.device_baseline import (
+    DeviceBaselineClearResponse,
+    DeviceBaselineResponse,
+)
+from app.features.twin.schemas.ai_activity import (
+    AiProcessLookupResponse,
+    AiSessionChainResponse,
+    AiSessionDetailResponse,
+    AiSessionGraphResponse,
+    AiSessionListResponse,
+    AiSessionTimelineResponse,
+)
+from app.features.twin.schemas.ai_software import AiSoftwareListResponse
 from app.features.twin.services.alert_explain_service import explain_security_alert
 from app.features.twin.services.connected_agent_service import ConnectedAgentService
-from app.features.twin.services.detection_engine_client import fetch_device_baseline
+from app.features.twin.services.detection_engine_client import (
+    clear_device_baseline,
+    fetch_ai_process_lookup,
+    fetch_ai_session,
+    fetch_ai_session_chain,
+    fetch_ai_session_graph,
+    fetch_ai_session_timeline,
+    fetch_ai_sessions,
+    fetch_device_baseline,
+)
 from app.features.twin.services.security_alert_service import SecurityAlertService
 from app.shared.admin_auth import verify_admin_api_token
 from app.shared.config import settings
@@ -34,6 +55,12 @@ def get_security_alert_service(db: Session = Depends(get_db)) -> SecurityAlertSe
 
 def get_connected_agent_service() -> ConnectedAgentService:
     return ConnectedAgentService()
+
+
+def _is_http_404(exc: Exception) -> bool:
+    import urllib.error
+
+    return isinstance(exc, urllib.error.HTTPError) and exc.code == 404
 
 
 @router.get("/alerts", response_model=SecurityAlertListResponse)
@@ -116,6 +143,16 @@ def list_connected_agent_events(
     return service.list_device_events(device_id, limit=limit)
 
 
+@router.get("/agents/{device_id}/ai-software", response_model=AiSoftwareListResponse)
+def list_agent_ai_software(
+    device_id: str,
+    _: None = Depends(verify_admin_api_token),
+    service: ConnectedAgentService = Depends(get_connected_agent_service),
+):
+    """Installed AI application inventory for a device (from Redis twin)."""
+    return service.list_ai_software(device_id)
+
+
 @router.get("/agents/{device_id}/baseline", response_model=DeviceBaselineResponse)
 def get_device_baseline(
     device_id: str,
@@ -132,3 +169,149 @@ def get_device_baseline(
         return fetch_device_baseline(device_id=device_id, limit=limit)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"detection-engine baseline unavailable: {exc}") from exc
+
+
+@router.delete("/agents/{device_id}/baseline", response_model=DeviceBaselineClearResponse)
+def delete_device_baseline(
+    device_id: str,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Flush in-memory behavioral learning for a device (detection-engine)."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return clear_device_baseline(device_id=device_id)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"detection-engine baseline clear failed: {exc}") from exc
+
+
+@router.get("/agents/{device_id}/ai-sessions", response_model=AiSessionListResponse)
+def list_ai_sessions(
+    device_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    include_closed: bool = Query(default=True),
+    _: None = Depends(verify_admin_api_token),
+):
+    """List reconstructed AI application sessions for a device."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_sessions(
+            device_id=device_id, limit=limit, include_closed=include_closed
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI sessions unavailable: {exc}"
+        ) from exc
+
+
+@router.get("/ai-sessions/{session_id}", response_model=AiSessionDetailResponse)
+def get_ai_session(
+    session_id: str,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Full AI session detail including spawn tree and findings."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_session(session_id)
+    except Exception as exc:
+        if _is_http_404(exc):
+            raise HTTPException(status_code=404, detail="AI session not found") from exc
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI session unavailable: {exc}"
+        ) from exc
+
+
+@router.get("/ai-sessions/{session_id}/graph", response_model=AiSessionGraphResponse)
+def get_ai_session_graph(
+    session_id: str,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Execution graph for an AI session."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_session_graph(session_id)
+    except Exception as exc:
+        if _is_http_404(exc):
+            raise HTTPException(status_code=404, detail="AI session not found") from exc
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI graph unavailable: {exc}"
+        ) from exc
+
+
+@router.get("/ai-sessions/{session_id}/timeline", response_model=AiSessionTimelineResponse)
+def get_ai_session_timeline(
+    session_id: str,
+    limit: int = Query(default=200, ge=1, le=1000),
+    _: None = Depends(verify_admin_api_token),
+):
+    """Timeline of actions within an AI session."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_session_timeline(session_id, limit=limit)
+    except Exception as exc:
+        if _is_http_404(exc):
+            raise HTTPException(status_code=404, detail="AI session not found") from exc
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI timeline unavailable: {exc}"
+        ) from exc
+
+
+@router.get("/ai-sessions/{session_id}/chain", response_model=AiSessionChainResponse)
+def get_ai_session_chain(
+    session_id: str,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Human-readable activity chain for an AI session."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_session_chain(session_id)
+    except Exception as exc:
+        if _is_http_404(exc):
+            raise HTTPException(status_code=404, detail="AI session not found") from exc
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI chain unavailable: {exc}"
+        ) from exc
+
+
+@router.get("/ai-processes/{process_id}", response_model=AiProcessLookupResponse)
+def lookup_ai_process(
+    process_id: str,
+    _: None = Depends(verify_admin_api_token),
+):
+    """Look up which AI session a process belongs to."""
+    if not settings.DETECTION_ENGINE_URL.strip():
+        raise HTTPException(
+            status_code=503,
+            detail="DETECTION_ENGINE_URL is not configured",
+        )
+    try:
+        return fetch_ai_process_lookup(process_id)
+    except Exception as exc:
+        if _is_http_404(exc):
+            raise HTTPException(status_code=404, detail="process not in any AI session") from exc
+        raise HTTPException(
+            status_code=502, detail=f"detection-engine AI process lookup unavailable: {exc}"
+        ) from exc

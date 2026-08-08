@@ -17,6 +17,7 @@ from kafka.errors import NoBrokersAvailable
 
 from api_client import post_alerts
 from baseline_view import bind as bind_baseline
+from ai_activity.view import bind as bind_ai_activity
 from http_api import serve_forever
 from log_config import setup_logging, structured_extra
 from pipeline.orchestrator import Pipeline
@@ -31,7 +32,8 @@ logging.getLogger("kafka").setLevel(logging.WARNING)
 
 _shutdown = False
 _pipeline = Pipeline()
-bind_baseline(_pipeline.baseline)
+bind_baseline(_pipeline.baseline, _pipeline.behavioral)
+bind_ai_activity(_pipeline.ai_activity.sessions)
 # Fingerprints already posted this process lifetime, to avoid re-emitting the
 # same alert while its source event stays inside the evaluation window.
 _seen_fingerprints: dict[str, float] = {}

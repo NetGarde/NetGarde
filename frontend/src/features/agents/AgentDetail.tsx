@@ -16,15 +16,24 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
+import SearchIcon from '@mui/icons-material/Search';
 import { useMemo, useState } from 'react';
 import { useAgentDetail } from './hooks/useAgentDetail';
 import { useSecurityAlerts } from '../twin/hooks/useSecurityAlerts';
 import { useDeviceBaseline } from '../twin/hooks/useDeviceBaseline';
+import { useAiSessions } from '../twin/hooks/useAiSessions';
+import { useAiSoftware } from '../twin/hooks/useAiSoftware';
+import AiSessionsCard from './AiSessionsCard';
+import AiSoftwareCard from './AiSoftwareCard';
 import { isAgentOnline } from './utils/presence';
 import {
   displayBaselineKey,
+  isBaselineNoise,
   prepareBaselineItems,
 } from './utils/baselineDisplay';
 import { formatShortDateTime } from '../../shared/utils/dateUtils';
@@ -41,8 +50,17 @@ const SEVERITY_COLOR: Record<string, 'error' | 'warning' | 'info' | 'default'> =
 const TYPE_LABEL: Record<string, string> = {
   temp_path_execution: 'Temp path execution',
   shell_spawns_downloader: 'Shell spawned downloader',
+  ai_tool_execution: 'AI tool started',
+  shell_spawns_ai_tool: 'Shell spawned AI tool',
+  ai_terminal_tool_chain: 'AI terminal tool chain',
+  ai_shell_network_exfil: 'AI shell network activity',
+  ai_secrets_access: 'AI secrets access',
+  ai_cloud_cli_from_agent: 'AI cloud CLI',
+  ai_container_build_deploy: 'AI container deploy',
+  ai_multi_tool_burst: 'AI multi-tool burst',
   script_spawns_shell: 'Script spawned shell',
   binary_path_mismatch: 'Binary path mismatch',
+  novel_process: 'Novel process',
   new_public_ip: 'New public IP',
   network_type_change: 'Network type change',
   network_change_while_active: 'Network change while active',
@@ -66,10 +84,15 @@ const EVENT_TYPE_LABEL: Record<string, string> = {
   driver_load: 'Driver load',
   service_install: 'Service install',
   registry_persistence: 'Registry persistence',
+  known_ai_app: 'Known AI app',
 };
 
 function labelAlertType(alertType: string): string {
   return TYPE_LABEL[alertType] || alertType.replace(/_/g, ' ');
+}
+
+function isAiAlert(alertType: string): boolean {
+  return alertType === 'ai_tool_execution' || alertType === 'shell_spawns_ai_tool';
 }
 
 function labelEventType(type: string): string {
@@ -106,6 +129,17 @@ function summarizeEvent(event: AgentTelemetryEvent): string {
   }
   if (event.type === 'client_details') {
     return [p.hostname, p.os, p.agent_version].filter(Boolean).join(' · ') || 'Host details';
+  }
+  if (event.type === 'known_ai_app') {
+    if (p.removed === true) {
+      return `${String(p.id || 'app')} removed`;
+    }
+    const parts = [
+      String(p.product_name || p.product_id || p.id || '').trim(),
+      p.version ? `v${p.version}` : '',
+      p.running === true ? 'running' : p.installed === true ? 'installed' : '',
+    ].filter(Boolean);
+    return parts.join(' · ') || 'AI app inventory';
   }
   const name = String(p.display_name || p.name || p.path || p.value_name || '').trim();
   return name || 'Security lifecycle event';
@@ -221,9 +255,19 @@ function RecentAlertsCard({
             >
               <ListItemText
                 primary={
-                  <Typography variant="body2" sx={{ fontWeight: 600, pr: 8 }}>
-                    {labelAlertType(alert.alert_type)}
-                  </Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ pr: 8 }}>
+                    {isAiAlert(alert.alert_type) ? (
+                      <Chip
+                        icon={<AutoAwesomeIcon sx={{ fontSize: '0.9rem !important' }} />}
+                        label="AI"
+                        size="small"
+                        color="secondary"
+                      />
+                    ) : null}
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {labelAlertType(alert.alert_type)}
+                    </Typography>
+                  </Stack>
                 }
                 secondary={
                   <Stack spacing={0.25} sx={{ mt: 0.25, pr: 8 }}>
@@ -307,11 +351,15 @@ function BaselineCard({
   error: string | null;
 }) {
   const [includeSystem, setIncludeSystem] = useState(false);
+  const [query, setQuery] = useState('');
   const visible = useMemo(
-    () => prepareBaselineItems(data.items, { includeSystem }),
-    [data.items, includeSystem]
+    () => prepareBaselineItems(data.items, { includeSystem, query }),
+    [data.items, includeSystem, query]
   );
-  const hiddenCount = Math.max(0, data.items.length - visible.length);
+  const systemHidden = useMemo(() => {
+    if (includeSystem) return 0;
+    return data.items.filter((item) => isBaselineNoise(item)).length;
+  }, [data.items, includeSystem]);
 
   if (loading && data.items.length === 0) {
     return (
@@ -345,7 +393,7 @@ function BaselineCard({
         spacing={1}
         flexWrap="wrap"
         useFlexGap
-        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        alignItems={{ xs: 'stretch', sm: 'center' }}
         justifyContent="space-between"
       >
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
@@ -356,8 +404,8 @@ function BaselineCard({
             variant="outlined"
           />
           <Typography variant="caption" color="text.secondary">
-            Showing {visible.length} of {data.total} · sorted by frequency
-            {!includeSystem && hiddenCount > 0 ? ` · ${hiddenCount} system hidden` : ''}
+            Showing {visible.length} of {data.total} · newest first
+            {!includeSystem && systemHidden > 0 ? ` · ${systemHidden} system hidden` : ''}
           </Typography>
         </Stack>
         <FormControlLabel
@@ -371,39 +419,43 @@ function BaselineCard({
           label={<Typography variant="caption">Show system processes</Typography>}
         />
       </Stack>
+      <TextField
+        size="small"
+        fullWidth
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search processes (e.g. chrome, mail, docker)"
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon fontSize="small" color="action" />
+            </InputAdornment>
+          ),
+        }}
+      />
       {visible.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No application-like processes yet. Quit/reopen apps (Chrome, Terminal) or enable “Show
-          system processes”.
+          {query.trim()
+            ? `No matches for “${query.trim()}”.`
+            : 'No application-like processes yet. Quit/reopen apps (Chrome, Terminal) or enable “Show system processes”.'}
         </Typography>
       ) : (
         <List dense disablePadding>
           {visible.map((item: DeviceBaselineItem, index: number) => (
             <Box key={`${item.behavior_kind}:${item.behavior_key}`}>
               {index > 0 && <Divider />}
-              <ListItem
-                alignItems="flex-start"
-                sx={{ px: 0, py: 1.25 }}
-                secondaryAction={
-                  <Chip
-                    size="small"
-                    label={item.established ? 'established' : 'learning'}
-                    color={item.established ? 'success' : 'default'}
-                    variant="outlined"
-                  />
-                }
-              >
+              <ListItem alignItems="flex-start" sx={{ px: 0, py: 1.25 }}>
                 <ListItemText
                   primary={
                     <Typography
                       variant="body2"
-                      sx={{ fontWeight: 600, pr: 10, fontFamily: 'monospace' }}
+                      sx={{ fontWeight: 600, fontFamily: 'monospace' }}
                     >
                       {displayBaselineKey(item.behavior_key)}
                     </Typography>
                   }
                   secondary={
-                    <Stack spacing={0.25} sx={{ mt: 0.25, pr: 10 }}>
+                    <Stack spacing={0.25} sx={{ mt: 0.25 }}>
                       <Typography variant="caption" color="text.secondary">
                         {KIND_LABEL[item.behavior_kind] || item.behavior_kind}
                         {displayBaselineKey(item.behavior_key) !== item.behavior_key
@@ -435,9 +487,29 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
   const {
     data: baseline,
     loading: baselineLoading,
+    flushing: baselineFlushing,
     error: baselineError,
     refetch: refetchBaseline,
+    flush: flushBaseline,
   } = useDeviceBaseline(agentId);
+  const {
+    data: aiSessions,
+    loading: aiSessionsLoading,
+    error: aiSessionsError,
+    refetch: refetchAiSessions,
+    selectedId: aiSelectedId,
+    selectSession: selectAiSession,
+    detailLoading: aiDetailLoading,
+    chain: aiChain,
+    graph: aiGraph,
+    timeline: aiTimeline,
+  } = useAiSessions(agentId);
+  const {
+    data: aiSoftware,
+    loading: aiSoftwareLoading,
+    error: aiSoftwareError,
+    refetch: refetchAiSoftware,
+  } = useAiSoftware(agentId);
 
   const online = isAgentOnline(agent?.last_seen_at);
 
@@ -445,6 +517,8 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
     refresh();
     refetchAlerts();
     refetchBaseline();
+    refetchAiSoftware();
+    refetchAiSessions();
   };
 
   if (loading && !agent) {
@@ -517,7 +591,7 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
           </Stack>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton onClick={onRefresh} disabled={loading || alertsLoading || baselineLoading}>
+          <IconButton onClick={onRefresh} disabled={loading || alertsLoading || baselineLoading || aiSessionsLoading}>
             <RefreshIcon />
           </IconButton>
         </Tooltip>
@@ -588,20 +662,107 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
             Behavioral baseline
           </Typography>
-          <Tooltip title="Refresh baseline">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              size="small"
+              color="warning"
+              variant="outlined"
+              disabled={baselineLoading || baselineFlushing || !agentId}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Flush learning memory for this device? All baseline counts will be cleared and processes will be treated as new again.'
+                  )
+                ) {
+                  void flushBaseline();
+                }
+              }}
+            >
+              {baselineFlushing ? 'Flushing…' : 'Flush learning'}
+            </Button>
+            <Tooltip title="Refresh baseline">
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={() => refetchBaseline()}
+                  disabled={baselineLoading || baselineFlushing}
+                  aria-label="Refresh behavioral baseline"
+                >
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
+        </Stack>
+        <BaselineCard data={baseline} loading={baselineLoading} error={baselineError} />
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 1.5 }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Installed AI apps
+          </Typography>
+          <Tooltip title="Refresh installed AI apps">
             <span>
               <IconButton
                 size="small"
-                onClick={() => refetchBaseline()}
-                disabled={baselineLoading}
-                aria-label="Refresh behavioral baseline"
+                onClick={() => refetchAiSoftware()}
+                disabled={aiSoftwareLoading}
+                aria-label="Refresh installed AI apps"
               >
                 <RefreshIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
         </Stack>
-        <BaselineCard data={baseline} loading={baselineLoading} error={baselineError} />
+        <AiSoftwareCard
+          items={aiSoftware.items}
+          loading={aiSoftwareLoading}
+          error={aiSoftwareError}
+        />
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          sx={{ mb: 1.5 }}
+        >
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            AI sessions
+          </Typography>
+          <Tooltip title="Refresh AI sessions">
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => refetchAiSessions()}
+                disabled={aiSessionsLoading}
+                aria-label="Refresh AI sessions"
+              >
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+        <AiSessionsCard
+          items={aiSessions.items}
+          loading={aiSessionsLoading}
+          error={aiSessionsError}
+          selectedId={aiSelectedId}
+          onSelect={selectAiSession}
+          detailLoading={aiDetailLoading}
+          chain={aiChain}
+          graph={aiGraph}
+          timeline={aiTimeline}
+        />
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2 }}>

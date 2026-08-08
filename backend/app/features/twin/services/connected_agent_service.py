@@ -9,6 +9,7 @@ from app.features.twin.schemas.connected_agent import (
     ConnectedAgentListResponse,
     ConnectedAgentRead,
 )
+from app.features.twin.schemas.ai_software import AiSoftwareItem, AiSoftwareListResponse
 from app.features.twin.services import trusttwin_store
 
 
@@ -104,4 +105,50 @@ class ConnectedAgentService:
                 )
             )
         return AgentEventListResponse(items=items, total=len(items), device_id=device_id)
+
+    def list_ai_software(self, device_id: str) -> AiSoftwareListResponse:
+        device_id = device_id.strip()
+        row = trusttwin_store.get_latest(device_id)
+        raw_apps = (row.known_ai_apps if row is not None else {}) or {}
+        items: list[AiSoftwareItem] = []
+        for app_id, payload in raw_apps.items():
+            if not isinstance(payload, dict):
+                continue
+            item_id = str(payload.get("id") or app_id).strip()
+            if not item_id:
+                continue
+            if payload.get("removed") is True:
+                continue
+            if not bool(payload.get("installed")):
+                continue
+            matched = payload.get("matched_evidence")
+            failed = payload.get("failed_evidence")
+            items.append(
+                AiSoftwareItem(
+                    id=item_id,
+                    product_id=str(payload.get("product_id") or ""),
+                    product_name=str(payload.get("product_name") or ""),
+                    vendor=str(payload.get("vendor") or ""),
+                    category=str(payload.get("category") or ""),
+                    confidence=str(payload.get("confidence") or ""),
+                    confidence_reason=str(payload.get("confidence_reason") or ""),
+                    installed=bool(payload.get("installed")),
+                    running=bool(payload.get("running")),
+                    path=str(payload.get("path") or ""),
+                    version=str(payload.get("version") or ""),
+                    bundle_id=str(payload.get("bundle_id") or ""),
+                    executable=str(payload.get("executable") or ""),
+                    signing_id=str(payload.get("signing_id") or ""),
+                    team_id=str(payload.get("team_id") or ""),
+                    signature_valid=(
+                        bool(payload["signature_valid"])
+                        if "signature_valid" in payload and payload["signature_valid"] is not None
+                        else None
+                    ),
+                    matched_evidence=[str(x) for x in matched] if isinstance(matched, list) else [],
+                    failed_evidence=[str(x) for x in failed] if isinstance(failed, list) else [],
+                )
+            )
+        items.sort(key=lambda x: (x.product_name or x.product_id or x.id).lower())
+        return AiSoftwareListResponse(device_id=device_id, total=len(items), items=items)
 

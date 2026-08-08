@@ -61,20 +61,26 @@ class BaselineStore:
         self.suppress_count = suppress_count if suppress_count is not None else _env_int(
             "BEHAVIOR_SUPPRESS_COUNT", 20
         )
-        self.suppress_age_hours = (
-            suppress_age_hours
-            if suppress_age_hours is not None
-            else _env_int("BEHAVIOR_SUPPRESS_AGE_HOURS", 72)
-        )
+        # Age gate disabled for now; field kept on snapshots for API compatibility.
+        del suppress_age_hours
+        self.suppress_age_hours = 0
         self.profile_min_keys = (
             profile_min_keys
             if profile_min_keys is not None
-            else _env_int("BEHAVIOR_PROFILE_MIN_KEYS", 30)
+            else _env_int("BEHAVIOR_PROFILE_MIN_KEYS", 5)
         )
         self._devices: dict[str, dict[tuple[str, str], BaselineEntry]] = {}
 
     def clear(self) -> None:
         self._devices.clear()
+
+    def clear_device(self, device_id: str) -> int:
+        """Drop all learned keys for one device. Returns how many entries were removed."""
+        device = (device_id or "").strip()
+        if not device:
+            return 0
+        by_key = self._devices.pop(device, None)
+        return len(by_key) if by_key else 0
 
     def snapshot(
         self,
@@ -85,7 +91,7 @@ class BaselineStore:
     ) -> dict[str, Any]:
         """JSON-friendly baseline dump for one device."""
         device = (device_id or "").strip()
-        ts = time.time() if now is None else now
+        del now  # age no longer used for established/warm
         by_key = self._devices.get(device) or {}
         items: list[dict[str, Any]] = []
         for (kind, key), entry in sorted(
@@ -99,14 +105,14 @@ class BaselineStore:
                     "count": entry.count,
                     "first_seen_at": _ts_iso(entry.first_seen),
                     "last_seen_at": _ts_iso(entry.last_seen),
-                    "established": self._is_established(entry, ts),
+                    "established": self._is_established(entry),
                 }
             )
             if len(items) >= max(1, limit):
                 break
         return {
             "device_id": device,
-            "profile_warm": self._profile_warm(device, ts) if device else False,
+            "profile_warm": self._profile_warm(device) if device else False,
             "total": len(by_key),
             "items": items,
             "suppress_count": self.suppress_count,
@@ -136,27 +142,20 @@ class BaselineStore:
             entry.count += 1
             entry.last_seen = ts
 
-        established = self._is_established(entry, ts)
+        established = self._is_established(entry)
         return ObserveDecision(
             count=entry.count,
             established=established,
-            profile_warm=self._profile_warm(device, ts),
+            profile_warm=self._profile_warm(device),
             action="suppress" if established else "emit",
         )
 
-    def _is_established(self, entry: BaselineEntry, now: float) -> bool:
-        if entry.count < self.suppress_count:
-            return False
-        age_hours = (now - entry.first_seen) / 3600.0
-        return age_hours >= float(self.suppress_age_hours)
+    def _is_established(self, entry: BaselineEntry) -> bool:
+        """Established when seen often enough (no age requirement for now)."""
+        return entry.count >= self.suppress_count
 
-    def _profile_warm(self, device_id: str, now: float) -> bool:
+    def _profile_warm(self, device_id: str) -> bool:
+        """Warm when enough distinct process_comm keys exist (no age fallback)."""
         by_key = self._devices.get(device_id) or {}
         comm_entries = [e for (kind, _key), e in by_key.items() if kind == KIND_PROCESS_COMM]
-        if len(comm_entries) >= self.profile_min_keys:
-            return True
-        if not comm_entries:
-            return False
-        oldest = min(e.first_seen for e in comm_entries)
-        age_hours = (now - oldest) / 3600.0
-        return age_hours >= float(self.suppress_age_hours)
+        return len(comm_entries) >= self.profile_min_keys

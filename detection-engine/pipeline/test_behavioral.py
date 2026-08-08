@@ -42,7 +42,7 @@ def _rule_hit(*, alert_type: str, detail: str, severity: str = "high") -> Engine
 
 
 def test_novel_when_profile_warm():
-    baseline = BaselineStore(suppress_count=20, suppress_age_hours=72, profile_min_keys=2)
+    baseline = BaselineStore(suppress_count=20, profile_min_keys=2)
     engine = BehavioralEngine(baseline)
     store = StateStore()
     # Warm with one other key first.
@@ -56,7 +56,7 @@ def test_novel_when_profile_warm():
 
 
 def test_no_novel_when_cold():
-    baseline = BaselineStore(suppress_count=20, suppress_age_hours=72, profile_min_keys=30)
+    baseline = BaselineStore(suppress_count=20, profile_min_keys=30)
     engine = BehavioralEngine(baseline)
     store = StateStore()
     store.record_event(_process_start(comm="chrome"))
@@ -65,7 +65,7 @@ def test_no_novel_when_cold():
 
 
 def test_debounce_skips_second_observe():
-    baseline = BaselineStore(suppress_count=20, suppress_age_hours=72, profile_min_keys=2)
+    baseline = BaselineStore(suppress_count=20, profile_min_keys=2)
     engine = BehavioralEngine(baseline)
     store = StateStore()
     baseline.observe("dev_n", "process_comm", "seed", now=1_000_000.0)
@@ -78,13 +78,12 @@ def test_debounce_skips_second_observe():
 
 
 def test_suppress_drops_established_temp_path():
-    baseline = BaselineStore(suppress_count=2, suppress_age_hours=1, profile_min_keys=30)
+    baseline = BaselineStore(suppress_count=2, profile_min_keys=30)
     engine = BehavioralEngine(baseline)
     store = StateStore()
     now = 1_000_000.0
     baseline.observe("dev_n", "temp_path", "evil", now=now)
-    # Age past suppress window with enough count.
-    baseline.observe("dev_n", "temp_path", "evil", now=now + 3600 + 10)
+    baseline.observe("dev_n", "temp_path", "evil", now=now + 1)
 
     hit = _rule_hit(
         alert_type="temp_path_execution",

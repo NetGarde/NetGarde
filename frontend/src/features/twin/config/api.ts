@@ -12,6 +12,14 @@ import {
   ConnectedAgentListResponse,
 } from '../types/connectedAgent';
 import { DeviceBaselineResponse } from '../types/deviceBaseline';
+import {
+  AiSessionChainResponse,
+  AiSessionDetail,
+  AiSessionGraphResponse,
+  AiSessionListResponse,
+  AiSessionTimelineResponse,
+} from '../types/aiActivity';
+import { AiSoftwareListResponse } from '../types/aiSoftware';
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -71,8 +79,35 @@ export const twinApi = {
     apiFetch<AgentTelemetryEventListResponse>(
       `/security/agents/${encodeURIComponent(deviceId)}/events?limit=${encodeURIComponent(String(limit))}`
     ),
+  listAiSoftware: (deviceId: string) =>
+    apiFetch<AiSoftwareListResponse>(
+      `/security/agents/${encodeURIComponent(deviceId)}/ai-software`
+    ),
   getDeviceBaseline: (deviceId: string, limit = 100) =>
     apiFetch<DeviceBaselineResponse>(
       `/security/agents/${encodeURIComponent(deviceId)}/baseline?limit=${encodeURIComponent(String(limit))}`
+    ),
+  clearDeviceBaseline: (deviceId: string) =>
+    apiFetch<{ device_id: string; cleared: number }>(
+      `/security/agents/${encodeURIComponent(deviceId)}/baseline`,
+      { method: 'DELETE' }
+    ),
+  listAiSessions: (deviceId: string, limit = 50, includeClosed = true) =>
+    apiFetch<AiSessionListResponse>(
+      `/security/agents/${encodeURIComponent(deviceId)}/ai-sessions?limit=${encodeURIComponent(String(limit))}&include_closed=${includeClosed ? '1' : '0'}`
+    ),
+  getAiSession: (sessionId: string) =>
+    apiFetch<AiSessionDetail>(`/security/ai-sessions/${encodeURIComponent(sessionId)}`),
+  getAiSessionGraph: (sessionId: string) =>
+    apiFetch<AiSessionGraphResponse>(
+      `/security/ai-sessions/${encodeURIComponent(sessionId)}/graph`
+    ),
+  getAiSessionTimeline: (sessionId: string, limit = 200) =>
+    apiFetch<AiSessionTimelineResponse>(
+      `/security/ai-sessions/${encodeURIComponent(sessionId)}/timeline?limit=${encodeURIComponent(String(limit))}`
+    ),
+  getAiSessionChain: (sessionId: string) =>
+    apiFetch<AiSessionChainResponse>(
+      `/security/ai-sessions/${encodeURIComponent(sessionId)}/chain`
     ),
 };

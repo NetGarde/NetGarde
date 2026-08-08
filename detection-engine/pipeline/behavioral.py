@@ -20,6 +20,7 @@ from rules.state import StateStore
 
 from pipeline.baseline_store import BaselineStore
 from pipeline.rule_engine import alert_to_hit
+from pipeline.score import score_for
 from pipeline.types import ENGINE_BEHAVIORAL, ENGINE_RULE, EngineHit
 
 LOG = setup_logging(service=os.getenv("LOG_SERVICE", "detection-engine"), logger_name=__name__)
@@ -40,6 +41,17 @@ class BehavioralEngine:
 
     def clear_debounce(self) -> None:
         self._profile_observe_seen.clear()
+
+    def clear_device(self, device_id: str) -> int:
+        """Flush baseline + observe debounce for one device."""
+        device = (device_id or "").strip()
+        cleared = self.baseline.clear_device(device)
+        if device:
+            prefix = f"{device}|"
+            for token in list(self._profile_observe_seen):
+                if token.startswith(prefix):
+                    self._profile_observe_seen.pop(token, None)
+        return cleared
 
     def evaluate(
         self,
@@ -97,13 +109,29 @@ class BehavioralEngine:
             decision = self.baseline.observe(device_id, kind, key, now=now)
             if kind != KIND_PROCESS_COMM:
                 continue
-            if decision.profile_warm and not decision.established:
+            # First observation only (count is already incremented by observe).
+            if decision.profile_warm and decision.count == 1:
                 alert = novel_process_alert(event, behavior_key=key, meta=meta)
                 if alert is None:
                     continue
                 chain = store.get_chain(device_id)
                 if chain is not None:
-                    alert = with_alert_context(chain, alert)
+                    alert = with_alert_context(chain, alert, store=store, event=event)
+                # Attribute onto ProcessState so later network_connection events
+                # can correlate (process_network_activity / elevated risk).
+                payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+                pid = 0
+                try:
+                    pid = int(payload.get("pid") or 0)
+                except (TypeError, ValueError):
+                    pid = 0
+                if pid > 0:
+                    proc = store.get_process_by_pid(device_id, pid)
+                    if proc is not None:
+                        proc.note_rule_match(
+                            alert.alert_type,
+                            score_delta=score_for(alert.severity),
+                        )
                 novel.append(alert_to_hit(alert, engine=ENGINE_BEHAVIORAL))
                 LOG.info(
                     "novel process detected",

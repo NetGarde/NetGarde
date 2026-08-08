@@ -4,6 +4,35 @@ sets:
   shells: [sh, bash, zsh, fish, dash, ksh]
   downloaders: [curl, wget, fetch]
   scripts: [osascript, python, python3, perl, ruby, node]
+  # Local LLM runtimes, CLI agents, and AI IDE hosts (Cursor).
+  ai_tools:
+    - ollama
+    - llama-server
+    - llama-cli
+    - llama-cpp
+    - lmstudio
+    - lm-studio
+    - vllm
+    - localai
+    - gpt4all
+    - koboldcpp
+    - text-generation-webui
+    - aider
+    - claude
+    - codex
+    - continue
+    - goose
+    - open-interpreter
+    - interpreter
+    - cursor-agent
+    - amp
+    - cursor
+    - cursor helper
+    - cursor helper (gpu)
+    - cursor helper (plugin)
+    - cursor helper (renderer)
+    - cursorui
+    - chatgpt
   system_comms: [curl, bash, sh, python, python3, ls, cat]
   temp_path_markers:
     - /tmp/
@@ -36,6 +65,38 @@ rules:
     when:
       child:
         basename_in: { field: comm, set: downloaders }
+      parent:
+        resolve: ppid
+        within: 5m
+        basename_in: { field: comm, set: shells }
+    detail:
+      child_comm: child.comm
+      parent_comm: parent.comm
+      child_pid: child.pid
+      parent_pid: child.ppid
+      parent_cmdline: parent.cmdline
+      child_cmdline: child.cmdline
+
+  - id: ai_tool_execution
+    trigger: process_start
+    severity: medium
+    message: "AI tool process started ({child.comm})"
+    when:
+      child:
+        basename_in: { field: comm, set: ai_tools }
+    detail:
+      comm: child.comm
+      executable: child.executable
+      pid: child.pid
+      cmdline: child.cmdline
+
+  - id: shell_spawns_ai_tool
+    trigger: process_start
+    severity: high
+    message: "Shell spawned AI tool ({child.comm})"
+    when:
+      child:
+        basename_in: { field: comm, set: ai_tools }
       parent:
         resolve: ppid
         within: 5m

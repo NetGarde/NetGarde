@@ -48,9 +48,37 @@ def test_list_latest_parses_device_documents(fake_redis):
     assert rec.network_summary["public_ip"] == "1.2.3.4"
     assert rec.action_summary["presence"] == "active"
     assert rec.last_seen_at == now
+    assert rec.known_ai_apps == {}
 
 
-def test_app_slug_from_focus():
+def test_list_latest_parses_known_ai_apps(fake_redis):
+    doc = {
+        "device_id": "dev_ai",
+        "last_seen_at": "2026-08-08T12:00:00Z",
+        "client_details": {},
+        "network_summary": {},
+        "action_summary": {},
+        "known_ai_apps": {
+            "cursor:/applications/cursor.app": {
+                "id": "cursor:/applications/cursor.app",
+                "product_id": "cursor",
+                "product_name": "Cursor",
+                "installed": True,
+                "running": True,
+            }
+        },
+    }
+    fake_redis.sadd(trusttwin_store.DEVICES_KEY, "dev_ai")
+    fake_redis.set(
+        trusttwin_store.LATEST_KEY_FMT.format(device_id="dev_ai"),
+        json.dumps(doc),
+    )
+
+    items = trusttwin_store.list_latest()
+    assert len(items) == 1
+    apps = items[0].known_ai_apps
+    assert "cursor:/applications/cursor.app" in apps
+    assert apps["cursor:/applications/cursor.app"]["product_name"] == "Cursor"
     assert (
         trusttwin_store.app_slug_from_focus({"bundle_id": "com.microsoft.VSCode"})
         == "com-microsoft-vscode"

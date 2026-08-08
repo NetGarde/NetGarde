@@ -8,13 +8,14 @@ const EMPTY: DeviceBaselineResponse = {
   total: 0,
   items: [],
   suppress_count: 20,
-  suppress_age_hours: 72,
-  profile_min_keys: 30,
+  suppress_age_hours: 0,
+  profile_min_keys: 5,
 };
 
 export function useDeviceBaseline(deviceId: string | undefined, limit = 100) {
   const [data, setData] = useState<DeviceBaselineResponse>(EMPTY);
   const [loading, setLoading] = useState(Boolean(deviceId));
+  const [flushing, setFlushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBaseline = useCallback(async () => {
@@ -38,9 +39,24 @@ export function useDeviceBaseline(deviceId: string | undefined, limit = 100) {
     }
   }, [deviceId, limit]);
 
+  const flushBaseline = useCallback(async () => {
+    if (!deviceId) return;
+    setFlushing(true);
+    setError(null);
+    try {
+      await twinApi.clearDeviceBaseline(deviceId);
+      await fetchBaseline();
+    } catch (err) {
+      console.error('Failed to flush device baseline:', err);
+      setError(err instanceof Error ? err.message : 'Failed to flush baseline');
+    } finally {
+      setFlushing(false);
+    }
+  }, [deviceId, fetchBaseline]);
+
   useEffect(() => {
     fetchBaseline();
   }, [fetchBaseline]);
 
-  return { data, loading, error, refetch: fetchBaseline };
+  return { data, loading, flushing, error, refetch: fetchBaseline, flush: flushBaseline };
 }

@@ -8,7 +8,8 @@ from urllib.parse import parse_qs, urlparse
 
 from log_config import setup_logging, structured_extra
 from recent_alerts import list_alerts
-from baseline_view import snapshot_device
+from baseline_view import clear_device, snapshot_device
+from ai_activity import view as ai_activity_view
 from rules.metrics import METRICS
 
 LOG = setup_logging(service=os.getenv("LOG_SERVICE", "detection-engine"), logger_name=__name__)
@@ -42,6 +43,7 @@ class _Handler(BaseHTTPRequestHandler):
                     "hits_rule": snap.hits_rule,
                     "hits_behavioral": snap.hits_behavioral,
                     "hits_threat_intel": snap.hits_threat_intel,
+                    "hits_ai_activity": snap.hits_ai_activity,
                     "scored_events": snap.scored_events,
                 },
             )
@@ -54,6 +56,75 @@ class _Handler(BaseHTTPRequestHandler):
                 return
             limit = _query_int(qs, "limit", 100, min_value=1, max_value=500)
             self._json(200, snapshot_device(device_id, limit=limit))
+            return
+        if parsed.path == "/ai_activity/sessions":
+            qs = parse_qs(parsed.query)
+            device_id = _query_str(qs, "device_id")
+            if not device_id:
+                self._json(400, {"detail": "device_id is required"})
+                return
+            limit = _query_int(qs, "limit", 50, min_value=1, max_value=200)
+            include_closed = (_query_str(qs, "include_closed") or "1").lower() not in (
+                "0",
+                "false",
+                "no",
+            )
+            self._json(
+                200,
+                ai_activity_view.list_sessions(
+                    device_id, limit=limit, include_closed=include_closed
+                ),
+            )
+            return
+        if parsed.path.startswith("/ai_activity/sessions/"):
+            rest = parsed.path[len("/ai_activity/sessions/") :].strip("/")
+            if not rest:
+                self._json(404, {"detail": "not found"})
+                return
+            parts = rest.split("/")
+            session_id = parts[0]
+            if len(parts) == 1:
+                body = ai_activity_view.get_session(session_id)
+                if body is None:
+                    self._json(404, {"detail": "session not found"})
+                    return
+                self._json(200, body)
+                return
+            if len(parts) == 2 and parts[1] == "graph":
+                body = ai_activity_view.get_session_graph(session_id)
+                if body is None:
+                    self._json(404, {"detail": "session not found"})
+                    return
+                self._json(200, body)
+                return
+            if len(parts) == 2 and parts[1] == "timeline":
+                qs = parse_qs(parsed.query)
+                limit = _query_int(qs, "limit", 200, min_value=1, max_value=1000)
+                body = ai_activity_view.get_session_timeline(session_id, limit=limit)
+                if body is None:
+                    self._json(404, {"detail": "session not found"})
+                    return
+                self._json(200, body)
+                return
+            if len(parts) == 2 and parts[1] == "chain":
+                body = ai_activity_view.get_session_chain(session_id)
+                if body is None:
+                    self._json(404, {"detail": "session not found"})
+                    return
+                self._json(200, body)
+                return
+            self._json(404, {"detail": "not found"})
+            return
+        if parsed.path.startswith("/ai_activity/process/"):
+            process_id = parsed.path[len("/ai_activity/process/") :].strip("/")
+            if not process_id:
+                self._json(400, {"detail": "process_id is required"})
+                return
+            body = ai_activity_view.lookup_process(process_id)
+            if body is None:
+                self._json(404, {"detail": "process not in any AI session"})
+                return
+            self._json(200, body)
             return
         if parsed.path != "/alerts":
             self._json(404, {"detail": "not found"})
@@ -73,6 +144,18 @@ class _Handler(BaseHTTPRequestHandler):
             severity=severity,
         )
         self._json(200, body)
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path != "/baseline":
+            self._json(404, {"detail": "not found"})
+            return
+        qs = parse_qs(parsed.query)
+        device_id = _query_str(qs, "device_id")
+        if not device_id:
+            self._json(400, {"detail": "device_id is required"})
+            return
+        self._json(200, clear_device(device_id))
 
     def _json(self, status: int, payload: dict) -> None:
         data = json.dumps(payload).encode("utf-8")

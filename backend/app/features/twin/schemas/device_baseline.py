@@ -18,5 +18,10 @@ class DeviceBaselineResponse(BaseModel):
     total: int = 0
     items: List[DeviceBaselineItem] = Field(default_factory=list)
     suppress_count: int = 20
-    suppress_age_hours: int = 72
-    profile_min_keys: int = 30
+    suppress_age_hours: int = 0
+    profile_min_keys: int = 5
+
+
+class DeviceBaselineClearResponse(BaseModel):
+    device_id: str
+    cleared: int = 0
