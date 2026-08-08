@@ -37,6 +37,14 @@ def _as_dict_list(value: Any) -> list[dict]:
     return out
 
 
+def _as_optional_bool(value: Any) -> bool | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    return None
+
+
 def _connected_agent_from_latest(
     row: trusttwin_store.TwinDeviceLatest,
     *,
@@ -175,6 +183,14 @@ class ConnectedAgentService:
                     model_format=str(payload.get("model_format") or ""),
                     runtime_version=str(payload.get("runtime_version") or ""),
                     local_clients=_as_dict_list(payload.get("local_clients")),
+                    extension_id=str(payload.get("extension_id") or ""),
+                    host_ide_product_id=str(payload.get("host_ide_product_id") or ""),
+                    host_ide_path=str(payload.get("host_ide_path") or ""),
+                    profile=str(payload.get("profile") or ""),
+                    enabled=_as_optional_bool(payload.get("enabled")),
+                    active=_as_optional_bool(payload.get("active")),
+                    mcp_configured=bool(payload.get("mcp_configured")),
+                    local_model_product_id=str(payload.get("local_model_product_id") or ""),
                 )
             )
         items.sort(key=lambda x: (x.product_name or x.product_id or x.id).lower())

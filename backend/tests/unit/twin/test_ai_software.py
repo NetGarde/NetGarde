@@ -184,6 +184,49 @@ def test_list_ai_software_includes_local_model_runtime_fields(fake_redis):
     assert item.local_clients[0]["product_id"] == "cursor"
 
 
+def test_list_ai_software_includes_ide_extension_fields(fake_redis):
+    doc = {
+        "device_id": "dev_ext",
+        "known_ai_apps": {
+            "cline:/users/x/.cursor/extensions/saoudrizwan.claude-dev-3.8.0": {
+                "id": "cline:/users/x/.cursor/extensions/saoudrizwan.claude-dev-3.8.0",
+                "product_id": "cline",
+                "product_name": "Cline",
+                "vendor": "Cline",
+                "category": "agentic_ide_extension",
+                "confidence": "VERIFIED",
+                "installed": True,
+                "running": False,
+                "path": "/Users/x/.cursor/extensions/saoudrizwan.claude-dev-3.8.0",
+                "version": "3.8.0",
+                "extension_id": "saoudrizwan.claude-dev",
+                "host_ide_product_id": "cursor",
+                "host_ide_path": "/Applications/Cursor.app",
+                "package_manager": "cursor_extension",
+                "package_identifier": "saoudrizwan.claude-dev",
+                "enabled": True,
+                "mcp_configured": True,
+                "local_model_product_id": "ollama",
+                "matched_evidence": ["extension_id", "host_ide"],
+            },
+        },
+    }
+    fake_redis.set(
+        trusttwin_store.LATEST_KEY_FMT.format(device_id="dev_ext"),
+        json.dumps(doc),
+    )
+    result = ConnectedAgentService().list_ai_software("dev_ext")
+    assert result.total == 1
+    item = result.items[0]
+    assert item.category == "agentic_ide_extension"
+    assert item.extension_id == "saoudrizwan.claude-dev"
+    assert item.host_ide_product_id == "cursor"
+    assert item.enabled is True
+    assert item.active is None
+    assert item.mcp_configured is True
+    assert item.local_model_product_id == "ollama"
+
+
 def test_list_ai_software_empty_when_missing(fake_redis):
     result = ConnectedAgentService().list_ai_software("missing")
     assert result.device_id == "missing"

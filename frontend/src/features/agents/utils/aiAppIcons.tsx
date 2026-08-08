@@ -3,6 +3,7 @@ import SvgIcon from '@mui/material/SvgIcon';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import TerminalIcon from '@mui/icons-material/Terminal';
 import MemoryIcon from '@mui/icons-material/Memory';
+import ExtensionIcon from '@mui/icons-material/Extension';
 
 /** Cursor brand mark (cube) — fill follows currentColor. */
 export function CursorIcon(props: SvgIconProps) {
@@ -26,14 +27,21 @@ const CLI_PRODUCT_IDS = new Set([
 
 const RUNTIME_PRODUCT_IDS = new Set(['ollama', 'llama_cpp']);
 
+const EXTENSION_PRODUCT_IDS = new Set(['github_copilot', 'continue', 'cline', 'roo_code']);
+
 /** Brand / category accent colors for inventory icons (currentColor). */
 const PRODUCT_ICON_COLORS: Record<string, string> = {
   cursor: '#F54E00',
+  vscode: '#007ACC',
   claude: '#D97757',
   claude_code: '#D97757',
   codex_cli: '#10A37F',
   gemini_cli: '#4285F4',
   copilot_cli: '#A371F7',
+  github_copilot: '#238636',
+  continue: '#1F6FEB',
+  cline: '#D97757',
+  roo_code: '#7C3AED',
   opencode: '#3B82F6',
   ollama: '#0D9373',
   llama_cpp: '#6366F1',
@@ -51,10 +59,18 @@ export function isLocalModelRuntime(productId: string, category?: string): boole
   return (category || '').trim().toLowerCase() === 'local_model_runtime';
 }
 
+export function isIdeExtension(productId: string, category?: string): boolean {
+  const id = productId.trim().toLowerCase();
+  if (EXTENSION_PRODUCT_IDS.has(id)) return true;
+  const cat = (category || '').trim().toLowerCase();
+  return cat === 'ai_ide_extension' || cat === 'agentic_ide_extension';
+}
+
 /** Accent color for an AI product icon; falls back by category. */
 export function aiAppIconColor(productId: string, category?: string): string {
   const id = productId.trim().toLowerCase();
   if (PRODUCT_ICON_COLORS[id]) return PRODUCT_ICON_COLORS[id];
+  if (isIdeExtension(id, category)) return '#7C3AED';
   if (isLocalModelRuntime(id, category)) return '#0D9373';
   if (isCliAgent(id, category)) return '#64748B';
   const cat = (category || '').trim().toLowerCase();
@@ -69,6 +85,9 @@ export function aiAppIcon(productId: string, props?: SvgIconProps, category?: st
   const merged: SvgIconProps = { fontSize: 'small', ...props };
   if (id === 'cursor') {
     return <CursorIcon {...merged} />;
+  }
+  if (isIdeExtension(id, category)) {
+    return <ExtensionIcon {...merged} />;
   }
   if (isLocalModelRuntime(id, category)) {
     return <MemoryIcon {...merged} />;

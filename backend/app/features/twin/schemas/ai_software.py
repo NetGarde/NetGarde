@@ -43,6 +43,15 @@ class AiSoftwareItem(BaseModel):
     model_format: str = ""
     runtime_version: str = ""
     local_clients: List[dict] = Field(default_factory=list)
+    # IDE extension fields (empty for apps / CLI / runtimes).
+    extension_id: str = ""
+    host_ide_product_id: str = ""
+    host_ide_path: str = ""
+    profile: str = ""
+    enabled: Optional[bool] = None
+    active: Optional[bool] = None
+    mcp_configured: bool = False
+    local_model_product_id: str = ""
 
 
 class AiSoftwareListResponse(BaseModel):
