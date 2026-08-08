@@ -6,10 +6,10 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 ---
 
-## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Infrastructure
+## <img src="assets/icon-aws-shield.svg" width="22" height="22" align="absmiddle" alt="" /> Infrastructure
 
 <p align="center">
-  <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.png" />
+  <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.svg" />
 </p>
 
 | AWS service | Role |

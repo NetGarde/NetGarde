@@ -51,12 +51,12 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 ---
 
-## Production on AWS
+## <img src="docs/assets/icon-aws-shield.svg" alt="" width="22" height="22" align="absmiddle" /> Production on AWS
 
 Self-hosted on **EC2 + Docker Compose**, with **RDS**, **S3 + CloudFront**, **ECR**, and **GitHub Actions** CI/CD.
 
 <p align="center">
-  <img width="100%" alt="TrustEdge AWS production architecture — Edge, EC2 Compose, RDS, S3/CloudFront, GitHub Actions" src="docs/assets/aws-architecture.png" />
+  <img width="100%" alt="TrustEdge AWS production architecture — Edge, EC2 Compose, RDS, S3/CloudFront, GitHub Actions" src="docs/assets/aws-architecture.svg" />
 </p>
 
 | Layer | What runs there |

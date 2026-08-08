@@ -14,10 +14,10 @@ Component topology and data flows for TrustEdge: endpoint telemetry from TrustEd
 
 ---
 
-## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> AWS production
+## <img src="assets/icon-aws-shield.svg" width="22" height="22" align="absmiddle" alt="" /> AWS production
 
 <p align="center">
-  <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.png" />
+  <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.svg" />
 </p>
 
 Deploy and host layout: [DEPLOY.md](DEPLOY.md)
