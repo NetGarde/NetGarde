@@ -25,20 +25,37 @@ Detection is multi-engine and deterministic:
 Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summarize network state — they never decide what is malicious.
 
 <p align="center">
-  <img width="100%" alt="TrustEdge overview dashboard — network health, agents, recent alerts, and severity" src="docs/assets/screenshot-overview.png" />
-</p>
-
-<p align="center">
-  <img width="100%" alt="TrustEdge agent detail — process baseline, AI tools inventory, and AI sessions" src="docs/assets/screenshot-agent-detail.png" />
-</p>
-
-<p align="center">
-  <img width="100%" alt="TrustEdge alerts — AI tool, novel process, and idle network detections" src="docs/assets/screenshot-alerts.png" />
-</p>
-
-<p align="center">
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
+
+---
+
+## Screenshots
+
+### Overview
+
+<p align="center">
+  <img width="100%" alt="TrustEdge overview dashboard" src="docs/assets/screenshot-overview.png" />
+</p>
+
+### Agent detail
+
+<p align="center">
+  <img width="100%" alt="TrustEdge agent detail — AI tools inventory and sessions" src="docs/assets/screenshot-agent-detail.png" />
+</p>
+
+### Alerts
+
+<p align="center">
+  <img width="100%" alt="TrustEdge alerts" src="docs/assets/screenshot-alerts.png" />
+</p>
+
+| Surface | What you get |
+|---------|--------------|
+| **Home** | Health, recent alerts, agent status, AI network overview |
+| **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
+| **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
+| **Learn** | How it works · Detection engine |
 
 ---
 
@@ -79,17 +96,6 @@ Self-hosted on **EC2 + Docker Compose**, with **RDS**, **S3 + CloudFront**, **EC
 | **ECR + Actions** | Image build/push · EC2 deploy · frontend sync |
 
 Deploy guide: [docs/DEPLOY.md](docs/DEPLOY.md)
-
----
-
-## Operator surfaces
-
-| Surface | What you get |
-|---------|--------------|
-| **Home** | Health, recent alerts, agent status, AI network overview |
-| **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
-| **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
-| **Learn** | How it works · Detection engine |
 
 ---
 
