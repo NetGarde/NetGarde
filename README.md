@@ -12,7 +12,7 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 TrustEdge is a **self-hosted security observability platform** for teams that want real endpoint signal and actionable detection without a heavy enterprise EDR stack.
 
-A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, app-focus, and network-posture telemetry, batches and compresses it, then uploads over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). Events flow onto Kafka, a rules engine looks for attack chains and drift, and this control plane surfaces **attack alerts**, maps, and behavior views in a React dashboard.
+A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network-posture, and AI tools inventory telemetry, batches and compresses it, then uploads over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). Events flow onto Kafka, a rules engine looks for attack chains and drift, and this control plane surfaces **attack alerts**, agents, and behavior views in a React dashboard.
 
 Detection stays **rules-based** (deterministic). Optional LLMs only help explain state to operators — they do not decide what is malicious.
 
@@ -57,9 +57,9 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 | Capability | Implementation |
 |------------|----------------|
-| Endpoint telemetry | Process, app focus, network posture |
+| Endpoint telemetry | Process, activity, network posture, AI tools inventory |
 | Detection | Kafka-backed rules on agent events |
-| Observability | Attack alerts, agents registry |
+| Observability | Attack alerts, agents registry, installed AI software |
 | AI operations | Optional summaries (OpenAI / Ollama / template) |
 | Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
 

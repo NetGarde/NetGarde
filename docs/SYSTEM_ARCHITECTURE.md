@@ -18,7 +18,7 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 | Layer | Components | Role |
 |-------|------------|------|
-| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, app, and network posture telemetry |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, activity, network posture, and AI tools inventory telemetry |
 | **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, alerts, endpoint ingest, rules engine |
 | **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
 | **Redis** | Optional live agent keys (EC2) | Connected-agent APIs / overview helpers |
