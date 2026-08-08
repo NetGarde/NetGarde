@@ -34,17 +34,23 @@ Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summa
   <img width="100%" alt="TrustEdge overview dashboard" src="docs/assets/screenshot-overview.png" />
 </p>
 
+<p align="center"><em>Network health, live agents, recent alerts, and severity at a glance.</em></p>
+
 ### Agent detail
 
 <p align="center">
   <img width="100%" alt="TrustEdge agent detail — AI tools inventory and sessions" src="docs/assets/screenshot-agent-detail.png" />
 </p>
 
+<p align="center"><em>Behavior baseline, AI tools inventory, and AI sessions on a single endpoint.</em></p>
+
 ### Alerts
 
 <p align="center">
   <img width="100%" alt="TrustEdge alerts" src="docs/assets/screenshot-alerts.png" />
 </p>
+
+<p align="center"><em>AI tool starts, novel processes, and idle network activity — with expandable evidence.</em></p>
 
 | Surface | What you get |
 |---------|--------------|
