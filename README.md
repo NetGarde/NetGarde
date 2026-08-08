@@ -51,6 +51,25 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 ---
 
+## Production on AWS
+
+Self-hosted on **EC2 + Docker Compose**, with **RDS**, **S3 + CloudFront**, **ECR**, and **GitHub Actions** CI/CD.
+
+<p align="center">
+  <img width="100%" alt="TrustEdge AWS production architecture — Edge, EC2 Compose, RDS, S3/CloudFront, GitHub Actions" src="docs/assets/aws-architecture.png" />
+</p>
+
+| Layer | What runs there |
+|-------|-----------------|
+| **EC2 (Compose)** | Agent API · Kafka/Redpanda · detection-engine · FastAPI · Redis |
+| **RDS** | PostgreSQL — agents, alerts, behavior, config |
+| **S3 + CloudFront** | React dashboard (static) + HTTPS |
+| **ECR + Actions** | Image build/push · EC2 deploy · frontend sync |
+
+Deploy guide: [docs/DEPLOY.md](docs/DEPLOY.md)
+
+---
+
 ## Operator surfaces
 
 | Surface | What you get |

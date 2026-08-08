@@ -8,12 +8,16 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 ## <img src="assets/icons/platforms.svg" width="22" height="22" align="absmiddle" alt="" /> Infrastructure
 
+<p align="center">
+  <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.png" />
+</p>
+
 | AWS service | Role |
 |-------------|------|
-| **EC2** | Docker (backend, detection-engine, agent-api) |
+| **EC2** | Docker Compose — backend, detection-engine, agent-api, Redis, Kafka/Redpanda |
 | **RDS** | PostgreSQL — devices, alerts, behavior state |
 | **S3 + CloudFront** | React dashboard static hosting + HTTPS |
-| **ECR** | Backend Docker image registry |
+| **ECR** | Backend / service Docker image registry |
 | **Redis** (on EC2) | TrustEdge Agent live state / twin keys |
 
 ---
