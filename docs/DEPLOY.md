@@ -1,12 +1,12 @@
-# <img src="assets/icons/platforms.svg" width="28" height="28" align="absmiddle" alt="" /> Production deployment
+# Production deployment
 
-TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This document covers infrastructure layout and host services.
+TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD.
 
-**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [CLOUDWATCH_LOGGING.md](CLOUDWATCH_LOGGING.md)
+**See also:** [ENV_SETUP.md](ENV_SETUP.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [aws/README.md](../aws/README.md)
 
 ---
 
-## <img src="assets/icon-aws-shield.svg" width="22" height="22" align="absmiddle" alt="" /> Infrastructure
+## Infrastructure
 
 <p align="center">
   <img width="100%" alt="TrustEdge AWS production architecture" src="assets/aws-architecture.svg" />
@@ -14,43 +14,128 @@ TrustEdge production runs on **AWS** with **GitHub Actions** CI/CD. This documen
 
 | AWS service | Role |
 |-------------|------|
-| **EC2** | Docker Compose — backend, detection-engine, agent-api, Redis, Kafka/Redpanda |
-| **RDS** | PostgreSQL — devices, alerts, behavior state |
-| **S3 + CloudFront** | React dashboard static hosting + HTTPS |
-| **ECR** | Backend / service Docker image registry |
-| **Redis** (on EC2) | TrustEdge Agent live state / twin keys |
+| **EC2** | Docker Compose — backend, detection-engine, Redpanda, Redis; optional Agent-API + Ollama |
+| **RDS** | PostgreSQL — agents, alerts, behaviors (credentials via Secrets Manager) |
+| **S3 + CloudFront** | React dashboard (static) + HTTPS |
+| **CloudFront (API)** | HTTPS origin in front of EC2 `:8000` (avoids mixed content from the UI) |
+| **ECR** | `trustedge-backend`, `trustedge-agent-api` images |
+| **Redis** (on EC2) | Live agent / twin state |
 
 ---
 
-## CI/CD pipelines
+## CI/CD
 
-| Workflow | Trigger | Actions |
-|----------|---------|---------|
-| `deploy-backend.yml` | Push to `main` / `develop` | pytest → ECR build → SSH deploy → Alembic migrate → restart |
-| `deploy-frontend.yml` | Push to `main` / `develop` | npm build → S3 sync → CloudFront invalidation |
-| `deploy-develop.yml` | Develop branch | Combined develop pipeline |
+| Workflow | File | Trigger | Actions |
+|----------|------|---------|---------|
+| Build and Deploy Backend | `deploy-backend.yml` | Push to `main` / `develop` | pytest → (ECR push on **main** only) → SSH to EC2 → sync env → Compose up → Alembic |
+| Build and Deploy Frontend | `deploy-frontend.yml` | Push to `main` / `develop` | npm build → S3 sync → CloudFront invalidation |
+| CI | `deploy-develop.yml` | Push / PR to `main` / `develop` | Backend pytest + coverage |
 
----
+Frontend build embeds `REACT_APP_API_BASE_URL` as the **HTTPS API CloudFront** origin (see workflow `BACKEND_API_URL`) and `REACT_APP_ADMIN_API_TOKEN` from GitHub secret `ADMIN_API_TOKEN`.
 
-## EC2 host services
-
-Configuration: `/etc/trustedge/backend.env` (survives deploys). See [ENV_SETUP.md](ENV_SETUP.md).
+Optional AWS bootstrap: [aws/README.md](../aws/README.md) (`setup-trustedge-ci.sh`, ECR/S3/IAM helpers).
 
 ---
 
-## Key paths
+## EC2 host
 
-| Path | Purpose |
-|------|---------|
-| `/etc/trustedge/backend.env` | Backend secrets and config |
+| Path / artifact | Purpose |
+|-----------------|---------|
+| `~/trustedge` | Git checkout used by deploy |
+| `/etc/trustedge/backend.env` | Backend secrets (survives deploys; synced by `scripts/ec2-sync-backend-env.sh`) |
+| `/etc/trustedge/agent-enroll.token` | Agent enrollment (Agent-API profile) |
+
+Compose file: [`docker-compose.yml`](../docker-compose.yml).
+
+| Service | Notes |
+|---------|--------|
+| `backend` | FastAPI; env from `/etc/trustedge/backend.env`; `DETECTION_ENGINE_URL` → detection-engine |
+| `detection-engine` | Consumes Kafka; may proxy alerts / AI session APIs |
+| `redpanda` | Kafka-compatible broker (`trustedge.agent.events`) |
+| `redis` | Twin / live presence |
+| `trustedge-agent-api` | Profile `agent` — image from ECR when available |
+| `ollama` | Profile `ai` — optional local LLM for alert / overview explain |
+
+See [ENV_SETUP.md](ENV_SETUP.md) for variables.
+
+### Useful host scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/ec2-sync-backend-env.sh` | Merge RDS `DB_URL` into `backend.env` |
+| `scripts/ec2-sync-service-tokens.sh` | Align ingest tokens across Compose |
+| `scripts/ec2-resolve-agent-api.sh` | Pull Agent-API image / enable `agent` profile |
+| `scripts/ec2-sync-agent-api.sh` | Wire enroll + ingest token for Agent-API |
+| `scripts/ec2-setup-cloudwatch.sh` | CloudWatch Agent + JSON logging |
+| `scripts/ec2-setup-ollama.sh` | Enable `ai` profile + Ollama |
 
 ---
 
-## Tech stack reference
+## CloudWatch logging
+
+Structured JSON logs go to stdout. On EC2, the **CloudWatch Agent** forwards Docker logs to CloudWatch Logs.
+
+| Log group | Source | Retention |
+|-----------|--------|-----------|
+| `/trustedge/prod/backend` | Docker `trustedge-api` | 30 days |
+
+Detection alerts live in PostgreSQL / the dashboard — not as CloudWatch application events.
+
+### Backend env
+
+```env
+LOG_JSON=1
+LOG_LEVEL=INFO
+LOG_TO_FILE=0
+LOG_SERVICE=backend
+PYTHONUNBUFFERED=1
+```
+
+Each HTTP request gets `X-Request-ID` and `request_id` on log lines (`event=http_request`, except `/health`).
+
+### One-time EC2 setup
+
+EC2 instance role needs CloudWatch Logs permissions (`CreateLogGroup`, `CreateLogStream`, `PutLogEvents`, `DescribeLogStreams`, `PutRetentionPolicy`).
+
+```bash
+cd ~/trustedge
+sudo bash scripts/ec2-setup-cloudwatch.sh
+```
+
+Applies [`scripts/cloudwatch/amazon-cloudwatch-agent.json`](../scripts/cloudwatch/amazon-cloudwatch-agent.json) and enables `LOG_JSON` in `backend.env`.
+
+### Insights examples
+
+**Recent errors:**
+
+```
+fields @timestamp, level, service, event, message, request_id
+| filter level = "ERROR"
+| sort @timestamp desc
+| limit 50
+```
+
+**Slow API requests (>500ms):**
+
+```
+fields @timestamp, http_method, http_path, status_code, duration_ms
+| filter event = "http_request" and duration_ms > 500
+| sort duration_ms desc
+```
+
+### Do not log
+
+- Tokens, secrets, device tokens
+- Full alert / event payloads that may contain sensitive endpoint detail
+
+---
+
+## Stack
 
 | Layer | Stack |
 |-------|-------|
 | Frontend | React 19, TypeScript, MUI 7 |
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Alembic |
-| Data | PostgreSQL 16, Redis 7 |
+| Data | PostgreSQL 16 (RDS), Redis 7 |
+| Stream / detect | Redpanda, `detection-engine` |
 | Ops | Docker Compose, CloudWatch structured logs |
