@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 720" role="img" aria-labelledby="aws-title aws-desc">
+  <title id="aws-title">TrustEdge AWS production architecture</title>
+  <desc id="aws-desc">Endpoints run TrustEdge Agent and upload over HTTPS to Agent API on EC2. Events stream through Kafka to detection, alerts go to FastAPI and RDS, Redis holds live twin state, operators use the React dashboard on S3 and CloudFront, and GitHub Actions deploys via ECR.</desc>
+  <defs>
+    <linearGradient id="aws-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#EEF2FF"/>
+    </linearGradient>
+    <marker id="aws-arr" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#94A3B8"/>
+    </marker>
+    <marker id="aws-arr-blue" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#3B82F6"/>
+    </marker>
+    <marker id="aws-arr-green" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#059669"/>
+    </marker>
+    <filter id="aws-soft" x="-6%" y="-4%" width="112%" height="112%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2.5" flood-color="#0F172A" flood-opacity="0.07"/>
+    </filter>
+    <style>
+      .title { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; fill: #64748B; }
+      .lead { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 600; fill: #94A3B8; }
+      .band { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; fill: #94A3B8; }
+      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 14px; font-weight: 800; fill: #0F172A; }
+      .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 700; fill: #334155; }
+      .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #64748B; }
+      .num { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 800; fill: #FFFFFF; }
+      .zone { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; fill: #1D4ED8; }
+      .foot { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 600; fill: #94A3B8; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="720" rx="22" fill="url(#aws-bg)"/>
+  <text class="title" x="36" y="30">AWS PRODUCTION</text>
+  <text class="lead" x="186" y="30">Edge agents / EC2 Compose / RDS / S3+CloudFront / GitHub Actions</text>
+
+  <text class="band" x="120" y="58" text-anchor="middle">EDGE</text>
+  <g transform="translate(36,70)" filter="url(#aws-soft)">
+    <rect width="168" height="280" rx="16" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
+    <rect width="168" height="5" rx="2.5" fill="#2563EB"/>
+    <circle cx="28" cy="28" r="12" fill="#2563EB"/>
+    <text class="num" x="28" y="32" text-anchor="middle">1</text>
+    <text class="h" x="48" y="34">Endpoints</text>
+    <text class="s" x="84" y="58" text-anchor="middle">macOS / Linux / Windows</text>
+    <rect x="16" y="78" width="136" height="170" rx="12" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="84" y="108" text-anchor="middle">TrustEdge Agent</text>
+    <text class="s" x="84" y="128" text-anchor="middle">Go</text>
+    <text class="s" x="84" y="156" text-anchor="middle">Collect + queue</text>
+    <text class="s" x="84" y="176" text-anchor="middle">zstd + HTTPS</text>
+    <text class="s" x="84" y="206" text-anchor="middle">collectors stay</text>
+    <text class="s" x="84" y="224" text-anchor="middle">local</text>
+  </g>
+
+  <path d="M214 210 H248" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#aws-arr)"/>
+  <text class="s" x="231" y="198" text-anchor="middle">HTTPS</text>
+
+  <text class="band" x="560" y="58" text-anchor="middle">AWS / EC2 DOCKER COMPOSE</text>
+  <g transform="translate(260,70)" filter="url(#aws-soft)">
+    <rect width="600" height="380" rx="18" fill="#FFFFFF" stroke="#93C5FD" stroke-width="1.6"/>
+    <rect width="600" height="5" rx="2.5" fill="#1D4ED8"/>
+    <text class="zone" x="20" y="28">AMAZON EC2</text>
+    <text class="s" x="130" y="28">Ubuntu + Compose</text>
+
+    <g transform="translate(20,48)">
+      <rect width="170" height="110" rx="12" fill="#F0FDFA" stroke="#99F6E4"/>
+      <circle cx="22" cy="22" r="10" fill="#0D9488"/>
+      <text class="num" x="22" y="26" text-anchor="middle">2</text>
+      <text class="b" x="40" y="28">Agent API</text>
+      <text class="s" x="85" y="56" text-anchor="middle">auth + validate</text>
+      <text class="s" x="85" y="76" text-anchor="middle">publish + twin</text>
+      <text class="s" x="85" y="96" text-anchor="middle">FastAPI</text>
+    </g>
+
+    <g transform="translate(215,48)">
+      <rect width="170" height="110" rx="12" fill="#FFFBEB" stroke="#FDE68A"/>
+      <circle cx="22" cy="22" r="10" fill="#D97706"/>
+      <text class="num" x="22" y="26" text-anchor="middle">3</text>
+      <text class="b" x="40" y="28">Kafka</text>
+      <text class="s" x="85" y="56" text-anchor="middle">event stream</text>
+      <text class="s" x="85" y="76" text-anchor="middle">Redpanda on host</text>
+      <text class="s" x="85" y="96" text-anchor="middle">durable + ordered</text>
+    </g>
+
+    <g transform="translate(410,48)">
+      <rect width="170" height="110" rx="12" fill="#FFF1F2" stroke="#FECDD3"/>
+      <circle cx="22" cy="22" r="10" fill="#E11D48"/>
+      <text class="num" x="22" y="26" text-anchor="middle">4</text>
+      <text class="b" x="40" y="28">Detection</text>
+      <text class="s" x="85" y="56" text-anchor="middle">rules + behavior</text>
+      <text class="s" x="85" y="76" text-anchor="middle">AI activity</text>
+      <text class="s" x="85" y="96" text-anchor="middle">alert ingest</text>
+    </g>
+
+    <g transform="translate(20,190)">
+      <rect width="270" height="100" rx="12" fill="#EEF2FF" stroke="#C7D2FE"/>
+      <circle cx="22" cy="22" r="10" fill="#4F46E5"/>
+      <text class="num" x="22" y="26" text-anchor="middle">5</text>
+      <text class="b" x="40" y="28">FastAPI backend</text>
+      <text class="s" x="135" y="58" text-anchor="middle">control plane + alerts API</text>
+      <text class="s" x="135" y="78" text-anchor="middle">agents + behavior + sessions</text>
+    </g>
+
+    <g transform="translate(310,190)">
+      <rect width="270" height="100" rx="12" fill="#F8FAFC" stroke="#E2E8F0"/>
+      <circle cx="22" cy="22" r="10" fill="#64748B"/>
+      <text class="num" x="22" y="26" text-anchor="middle">6</text>
+      <text class="b" x="40" y="28">Redis</text>
+      <text class="s" x="135" y="58" text-anchor="middle">live agent / twin state</text>
+      <text class="s" x="135" y="78" text-anchor="middle">sessions + cache</text>
+    </g>
+
+    <path d="M190 103 H213" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+    <path d="M385 103 H408" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+    <path d="M495 158 V188" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+    <path d="M105 158 V188" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+    <path d="M190 240 H308" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+    <text class="s" x="300" y="330" text-anchor="middle">Redis shared by Agent API, detection, FastAPI</text>
+  </g>
+
+  <g transform="translate(260,480)" filter="url(#aws-soft)">
+    <rect width="280" height="100" rx="14" fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1.5"/>
+    <rect width="280" height="4" rx="2" fill="#059669"/>
+    <text class="b" x="140" y="36" text-anchor="middle">Amazon RDS</text>
+    <text class="s" x="140" y="58" text-anchor="middle">PostgreSQL</text>
+    <text class="s" x="140" y="80" text-anchor="middle">agents, alerts, behavior, config</text>
+  </g>
+  <path d="M400 450 V478" stroke="#CBD5E1" stroke-width="2.2" marker-end="url(#aws-arr)"/>
+  <text class="s" x="418" y="468">persist</text>
+
+  <g transform="translate(580,480)" filter="url(#aws-soft)">
+    <rect width="280" height="100" rx="14" fill="#FFFFFF" stroke="#FDE68A" stroke-width="1.5"/>
+    <rect width="280" height="4" rx="2" fill="#D97706"/>
+    <text class="b" x="140" y="36" text-anchor="middle">S3 + CloudFront</text>
+    <text class="s" x="140" y="58" text-anchor="middle">React dashboard (static)</text>
+    <text class="s" x="140" y="80" text-anchor="middle">HTTPS + CDN</text>
+  </g>
+
+  <text class="band" x="1160" y="58" text-anchor="middle">CI/CD</text>
+  <g transform="translate(900,70)" filter="url(#aws-soft)">
+    <rect width="464" height="380" rx="16" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5"/>
+    <rect width="464" height="5" rx="2.5" fill="#4F46E5"/>
+    <circle cx="28" cy="28" r="12" fill="#4F46E5"/>
+    <text class="num" x="28" y="32" text-anchor="middle">7</text>
+    <text class="h" x="48" y="34">GitHub Actions</text>
+    <text class="s" x="240" y="58" text-anchor="middle">push to main / develop</text>
+
+    <rect x="20" y="78" width="424" height="120" rx="12" fill="#EEF2FF" stroke="#C7D2FE"/>
+    <text class="b" x="232" y="106" text-anchor="middle">Backend services</text>
+    <text class="s" x="232" y="130" text-anchor="middle">test -&gt; Docker build -&gt; ECR -&gt; EC2 Compose</text>
+    <text class="s" x="232" y="154" text-anchor="middle">backend + detection + agent-api</text>
+    <text class="s" x="232" y="178" text-anchor="middle">Amazon ECR image registry</text>
+
+    <rect x="20" y="220" width="424" height="120" rx="12" fill="#FFFBEB" stroke="#FDE68A"/>
+    <text class="b" x="232" y="248" text-anchor="middle">Frontend dashboard</text>
+    <text class="s" x="232" y="272" text-anchor="middle">npm build -&gt; S3 sync</text>
+    <text class="s" x="232" y="296" text-anchor="middle">CloudFront invalidation</text>
+    <text class="s" x="232" y="320" text-anchor="middle">operators reach UI over HTTPS</text>
+  </g>
+
+  <path d="M900 160 H862" stroke="#3B82F6" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aws-arr-blue)"/>
+  <text class="s" x="880" y="148" text-anchor="middle" fill="#3B82F6">deploy</text>
+  <path d="M900 300 H862" stroke="#059669" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aws-arr-green)"/>
+  <text class="s" x="880" y="288" text-anchor="middle" fill="#059669">sync</text>
+
+  <g transform="translate(900,480)" filter="url(#aws-soft)">
+    <rect width="464" height="100" rx="14" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
+    <rect width="464" height="4" rx="2" fill="#2563EB"/>
+    <text class="b" x="232" y="40" text-anchor="middle">Operators</text>
+    <text class="s" x="232" y="64" text-anchor="middle">CloudFront -&gt; dashboard / admin bearer -&gt; FastAPI</text>
+    <text class="s" x="232" y="84" text-anchor="middle">agents: device tokens / services: ingest token</text>
+  </g>
+  <path d="M720 530 H898" stroke="#CBD5E1" stroke-width="2" marker-end="url(#aws-arr)"/>
+
+  <text class="foot" x="700" y="630" text-anchor="middle">Auth: device token (agents), admin bearer (operators), ingest token (services), IAM (EC2 / CI)</text>
+  <text class="foot" x="700" y="652" text-anchor="middle">Solid = runtime data / dashed blue = image deploy / dashed green = static sync</text>
+  <text class="foot" x="700" y="688" text-anchor="middle">TrustEdgeOrg - self-hosted on AWS - portfolio / educational use</text>
+</svg>

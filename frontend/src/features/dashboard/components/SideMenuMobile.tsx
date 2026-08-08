@@ -6,8 +6,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import MenuContent from './MenuContent';
+import TrustEdgeLogo from '../../../shared/components/TrustEdgeLogo';
 
 interface SideMenuMobileProps {
   open: boolean;
@@ -31,19 +31,7 @@ export default function SideMenuMobile({ open, toggleDrawer }: SideMenuMobilePro
     >
       <Stack sx={{ height: '100%' }}>
         <Stack direction="row" sx={{ p: 2, gap: 1.25, alignItems: 'center' }}>
-          <Box
-            sx={{
-              width: 28,
-              height: 28,
-              borderRadius: '8px',
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ShieldOutlinedIcon sx={{ color: '#fff', fontSize: 16 }} />
-          </Box>
+          <TrustEdgeLogo size={28} />
           <Typography sx={{ fontWeight: 700, flex: 1 }}>TrustEdge</Typography>
         </Stack>
         <Divider />
