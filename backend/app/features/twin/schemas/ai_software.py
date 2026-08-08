@@ -1,4 +1,4 @@
-"""Schemas for known AI software inventory from Redis twin."""
+"""Schemas for known AI tools inventory from Redis twin."""
 
 from __future__ import annotations
 

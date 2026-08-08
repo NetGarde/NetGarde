@@ -26,9 +26,9 @@ export function useAiSoftware(deviceId: string | undefined) {
       const payload = await twinApi.listAiSoftware(deviceId);
       setData(payload);
     } catch (err) {
-      console.error('Failed to fetch AI software inventory:', err);
+      console.error('Failed to fetch AI tools inventory:', err);
       setData({ ...EMPTY, device_id: deviceId });
-      setError(err instanceof Error ? err.message : 'Failed to load AI software');
+      setError(err instanceof Error ? err.message : 'Failed to load AI tools inventory');
     } finally {
       setLoading(false);
     }

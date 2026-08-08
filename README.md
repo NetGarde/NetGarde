@@ -89,17 +89,19 @@ Deploy guide: [docs/DEPLOY.md](docs/DEPLOY.md)
 | **Home** | Health, recent alerts, agent status, AI network overview |
 | **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
 | **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
-| **Learn** | How the agent pipeline works · how detection works |
+| **Learn** | How it works · Detection engine |
 
 ---
 
 ## How it works
 
 1. **Endpoint** — TrustEdge Agent runs on the device  
-2. **Collect → durable queue → compress** — local telemetry, no collector HTTP  
+2. **Collect → durable queue → compress** — local telemetry (including AI tools inventory)  
 3. **Secure upload** — HTTPS to Agent API with a device token  
 4. **Ingest → stream** — validate and publish to Kafka  
 5. **Detect → operate** — rules, behavior, and AI activity create alerts; the dashboard shows them  
+
+Optional LLMs explain alerts — they never decide what is malicious.
 
 ---
 
