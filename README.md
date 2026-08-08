@@ -25,6 +25,10 @@ Detection is multi-engine and deterministic:
 Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summarize network state — they never decide what is malicious.
 
 <p align="center">
+  <img width="100%" alt="TrustEdge overview dashboard — network health, agents, recent alerts, and severity" src="docs/assets/screenshot-overview.png" />
+</p>
+
+<p align="center">
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
