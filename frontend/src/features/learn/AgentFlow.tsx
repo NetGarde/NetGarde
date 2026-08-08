@@ -34,95 +34,95 @@ type FlowStep = {
 const STEPS: FlowStep[] = [
   {
     id: 'endpoint',
-    title: 'Your device',
+    title: 'Endpoint',
     plain: 'A lightweight TrustEdge Agent runs on the laptop or workstation.',
     detail:
-      'No VPN tunnel required. The agent stays small, privacy-aware, and keeps working when the network is flaky.',
+      'macOS, Linux, and Windows. No VPN required — the agent stays on-device, privacy-aware, and keeps collecting when the network is flaky.',
     icon: <LaptopMacIcon fontSize="small" />,
     tone: 'edge',
   },
   {
     id: 'collect',
-    title: 'Collect signals',
-    plain: 'It watches posture that matters for security — not everything on the machine.',
+    title: 'Collect',
+    plain: 'Local collectors gather security-relevant posture — not a full dump of the machine.',
     detail:
-      'Process starts/exits, app focus & idle, network posture, and security lifecycle changes like LaunchAgents or services.',
+      'Device details, activity, network summary and connection samples, process lifecycle, security persistence, and AI tools inventory.',
     icon: <SensorsIcon fontSize="small" />,
     tone: 'edge',
   },
   {
-    id: 'batch',
-    title: 'Batch events',
-    plain: 'Signals are grouped so the agent is not chatting constantly with the cloud.',
-    detail: 'Events queue locally and flush by size or a short timer, so uploads stay efficient.',
+    id: 'queue',
+    title: 'Durable queue',
+    plain: 'Events land in an on-disk ring so telemetry survives offline and flaky links.',
+    detail: 'Overwrite-oldest under pressure; flush by size or short timer. Delivery is reliable without blocking collection.',
     icon: <Inventory2OutlinedIcon fontSize="small" />,
     tone: 'path',
   },
   {
     id: 'compress',
     title: 'Compress',
-    plain: 'Payloads shrink before they leave the device.',
-    detail: 'Compression kicks in when it helps, cutting bandwidth without losing the security story.',
+    plain: 'Batches are compressed with zstd when it shrinks the payload.',
+    detail: 'Less bandwidth on the way out — the security signal stays intact.',
     icon: <CompressIcon fontSize="small" />,
     tone: 'path',
   },
   {
     id: 'upload',
     title: 'Secure upload',
-    plain: 'Batches travel over HTTPS with the device’s own credentials.',
-    detail: 'Tokens live in the OS keyring. Offline events stay queued and retry with backoff.',
+    plain: 'HTTPS upload to Agent API with the device’s own token.',
+    detail: 'Credentials live in the OS keyring. Failed uploads retry with backoff; queued events remain until acknowledged.',
     icon: <LockOutlinedIcon fontSize="small" />,
     tone: 'path',
   },
   {
     id: 'ingest',
     title: 'Agent API',
-    plain: 'TrustEdge receives, authenticates, and validates each batch.',
-    detail: 'Known devices stay registered; live posture is refreshed for the dashboard.',
+    plain: 'Ingest authenticates the device, validates the batch, and refreshes the live twin.',
+    detail: 'Accepted events are published onto the stream bus. The control plane can already show fresh agent posture.',
     icon: <CloudUploadOutlinedIcon fontSize="small" />,
     tone: 'cloud',
   },
   {
     id: 'stream',
-    title: 'Event stream',
-    plain: 'Validated events flow onto a durable message bus.',
-    detail: 'Kafka / Redpanda keeps the pipeline resilient so detection can catch up safely.',
+    title: 'Kafka stream',
+    plain: 'Validated events flow on a durable, ordered topic.',
+    detail: 'Kafka / Redpanda carries trustedge.agent.events so detection can consume independently of ingest.',
     icon: <HubOutlinedIcon fontSize="small" />,
     tone: 'cloud',
   },
   {
     id: 'detect',
-    title: 'Rules detection',
-    plain: 'Deterministic rules look for attack patterns and drift — not guesswork.',
+    title: 'Detect',
+    plain: 'Multi-engine detection: YAML attack/chain rules, behavior baselines, and AI activity analysis.',
     detail:
-      'Examples: shell → downloader chains, temp-path execution, persistence installs, network IP churn.',
+      'Deterministic engines — not an LLM verdict. Hits fuse into scored findings for operators.',
     icon: <RuleOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
   {
     id: 'alert',
-    title: 'Alerts for you',
-    plain: 'Operators see attack alerts and can drill into the affected agent.',
-    detail: 'Optional AI only explains what already fired — it never decides what is malicious.',
+    title: 'Operate',
+    plain: 'Attack alerts surface in the TrustEdge dashboard with evidence and agent context.',
+    detail: 'Optional LLMs (Ollama / OpenAI / templates) explain what already fired — they never decide what is malicious.',
     icon: <NotificationsActiveOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
 ];
 
 const COLLECTS = [
-  'Process starts and exits',
-  'Foreground app focus & idle',
-  'Public IP / network posture',
-  'Drivers, services, persistence artifacts',
+  'Device posture and agent health',
+  'Process starts / exits and activity (focus & idle)',
+  'Network summary and connection samples',
+  'Security lifecycle (drivers, services, persistence)',
+  'AI tools inventory (apps, CLI agents, runtimes, IDE extensions)',
 ];
 
 const NEVER = [
   'Window titles or browsing URLs',
   'Keystrokes or clipboard',
   'Screenshots or file contents',
-  'Raw Wi‑Fi SSIDs or full connection tables',
+  'Raw Wi‑Fi SSIDs or full connection-table dumps',
 ];
-
 function toneColor(
   tone: FlowStep['tone'],
   theme: ReturnType<typeof useTheme>,
@@ -185,12 +185,12 @@ export default function AgentFlow() {
       >
         <Stack spacing={1.5} sx={{ position: 'relative', zIndex: 1, maxWidth: 720 }}>
           <Typography component="h1" variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
-            From your laptop to an alert — in plain English
+            How it works
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-            TrustEdge Agent quietly gathers security-relevant posture on the device, ships it safely to
-            TrustEdge, and rules turn suspicious patterns into alerts you can act on. Click any step to
-            see what happens there.
+            Collect on the endpoint, deliver over HTTPS, stream on Kafka, then detect and operate.
+            TrustEdge Agent gathers security-relevant posture into a durable queue, uploads to Agent API,
+            and multi-engine detection raises attack alerts in the dashboard. Select a step for detail.
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
             <Button
@@ -202,8 +202,8 @@ export default function AgentFlow() {
             >
               View agents
             </Button>
-            <Button component={RouterLink} to="/alerts" variant="outlined" size="small">
-              View alerts
+            <Button component={RouterLink} to="/how-detection-works" variant="outlined" size="small">
+              Detection engine
             </Button>
           </Stack>
         </Stack>
@@ -212,7 +212,7 @@ export default function AgentFlow() {
       </Paper>
 
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-        The journey
+        Pipeline — Edge · Ingest · Stream · Detect · Operate
       </Typography>
 
       <Box className="agent-flow-rail" sx={{ mb: 2.5 }}>
@@ -316,7 +316,7 @@ export default function AgentFlow() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
               <CheckCircleOutlineIcon color="success" fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                What the agent collects
+                Endpoint telemetry
               </Typography>
             </Stack>
             <Stack spacing={1}>
@@ -344,7 +344,7 @@ export default function AgentFlow() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
               <VisibilityOffOutlinedIcon color="action" fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                What we deliberately skip
+                Privacy boundaries
               </Typography>
             </Stack>
             <Stack spacing={1}>
@@ -382,10 +382,10 @@ export default function AgentFlow() {
       >
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            Ready to see it on your fleet?
+            See it on a live agent
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Open an agent for live telemetry and timeline, or jump straight to attack alerts.
+            Open Agents for twin state, AI tools inventory, and timeline — or Alerts for findings with evidence.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -394,6 +394,9 @@ export default function AgentFlow() {
           </Button>
           <Button component={RouterLink} to="/alerts" variant="outlined" size="small">
             Alerts
+          </Button>
+          <Button component={RouterLink} to="/how-detection-works" variant="text" size="small">
+            Detection engine
           </Button>
         </Stack>
       </Paper>

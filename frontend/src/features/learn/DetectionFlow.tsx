@@ -13,7 +13,7 @@ import FilterAltOutlinedIcon from '@mui/icons-material/FilterAltOutlined';
 import RuleOutlinedIcon from '@mui/icons-material/RuleOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import FingerprintOutlinedIcon from '@mui/icons-material/FingerprintOutlined';
-import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -33,90 +33,90 @@ type FlowStep = {
 const STEPS: FlowStep[] = [
   {
     id: 'arrive',
-    title: 'Events arrive',
-    plain: 'Telemetry lands on a durable Kafka topic after the Agent API accepts a batch.',
+    title: 'Kafka stream',
+    plain: 'Telemetry lands on a durable topic after Agent API accepts a batch.',
     detail:
-      'The detection engine is a Kafka consumer on trustedge.agent.events. Each message is one agent event: process start, network summary, persistence change, and more.',
+      'The detection engine consumes trustedge.agent.events. Each message is one agent event — process, network, security lifecycle, AI tools inventory, and more.',
     icon: <StreamIcon fontSize="small" />,
     tone: 'cloud',
   },
   {
     id: 'remember',
-    title: 'Per-device memory',
-    plain: 'Every device gets a short rolling history so rules can compare “now” to “a moment ago.”',
+    title: 'Device context',
+    plain: 'A short rolling history per device lets engines compare “now” to recent activity.',
     detail:
-      'StateStore keeps roughly the last 100 events (about 30 minutes) per device_id. That’s how parent shells and previous IPs become visible.',
+      'StateStore keeps recent events and process graph context per device_id — enough for parent shells, prior IPs, and session reconstruction.',
     icon: <StorageOutlinedIcon fontSize="small" />,
     tone: 'cloud',
   },
   {
     id: 'lane',
-    title: 'Pick a rule lane',
-    plain: 'Only the rules that match this event type run.',
+    title: 'Route by signal',
+    plain: 'Only engines and rules that apply to this event type run.',
     detail:
-      'process_start → process rules. network_summary → network rules. driver/service/persistence → security rules.',
+      'process_start → process / chain rules and AI activity. network_summary → network rules. driver / service / persistence → security rules. known_ai_app → AI inventory context.',
     icon: <FilterAltOutlinedIcon fontSize="small" />,
     tone: 'path',
   },
   {
     id: 'evaluate',
-    title: 'Evaluate rules',
-    plain: 'Deterministic checks look for attack patterns and drift — no AI verdict.',
+    title: 'Multi-engine detect',
+    plain: 'YAML attack/chain rules, behavior baselines, and AI activity analysis — deterministic, fused into one finding.',
     detail:
-      'Examples: shell spawning curl, binaries from /tmp, public IP changes, LaunchAgent persistence. If nothing matches, no alert.',
+      'Rules catch chains and drift. Behavior flags novel processes against a per-device baseline. AI activity reconstructs agentic sessions and tool risk. Optional threat-intel enrichers may add hits. LLMs do not judge.',
     icon: <RuleOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
   {
     id: 'evidence',
     title: 'Attach evidence',
-    plain: 'Alerts carry enough context for an operator to investigate quickly.',
+    plain: 'Findings carry enough context for an operator to investigate quickly.',
     detail:
-      'Process alerts add ancestry (and same-shell siblings) into detail. Network alerts include from/to IPs or counts. The UI uses this for graphs and explain.',
+      'Process alerts add ancestry and related activity. Network alerts include from/to posture. AI findings include session and tool context. The UI uses this for graphs and explain.',
     icon: <AccountTreeOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
   {
     id: 'dedupe',
     title: 'Deduplicate',
-    plain: 'The same finding should not spam the console every few seconds.',
+    plain: 'The same finding should not flood the console.',
     detail:
-      'Each alert has a fingerprint. Recently seen fingerprints are skipped. Many windowed rules also have cooldowns (minutes) so noise stays controlled.',
+      'Fingerprints skip recently seen alerts. Windowed rules use cooldowns so repeat noise stays controlled.',
     icon: <FingerprintOutlinedIcon fontSize="small" />,
     tone: 'path',
   },
   {
-    id: 'store',
-    title: 'Remember alerts',
-    plain: 'Fresh alerts are kept in a recent in-memory ring for the dashboard to query.',
+    id: 'ingest',
+    title: 'Alert ingest',
+    plain: 'Scored alerts are posted to the control plane for enrich and persist.',
     detail:
-      'About the last 1000 alerts live in process memory and are served from GET /alerts with filters for device, severity, and type.',
-    icon: <NotificationsActiveOutlinedIcon fontSize="small" />,
+      'POST /security/alerts/ingest writes durable alert records operators can filter by device, severity, and type.',
+    icon: <CloudUploadOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
   {
     id: 'surface',
-    title: 'Show in TrustEdge',
-    plain: 'The control plane proxies those alerts into Alerts and agent detail views.',
+    title: 'Operate',
+    plain: 'Attack alerts appear in Alerts and on agent detail — ready for review.',
     detail:
-      'Optional AI explain only narrates what rules already fired — it never decides what is malicious.',
+      'Optional Ollama / OpenAI / template explain narrates what engines already fired — it never decides what is malicious.',
     icon: <DashboardOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },
 ];
 
 const COVERS = [
-  'Process chains (shell → downloader, temp-path exec)',
-  'Network drift (IP/type change, flapping, connection spikes)',
-  'Security lifecycle (drivers, services, persistence)',
-  'Coverage gaps (missing network telemetry, idle with activity)',
+  'Attack / chain rules (shell → downloader, temp-path exec, persistence)',
+  'Network drift (IP / type change, flapping, connection spikes)',
+  'Behavior baselines and novel-process alerts',
+  'AI activity sessions and AI-tool findings',
 ];
 
 const NOT_THIS = [
   'Not antivirus signatures or a malware sandbox',
   'Not an LLM deciding “good” vs “bad”',
-  'Not long-term alert storage by itself (in-memory ring)',
-  'Not a replacement for your full SIEM history',
+  'Not a replacement for long-term SIEM history',
+  'Not opaque scoring — engines are deterministic and evidence-backed',
 ];
 
 function toneColor(
@@ -181,12 +181,12 @@ export default function DetectionFlow() {
       >
         <Stack spacing={1.5} sx={{ position: 'relative', zIndex: 1, maxWidth: 720 }}>
           <Typography component="h1" variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
-            How detection turns events into alerts
+            Detection engine
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-            The detection engine watches the agent event stream, remembers recent activity per device,
-            and runs typed rules. When something looks like attack behavior or risky drift, it raises an
-            alert you can open in TrustEdge. Click any step to see what happens there.
+            Kafka feeds attack/chain rules, the behavioral engine, and AI activity analysis. Findings are
+            fused, ingested into the control plane, and shown as attack alerts. Rules decide — LLMs only
+            explain. Select a step for detail.
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
             <Button
@@ -199,7 +199,7 @@ export default function DetectionFlow() {
               View alerts
             </Button>
             <Button component={RouterLink} to="/how-it-works" variant="outlined" size="small">
-              Agent journey
+              How it works
             </Button>
           </Stack>
         </Stack>
@@ -208,7 +208,7 @@ export default function DetectionFlow() {
       </Paper>
 
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-        The detection path
+        Detection path — Stream · Engines · Ingest · Operate
       </Typography>
 
       <Box className="agent-flow-rail" sx={{ mb: 2.5 }}>
@@ -312,7 +312,7 @@ export default function DetectionFlow() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
               <CheckCircleOutlineIcon color="success" fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                What rules watch for
+                What engines cover
               </Typography>
             </Stack>
             <Stack spacing={1}>
@@ -340,7 +340,7 @@ export default function DetectionFlow() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
               <BlockOutlinedIcon color="action" fontSize="small" />
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                What this engine is not
+                Design boundaries
               </Typography>
             </Stack>
             <Stack spacing={1}>
@@ -378,10 +378,10 @@ export default function DetectionFlow() {
       >
         <Box>
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            See detection in action
+            See detection in the product
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Browse live alerts, or open an agent to see findings scoped to one device.
+            Browse attack alerts with evidence, or open an agent for findings scoped to one device.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -392,7 +392,7 @@ export default function DetectionFlow() {
             Agents
           </Button>
           <Button component={RouterLink} to="/how-it-works" variant="text" size="small">
-            Agent journey
+            How it works
           </Button>
         </Stack>
       </Paper>

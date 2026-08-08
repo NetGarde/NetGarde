@@ -325,14 +325,14 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
   if (!items.length) {
     return (
       <Alert severity="info" variant="outlined">
-        No installed AI apps, CLI agents, IDE extensions, or local model runtimes reported for this agent yet.
+        No AI apps, CLI agents, IDE extensions, or local model runtimes reported for this agent yet.
       </Alert>
     );
   }
 
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Table size="small" aria-label="Installed AI software">
+      <Table size="small" aria-label="AI tools inventory">
         <TableHead>
           <TableRow>
             <TableCell>Product</TableCell>

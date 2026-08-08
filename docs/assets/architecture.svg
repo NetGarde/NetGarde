@@ -1,150 +1,139 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 520" role="img" aria-labelledby="title desc">
-  <title id="title">TrustEdge architecture</title>
-  <desc id="desc">Edge agent collects local telemetry into a durable queue and uploads over HTTPS; Agent API authenticates and publishes to Kafka; rules engine detects attacks; React dashboard and FastAPI operate on alerts, agents, and AI inventory.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 520" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">TrustEdge architecture</title>
+  <desc id="arch-desc">Edge agent collects local telemetry into a durable queue and uploads over HTTPS; Agent API authenticates and publishes to Kafka; detection runs attack/chain rules, behavior baselines, and AI activity analysis; React dashboard and FastAPI operate on alerts, agents, AI inventory, and sessions.</desc>
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="arch-bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F8FAFC"/>
       <stop offset="100%" stop-color="#EEF2FF"/>
     </linearGradient>
-    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
+    <linearGradient id="arch-flow" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#2563EB"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
+      <stop offset="35%" stop-color="#0D9488"/>
+      <stop offset="65%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
     </linearGradient>
-    <linearGradient id="blue" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#EFF6FF"/>
-      <stop offset="100%" stop-color="#DBEAFE"/>
-    </linearGradient>
-    <linearGradient id="teal" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#F0FDFA"/>
-      <stop offset="100%" stop-color="#CCFBF1"/>
-    </linearGradient>
-    <linearGradient id="amber" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFBEB"/>
-      <stop offset="100%" stop-color="#FDE68A"/>
-    </linearGradient>
-    <linearGradient id="rose" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFF1F2"/>
-      <stop offset="100%" stop-color="#FFE4E6"/>
-    </linearGradient>
-    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
-      <path d="M0 0 L10 5 L0 10 z" fill="#6366F1"/>
+    <marker id="arch-arr" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
+      <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#94A3B8"/>
     </marker>
+    <filter id="arch-soft" x="-6%" y="-4%" width="112%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#0F172A" flood-opacity="0.07"/>
+    </filter>
     <style>
-      .num { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 16px; font-weight: 800; fill: #FFFFFF; }
-      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 20px; font-weight: 800; fill: #0F172A; }
-      .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 13px; font-weight: 600; fill: #334155; }
-      .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 500; fill: #64748B; }
-      .step { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 0.06em; }
-      .foot { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 13px; font-weight: 600; fill: #94A3B8; }
+      .title { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; fill: #64748B; }
+      .lead { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 600; fill: #94A3B8; }
+      .step { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; }
+      .h { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 17px; font-weight: 800; fill: #0F172A; }
+      .b { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12.5px; font-weight: 700; fill: #334155; }
+      .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11.5px; font-weight: 600; fill: #64748B; }
+      .num { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 13px; font-weight: 800; fill: #FFFFFF; }
+      .foot { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 600; fill: #94A3B8; }
     </style>
   </defs>
 
-  <rect width="1400" height="520" rx="28" fill="url(#bg)"/>
-  <path d="M180 240 H1260" fill="none" stroke="url(#brand)" stroke-width="6" stroke-linecap="round" opacity="0.2"/>
+  <rect width="1400" height="520" rx="22" fill="url(#arch-bg)"/>
+  <text class="title" x="40" y="32">ARCHITECTURE</text>
+  <text class="lead" x="178" y="32">Edge → ingest → stream → detect → operate</text>
+
+  <path d="M160 280 H1240" fill="none" stroke="url(#arch-flow)" stroke-width="2.5" stroke-linecap="round" opacity="0.22"/>
 
   <!-- 1 EDGE -->
-  <g transform="translate(48,50)">
-    <circle cx="36" cy="36" r="22" fill="#2563EB"/>
-    <text class="num" x="36" y="42" text-anchor="middle">1</text>
-    <text class="step" x="70" y="28" fill="#2563EB">EDGE</text>
-    <text class="h" x="70" y="54">Endpoints</text>
-    <rect y="80" width="220" height="280" rx="22" fill="url(#blue)" stroke="#93C5FD" stroke-width="2"/>
-    <text class="h" x="110" y="122" text-anchor="middle">TrustEdge Agent</text>
-    <text class="s" x="110" y="146" text-anchor="middle">Go · macOS / Linux / Windows</text>
-    <rect x="28" y="170" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#BFDBFE"/>
-    <text class="b" x="110" y="193" text-anchor="middle">Collect signals</text>
-    <rect x="28" y="218" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#BFDBFE"/>
-    <text class="b" x="110" y="241" text-anchor="middle">Durable queue</text>
-    <rect x="28" y="266" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#BFDBFE"/>
-    <text class="b" x="110" y="289" text-anchor="middle">Compress · HTTPS</text>
-    <text class="s" x="110" y="330" text-anchor="middle">process · security · AI tools</text>
-    <text class="s" x="110" y="348" text-anchor="middle">collectors stay local</text>
+  <g transform="translate(40,58)" filter="url(#arch-soft)">
+    <circle cx="28" cy="18" r="14" fill="#2563EB"/>
+    <text class="num" x="28" y="23" text-anchor="middle">1</text>
+    <text class="step" x="52" y="14" fill="#2563EB">EDGE</text>
+    <text class="h" x="52" y="36">Endpoints</text>
+    <rect y="52" width="228" height="300" rx="16" fill="#FFFFFF" stroke="#BFDBFE" stroke-width="1.5"/>
+    <rect y="52" width="228" height="5" rx="2.5" fill="#2563EB"/>
+    <text class="h" x="114" y="96" text-anchor="middle">TrustEdge Agent</text>
+    <text class="s" x="114" y="118" text-anchor="middle">Go · macOS / Linux / Windows</text>
+    <rect x="24" y="140" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="164" text-anchor="middle">Collect signals</text>
+    <rect x="24" y="190" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="214" text-anchor="middle">Durable queue</text>
+    <rect x="24" y="240" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="264" text-anchor="middle">Compress · HTTPS</text>
+    <text class="s" x="114" y="310" text-anchor="middle">process · security · AI tools</text>
+    <text class="s" x="114" y="330" text-anchor="middle">collectors stay local</text>
   </g>
-
-  <path d="M278 270 H318" stroke="#6366F1" stroke-width="4" stroke-linecap="round" marker-end="url(#arr)"/>
-  <text class="s" x="298" y="250" text-anchor="middle">POST /v1/events</text>
+  <path d="M278 280 H308" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
 
   <!-- 2 INGEST -->
-  <g transform="translate(330,50)">
-    <circle cx="36" cy="36" r="22" fill="#0D9488"/>
-    <text class="num" x="36" y="42" text-anchor="middle">2</text>
-    <text class="step" x="70" y="28" fill="#0F766E">INGEST</text>
-    <text class="h" x="70" y="54">Agent API</text>
-    <rect y="80" width="220" height="280" rx="22" fill="url(#teal)" stroke="#5EEAD4" stroke-width="2"/>
-    <text class="h" x="110" y="122" text-anchor="middle">Validate + publish</text>
-    <text class="s" x="110" y="146" text-anchor="middle">FastAPI / Python</text>
-    <rect x="28" y="170" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#99F6E4"/>
-    <text class="b" x="110" y="193" text-anchor="middle">Device token auth</text>
-    <rect x="28" y="218" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#99F6E4"/>
-    <text class="b" x="110" y="241" text-anchor="middle">Validate events</text>
-    <rect x="28" y="266" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#99F6E4"/>
-    <text class="b" x="110" y="289" text-anchor="middle">Publish to Kafka</text>
-    <text class="s" x="110" y="340" text-anchor="middle">zstd accepted</text>
+  <g transform="translate(318,58)" filter="url(#arch-soft)">
+    <circle cx="28" cy="18" r="14" fill="#0D9488"/>
+    <text class="num" x="28" y="23" text-anchor="middle">2</text>
+    <text class="step" x="52" y="14" fill="#0F766E">INGEST</text>
+    <text class="h" x="52" y="36">Agent API</text>
+    <rect y="52" width="228" height="300" rx="16" fill="#FFFFFF" stroke="#99F6E4" stroke-width="1.5"/>
+    <rect y="52" width="228" height="5" rx="2.5" fill="#0D9488"/>
+    <text class="h" x="114" y="96" text-anchor="middle">Validate + publish</text>
+    <text class="s" x="114" y="118" text-anchor="middle">FastAPI / Python</text>
+    <rect x="24" y="140" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="164" text-anchor="middle">Device token auth</text>
+    <rect x="24" y="190" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="214" text-anchor="middle">Validate events</text>
+    <rect x="24" y="240" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="264" text-anchor="middle">Publish to Kafka</text>
+    <text class="s" x="114" y="320" text-anchor="middle">zstd accepted</text>
   </g>
-
-  <path d="M560 270 H600" stroke="#6366F1" stroke-width="4" stroke-linecap="round" marker-end="url(#arr)"/>
-  <text class="s" x="580" y="250" text-anchor="middle">publish</text>
+  <path d="M556 280 H586" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
 
   <!-- 3 STREAM -->
-  <g transform="translate(612,50)">
-    <circle cx="36" cy="36" r="22" fill="#D97706"/>
-    <text class="num" x="36" y="42" text-anchor="middle">3</text>
-    <text class="step" x="70" y="28" fill="#B45309">STREAM</text>
-    <text class="h" x="70" y="54">Kafka bus</text>
-    <rect y="80" width="220" height="280" rx="22" fill="url(#amber)" stroke="#FCD34D" stroke-width="2"/>
-    <text class="h" x="110" y="122" text-anchor="middle">Event stream</text>
-    <text class="s" x="110" y="146" text-anchor="middle">Kafka / Redpanda</text>
-    <path d="M40 200 C70 170 100 230 130 200 S190 170 210 200" fill="none" stroke="#D97706" stroke-width="3.5" stroke-linecap="round"/>
-    <path d="M40 230 C70 200 100 260 130 230 S190 200 210 230" fill="none" stroke="#F59E0B" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-    <rect x="20" y="266" width="180" height="36" rx="10" fill="#FFFFFF" stroke="#FCD34D"/>
-    <text class="b" x="110" y="289" text-anchor="middle">trustedge.agent.events</text>
-    <text class="s" x="110" y="340" text-anchor="middle">durable · ordered · scalable</text>
+  <g transform="translate(596,58)" filter="url(#arch-soft)">
+    <circle cx="28" cy="18" r="14" fill="#D97706"/>
+    <text class="num" x="28" y="23" text-anchor="middle">3</text>
+    <text class="step" x="52" y="14" fill="#B45309">STREAM</text>
+    <text class="h" x="52" y="36">Kafka bus</text>
+    <rect y="52" width="228" height="300" rx="16" fill="#FFFFFF" stroke="#FDE68A" stroke-width="1.5"/>
+    <rect y="52" width="228" height="5" rx="2.5" fill="#D97706"/>
+    <text class="h" x="114" y="96" text-anchor="middle">Event stream</text>
+    <text class="s" x="114" y="118" text-anchor="middle">Kafka / Redpanda</text>
+    <path d="M36 175 C66 150 96 200 126 175 S186 150 206 175" fill="none" stroke="#D97706" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M36 200 C66 175 96 225 126 200 S186 175 206 200" fill="none" stroke="#F59E0B" stroke-width="2.4" stroke-linecap="round" opacity="0.65"/>
+    <rect x="24" y="240" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="264" text-anchor="middle">trustedge.agent.events</text>
+    <text class="s" x="114" y="320" text-anchor="middle">durable · ordered · scalable</text>
   </g>
-
-  <path d="M842 270 H882" stroke="#6366F1" stroke-width="4" stroke-linecap="round" marker-end="url(#arr)"/>
-  <text class="s" x="862" y="250" text-anchor="middle">consume</text>
+  <path d="M834 280 H864" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
 
   <!-- 4 DETECT -->
-  <g transform="translate(894,50)">
-    <circle cx="36" cy="36" r="22" fill="#E11D48"/>
-    <text class="num" x="36" y="42" text-anchor="middle">4</text>
-    <text class="step" x="70" y="28" fill="#BE123C">DETECT</text>
-    <text class="h" x="70" y="54">Rules engine</text>
-    <rect y="80" width="220" height="280" rx="22" fill="url(#rose)" stroke="#FECDD3" stroke-width="2"/>
-    <text class="h" x="110" y="122" text-anchor="middle">Detection</text>
-    <text class="s" x="110" y="146" text-anchor="middle">deterministic rules</text>
-    <rect x="28" y="170" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#FECDD3"/>
-    <text class="b" x="110" y="193" text-anchor="middle">Attack chains</text>
-    <rect x="28" y="218" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#FECDD3"/>
-    <text class="b" x="110" y="241" text-anchor="middle">Drift / anomalies</text>
-    <rect x="28" y="266" width="164" height="36" rx="10" fill="#FFFFFF" stroke="#FECDD3"/>
-    <text class="b" x="110" y="289" text-anchor="middle">Create alerts</text>
-    <text class="s" x="110" y="340" text-anchor="middle">not LLM judgment</text>
+  <g transform="translate(874,58)" filter="url(#arch-soft)">
+    <circle cx="28" cy="18" r="14" fill="#E11D48"/>
+    <text class="num" x="28" y="23" text-anchor="middle">4</text>
+    <text class="step" x="52" y="14" fill="#BE123C">DETECT</text>
+    <text class="h" x="52" y="36">Detection</text>
+    <rect y="52" width="228" height="300" rx="16" fill="#FFFFFF" stroke="#FECDD3" stroke-width="1.5"/>
+    <rect y="52" width="228" height="5" rx="2.5" fill="#E11D48"/>
+    <text class="h" x="114" y="96" text-anchor="middle">Multi-engine</text>
+    <text class="s" x="114" y="118" text-anchor="middle">rules · behavior · AI</text>
+    <rect x="24" y="140" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="164" text-anchor="middle">Attack / chain rules</text>
+    <rect x="24" y="190" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="214" text-anchor="middle">Behavior / novelty</text>
+    <rect x="24" y="240" width="180" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="114" y="264" text-anchor="middle">AI activity sessions</text>
+    <text class="s" x="114" y="320" text-anchor="middle">not LLM judgment</text>
   </g>
-
-  <path d="M1124 270 H1164" stroke="#6366F1" stroke-width="4" stroke-linecap="round" marker-end="url(#arr)"/>
-  <text class="s" x="1144" y="248" text-anchor="middle">alert</text>
-  <text class="s" x="1144" y="262" text-anchor="middle">ingest</text>
+  <path d="M1112 280 H1142" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
 
   <!-- 5 OPERATE -->
-  <g transform="translate(1176,50)">
-    <circle cx="36" cy="36" r="22" fill="#0F766E"/>
-    <text class="num" x="36" y="42" text-anchor="middle">5</text>
-    <text class="step" x="70" y="28" fill="#0F766E">OPERATE</text>
-    <text class="h" x="70" y="54">Dashboard</text>
-    <rect y="80" width="180" height="280" rx="22" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="2"/>
-    <text class="h" x="90" y="122" text-anchor="middle">TrustEdge</text>
-    <text class="s" x="90" y="146" text-anchor="middle">FastAPI + React</text>
-    <rect x="18" y="170" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
-    <text class="b" x="90" y="193" text-anchor="middle">Attack alerts</text>
-    <rect x="18" y="218" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
-    <text class="b" x="90" y="241" text-anchor="middle">Agents · AI tools</text>
-    <rect x="18" y="266" width="144" height="36" rx="10" fill="#FFFFFF" stroke="#A7F3D0"/>
-    <text class="b" x="90" y="289" text-anchor="middle">Behavior</text>
-    <text class="s" x="90" y="330" text-anchor="middle">S3 / CloudFront</text>
-    <text class="s" x="90" y="348" text-anchor="middle">EC2 APIs</text>
+  <g transform="translate(1152,58)" filter="url(#arch-soft)">
+    <circle cx="28" cy="18" r="14" fill="#4F46E5"/>
+    <text class="num" x="28" y="23" text-anchor="middle">5</text>
+    <text class="step" x="52" y="14" fill="#4338CA">OPERATE</text>
+    <text class="h" x="52" y="36">Dashboard</text>
+    <rect y="52" width="208" height="300" rx="16" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5"/>
+    <rect y="52" width="208" height="5" rx="2.5" fill="#4F46E5"/>
+    <text class="h" x="104" y="96" text-anchor="middle">TrustEdge</text>
+    <text class="s" x="104" y="118" text-anchor="middle">FastAPI + React</text>
+    <rect x="18" y="140" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="104" y="164" text-anchor="middle">Alerts · explain</text>
+    <rect x="18" y="190" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="104" y="214" text-anchor="middle">Agents · AI inventory</text>
+    <rect x="18" y="240" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
+    <text class="b" x="104" y="264" text-anchor="middle">Behavior · sessions</text>
+    <text class="s" x="104" y="310" text-anchor="middle">S3 / CloudFront</text>
+    <text class="s" x="104" y="330" text-anchor="middle">EC2 APIs</text>
   </g>
 
-  <text class="foot" x="700" y="480" text-anchor="middle">TrustEdgeOrg · endpoint telemetry · rules-based detection · attack alerts</text>
+  <text class="foot" x="700" y="490" text-anchor="middle">TrustEdgeOrg · endpoint telemetry · rules-based detection · attack alerts</text>
 </svg>

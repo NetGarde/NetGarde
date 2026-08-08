@@ -9,8 +9,8 @@ import IconButton from '@mui/material/IconButton';
 import Link from '@mui/material/Link';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import MenuContent from './MenuContent';
+import TrustEdgeLogo from '../../../shared/components/TrustEdgeLogo';
 import './SideMenu.css';
 
 const drawerWidth = 248;
@@ -68,20 +68,7 @@ export default function SideMenu() {
       >
         {open && (
           <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0 }}>
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: '8px',
-                bgcolor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <ShieldOutlinedIcon sx={{ color: '#fff', fontSize: 16 }} />
-            </Box>
+            <TrustEdgeLogo size={28} />
             <Typography
               variant="subtitle1"
               sx={{
