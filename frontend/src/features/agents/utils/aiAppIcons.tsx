@@ -2,6 +2,7 @@ import type { SvgIconProps } from '@mui/material/SvgIcon';
 import SvgIcon from '@mui/material/SvgIcon';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import TerminalIcon from '@mui/icons-material/Terminal';
+import MemoryIcon from '@mui/icons-material/Memory';
 
 /** Cursor brand mark (cube) — fill follows currentColor. */
 export function CursorIcon(props: SvgIconProps) {
@@ -23,16 +24,27 @@ const CLI_PRODUCT_IDS = new Set([
   'opencode',
 ]);
 
+const RUNTIME_PRODUCT_IDS = new Set(['ollama', 'llama_cpp']);
+
 export function isCliAgent(productId: string, category?: string): boolean {
   const id = productId.trim().toLowerCase();
   if (CLI_PRODUCT_IDS.has(id)) return true;
   return (category || '').trim().toLowerCase() === 'cli_agent';
 }
 
+export function isLocalModelRuntime(productId: string, category?: string): boolean {
+  const id = productId.trim().toLowerCase();
+  if (RUNTIME_PRODUCT_IDS.has(id)) return true;
+  return (category || '').trim().toLowerCase() === 'local_model_runtime';
+}
+
 export function aiAppIcon(productId: string, props?: SvgIconProps, category?: string) {
   const id = productId.trim().toLowerCase();
   if (id === 'cursor') {
     return <CursorIcon fontSize="small" {...props} />;
+  }
+  if (isLocalModelRuntime(id, category)) {
+    return <MemoryIcon fontSize="small" color="action" {...props} />;
   }
   if (isCliAgent(id, category)) {
     return <TerminalIcon fontSize="small" color="action" {...props} />;

@@ -14,6 +14,11 @@ const EVIDENCE_LABEL: Record<string, string> = {
   package_provenance: 'Package provenance',
   entry_point: 'Entry point',
   invocation_path: 'Invocation path',
+  listener: 'Network listener',
+  listener_exposure: 'Listener exposure',
+  runtime_fingerprint: 'Runtime fingerprint',
+  model_artifact: 'Model artifact',
+  local_client: 'Local client',
 };
 
 export function evidenceLabel(key: string): string {

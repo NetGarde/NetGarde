@@ -48,4 +48,10 @@ describe('aiConfidenceDisplay', () => {
     expect(evidenceLabel('package_identity')).toBe('Package identity');
     expect(evidenceLabel('command')).toBe('Command name');
   });
+
+  it('labels local model runtime evidence keys', () => {
+    expect(evidenceLabel('listener')).toBe('Network listener');
+    expect(evidenceLabel('runtime_fingerprint')).toBe('Runtime fingerprint');
+    expect(evidenceLabel('local_client')).toBe('Local client');
+  });
 });

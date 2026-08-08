@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 
 
 class AiSoftwareItem(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     id: str
     product_id: str = ""
     product_name: str = ""
@@ -33,6 +35,14 @@ class AiSoftwareItem(BaseModel):
     package_identifier: str = ""
     entry_point: str = ""
     interpreter: str = ""
+    # Local model runtime fields (empty/false for apps and CLI agents).
+    serving: bool = False
+    exposure: str = ""
+    listeners: List[dict] = Field(default_factory=list)
+    models_available: int = 0
+    model_format: str = ""
+    runtime_version: str = ""
+    local_clients: List[dict] = Field(default_factory=list)
 
 
 class AiSoftwareListResponse(BaseModel):

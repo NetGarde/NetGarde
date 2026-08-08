@@ -22,6 +22,21 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
+def _as_int_default(value: Any, default: int = 0) -> int:
+    n = _as_int(value)
+    return default if n is None else n
+
+
+def _as_dict_list(value: Any) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    out: list[dict] = []
+    for item in value:
+        if isinstance(item, dict):
+            out.append(dict(item))
+    return out
+
+
 def _connected_agent_from_latest(
     row: trusttwin_store.TwinDeviceLatest,
     *,
@@ -153,6 +168,13 @@ class ConnectedAgentService:
                     package_identifier=str(payload.get("package_identifier") or ""),
                     entry_point=str(payload.get("entry_point") or ""),
                     interpreter=str(payload.get("interpreter") or ""),
+                    serving=bool(payload.get("serving")),
+                    exposure=str(payload.get("exposure") or ""),
+                    listeners=_as_dict_list(payload.get("listeners")),
+                    models_available=_as_int_default(payload.get("models_available"), 0),
+                    model_format=str(payload.get("model_format") or ""),
+                    runtime_version=str(payload.get("runtime_version") or ""),
+                    local_clients=_as_dict_list(payload.get("local_clients")),
                 )
             )
         items.sort(key=lambda x: (x.product_name or x.product_id or x.id).lower())

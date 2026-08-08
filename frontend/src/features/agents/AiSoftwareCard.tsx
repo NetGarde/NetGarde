@@ -12,7 +12,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { AiSoftwareItem } from '../twin/types/aiSoftware';
-import { aiAppIcon, isCliAgent } from './utils/aiAppIcons';
+import { aiAppIcon, isCliAgent, isLocalModelRuntime } from './utils/aiAppIcons';
 import { confidenceChipColor, explainConfidence } from './utils/aiConfidenceDisplay';
 
 type Props = {
@@ -25,6 +25,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   code_editor: 'Code editor',
   chat_client: 'Chat client',
   cli_agent: 'CLI agent',
+  local_model_runtime: 'Local model runtime',
+};
+
+const EXPOSURE_LABELS: Record<string, string> = {
+  LOOPBACK_ONLY: 'Loopback only',
+  LAN_EXPOSED: 'LAN exposed',
+  ALL_INTERFACES: 'All interfaces',
+  OTHER: 'Other',
 };
 
 function categoryLabel(category: string): string {
@@ -99,10 +107,46 @@ function ConfidenceCell({ item }: { item: AiSoftwareItem }) {
   );
 }
 
+function StatusCell({ item }: { item: AiSoftwareItem }) {
+  const runtime = isLocalModelRuntime(item.product_id, item.category);
+  return (
+    <Stack spacing={0.5} alignItems="flex-start">
+      <BoolChip value={item.running} yesLabel="Running" noLabel="Idle" />
+      {runtime ? (
+        <BoolChip value={!!item.serving} yesLabel="Serving" noLabel="Not serving" />
+      ) : null}
+      {runtime && item.exposure ? (
+        <Chip
+          size="small"
+          label={EXPOSURE_LABELS[item.exposure] || item.exposure.replace(/_/g, ' ')}
+          variant="outlined"
+          color={item.exposure === 'LOOPBACK_ONLY' ? 'success' : item.exposure === 'ALL_INTERFACES' ? 'warning' : 'default'}
+          sx={{ height: 22, fontSize: '0.7rem' }}
+        />
+      ) : null}
+    </Stack>
+  );
+}
+
 function PathCell({ item }: { item: AiSoftwareItem }) {
   const cli = isCliAgent(item.product_id, item.category);
-  const displayPath = (cli && item.invocation_path) || item.path || item.resolved_path || '—';
+  const runtime = isLocalModelRuntime(item.product_id, item.category);
+  const displayPath = ((cli || runtime) && item.invocation_path) || item.path || item.resolved_path || '—';
   const packageBits = [item.package_manager, item.package_identifier].filter(Boolean).join(' · ');
+  const listeners = (item.listeners || [])
+    .map((l) => (l.port != null ? `${l.addr || '—'}:${l.port}` : ''))
+    .filter(Boolean)
+    .join(', ');
+  const models =
+    runtime && (item.models_available || item.model_format)
+      ? [item.models_available ? `${item.models_available} models` : null, item.model_format || null]
+          .filter(Boolean)
+          .join(' · ')
+      : '';
+  const clients =
+    runtime && item.local_clients && item.local_clients.length
+      ? `${item.local_clients.length} local client${item.local_clients.length === 1 ? '' : 's'}`
+      : '';
 
   return (
     <Stack spacing={0.25} sx={{ maxWidth: 320 }}>
@@ -116,6 +160,21 @@ function PathCell({ item }: { item: AiSoftwareItem }) {
       {packageBits ? (
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
           {packageBits}
+        </Typography>
+      ) : null}
+      {listeners ? (
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          listen {listeners}
+        </Typography>
+      ) : null}
+      {models ? (
+        <Typography variant="caption" color="text.secondary">
+          {models}
+        </Typography>
+      ) : null}
+      {clients ? (
+        <Typography variant="caption" color="text.secondary">
+          {clients}
         </Typography>
       ) : null}
     </Stack>
@@ -142,7 +201,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
   if (!items.length) {
     return (
       <Alert severity="info" variant="outlined">
-        No installed AI apps or CLI agents reported for this agent yet.
+        No installed AI apps, CLI agents, or local model runtimes reported for this agent yet.
       </Alert>
     );
   }
@@ -156,7 +215,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
             <TableCell>Vendor</TableCell>
             <TableCell>Version</TableCell>
             <TableCell>Category</TableCell>
-            <TableCell>Running</TableCell>
+            <TableCell>Status</TableCell>
             <TableCell>Confidence</TableCell>
             <TableCell>Path</TableCell>
           </TableRow>
@@ -164,6 +223,8 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
         <TableBody>
           {items.map((item) => {
             const cli = isCliAgent(item.product_id, item.category);
+            const runtime = isLocalModelRuntime(item.product_id, item.category);
+            const version = item.runtime_version || item.version || '—';
             return (
               <TableRow key={item.id} hover>
                 <TableCell>
@@ -183,7 +244,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {item.product_name || item.product_id || item.id}
                       </Typography>
-                      {cli && item.executable ? (
+                      {(cli || runtime) && item.executable ? (
                         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                           {item.executable}
                         </Typography>
@@ -192,7 +253,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
                   </Stack>
                 </TableCell>
                 <TableCell>{item.vendor || '—'}</TableCell>
-                <TableCell>{item.version || '—'}</TableCell>
+                <TableCell>{version}</TableCell>
                 <TableCell>
                   <Chip
                     size="small"
@@ -202,7 +263,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
                   />
                 </TableCell>
                 <TableCell>
-                  <BoolChip value={item.running} yesLabel="Running" noLabel="Idle" />
+                  <StatusCell item={item} />
                 </TableCell>
                 <TableCell>
                   <ConfidenceCell item={item} />
