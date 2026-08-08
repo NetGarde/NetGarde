@@ -69,9 +69,13 @@ TrustEdge separates **collection** on the endpoint, **ingest and detection** in 
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
+<p align="center"><em>Delivery path — collect → upload → detect → alert</em></p>
+
 <p align="center">
   <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.svg" />
 </p>
+
+<p align="center"><em>Five stages — Edge → Ingest → Stream → Detect → Operate</em></p>
 
 | Stage | Components | Responsibility |
 |-------|------------|----------------|
