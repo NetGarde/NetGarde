@@ -2,6 +2,7 @@ import type { SvgIconProps } from '@mui/material/SvgIcon';
 import SvgIcon from '@mui/material/SvgIcon';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import TerminalIcon from '@mui/icons-material/Terminal';
+import MemoryIcon from '@mui/icons-material/Memory';
 
 /** Cursor brand mark (cube) — fill follows currentColor. */
 export function CursorIcon(props: SvgIconProps) {
@@ -23,19 +24,57 @@ const CLI_PRODUCT_IDS = new Set([
   'opencode',
 ]);
 
+const RUNTIME_PRODUCT_IDS = new Set(['ollama', 'llama_cpp']);
+
+/** Brand / category accent colors for inventory icons (currentColor). */
+const PRODUCT_ICON_COLORS: Record<string, string> = {
+  cursor: '#F54E00',
+  claude: '#D97757',
+  claude_code: '#D97757',
+  codex_cli: '#10A37F',
+  gemini_cli: '#4285F4',
+  copilot_cli: '#A371F7',
+  opencode: '#3B82F6',
+  ollama: '#0D9373',
+  llama_cpp: '#6366F1',
+};
+
 export function isCliAgent(productId: string, category?: string): boolean {
   const id = productId.trim().toLowerCase();
   if (CLI_PRODUCT_IDS.has(id)) return true;
   return (category || '').trim().toLowerCase() === 'cli_agent';
 }
 
+export function isLocalModelRuntime(productId: string, category?: string): boolean {
+  const id = productId.trim().toLowerCase();
+  if (RUNTIME_PRODUCT_IDS.has(id)) return true;
+  return (category || '').trim().toLowerCase() === 'local_model_runtime';
+}
+
+/** Accent color for an AI product icon; falls back by category. */
+export function aiAppIconColor(productId: string, category?: string): string {
+  const id = productId.trim().toLowerCase();
+  if (PRODUCT_ICON_COLORS[id]) return PRODUCT_ICON_COLORS[id];
+  if (isLocalModelRuntime(id, category)) return '#0D9373';
+  if (isCliAgent(id, category)) return '#64748B';
+  const cat = (category || '').trim().toLowerCase();
+  if (cat === 'code_editor') return '#F54E00';
+  if (cat === 'chat_client') return '#D97757';
+  return '#7C3AED';
+}
+
 export function aiAppIcon(productId: string, props?: SvgIconProps, category?: string) {
   const id = productId.trim().toLowerCase();
+  // No hardcoded gray — fill uses currentColor so parents can set brand color.
+  const merged: SvgIconProps = { fontSize: 'small', ...props };
   if (id === 'cursor') {
-    return <CursorIcon fontSize="small" {...props} />;
+    return <CursorIcon {...merged} />;
+  }
+  if (isLocalModelRuntime(id, category)) {
+    return <MemoryIcon {...merged} />;
   }
   if (isCliAgent(id, category)) {
-    return <TerminalIcon fontSize="small" color="action" {...props} />;
+    return <TerminalIcon {...merged} />;
   }
-  return <AutoAwesomeIcon fontSize="small" color="action" {...props} />;
+  return <AutoAwesomeIcon {...merged} />;
 }

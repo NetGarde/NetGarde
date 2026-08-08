@@ -1,3 +1,15 @@
+export type AiSoftwareListener = {
+  addr?: string;
+  port?: number;
+  protocol?: string;
+};
+
+export type AiSoftwareLocalClient = {
+  pid?: number;
+  executable?: string;
+  product_id?: string;
+};
+
 export type AiSoftwareItem = {
   id: string;
   product_id: string;
@@ -24,6 +36,14 @@ export type AiSoftwareItem = {
   package_identifier?: string;
   entry_point?: string;
   interpreter?: string;
+  /** Local model runtime fields. */
+  serving?: boolean;
+  exposure?: string;
+  listeners?: AiSoftwareListener[];
+  models_available?: number;
+  model_format?: string;
+  runtime_version?: string;
+  local_clients?: AiSoftwareLocalClient[];
 };
 
 export type AiSoftwareListResponse = {

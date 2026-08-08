@@ -141,6 +141,49 @@ def test_list_ai_software_includes_cli_agent_fields(fake_redis):
     assert item.running is True
 
 
+def test_list_ai_software_includes_local_model_runtime_fields(fake_redis):
+    doc = {
+        "device_id": "dev_runtime",
+        "known_ai_apps": {
+            "ollama:/opt/homebrew/bin/ollama": {
+                "id": "ollama:/opt/homebrew/bin/ollama",
+                "product_id": "ollama",
+                "product_name": "Ollama",
+                "vendor": "Ollama",
+                "category": "local_model_runtime",
+                "confidence": "LOW",
+                "confidence_reason": "LOW. Recognized mainly by runtime command name.",
+                "installed": True,
+                "running": True,
+                "serving": True,
+                "exposure": "LOOPBACK_ONLY",
+                "path": "/opt/homebrew/bin/ollama",
+                "executable": "ollama",
+                "listeners": [{"addr": "127.0.0.1", "port": 11434, "protocol": "tcp"}],
+                "models_available": 3,
+                "model_format": "GGUF",
+                "runtime_version": "0.5.0",
+                "local_clients": [{"pid": 10, "executable": "Cursor", "product_id": "cursor"}],
+            },
+        },
+    }
+    fake_redis.set(
+        trusttwin_store.LATEST_KEY_FMT.format(device_id="dev_runtime"),
+        json.dumps(doc),
+    )
+    result = ConnectedAgentService().list_ai_software("dev_runtime")
+    assert result.total == 1
+    item = result.items[0]
+    assert item.category == "local_model_runtime"
+    assert item.serving is True
+    assert item.exposure == "LOOPBACK_ONLY"
+    assert item.listeners == [{"addr": "127.0.0.1", "port": 11434, "protocol": "tcp"}]
+    assert item.models_available == 3
+    assert item.model_format == "GGUF"
+    assert item.runtime_version == "0.5.0"
+    assert item.local_clients[0]["product_id"] == "cursor"
+
+
 def test_list_ai_software_empty_when_missing(fake_redis):
     result = ConnectedAgentService().list_ai_software("missing")
     assert result.device_id == "missing"

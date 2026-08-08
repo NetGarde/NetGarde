@@ -14,6 +14,12 @@ const EVIDENCE_LABEL: Record<string, string> = {
   package_provenance: 'Package provenance',
   entry_point: 'Entry point',
   invocation_path: 'Invocation path',
+  docker_image: 'Docker image',
+  listener: 'Network listener',
+  listener_exposure: 'Listener exposure',
+  runtime_fingerprint: 'Runtime fingerprint',
+  model_artifact: 'Model artifact',
+  local_client: 'Local client',
 };
 
 export function evidenceLabel(key: string): string {
@@ -81,14 +87,61 @@ export function confidenceChipColor(
 ): 'success' | 'info' | 'warning' | 'default' | 'error' {
   switch ((level || '').toUpperCase()) {
     case 'VERIFIED':
-      return 'success';
     case 'HIGH':
-      return 'info';
+      return 'success';
     case 'MEDIUM':
       return 'warning';
     case 'LOW':
-      return 'default';
+      return 'error';
     default:
       return 'default';
+  }
+}
+
+/** Filled segments out of 4 for a compact strength meter. */
+export function confidenceStrength(level: string): number {
+  switch ((level || '').toUpperCase()) {
+    case 'VERIFIED':
+      return 4;
+    case 'HIGH':
+      return 3;
+    case 'MEDIUM':
+      return 2;
+    case 'LOW':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/** Theme palette key for confidence accent (text + meter). */
+export function confidenceTone(
+  level: string
+): 'success.main' | 'warning.main' | 'error.main' | 'text.disabled' {
+  switch ((level || '').toUpperCase()) {
+    case 'VERIFIED':
+    case 'HIGH':
+      return 'success.main';
+    case 'MEDIUM':
+      return 'warning.main';
+    case 'LOW':
+      return 'error.main';
+    default:
+      return 'text.disabled';
+  }
+}
+
+export function confidenceShortLabel(level: string): string {
+  switch ((level || '').toUpperCase()) {
+    case 'VERIFIED':
+      return 'Verified';
+    case 'HIGH':
+      return 'High';
+    case 'MEDIUM':
+      return 'Medium';
+    case 'LOW':
+      return 'Low';
+    default:
+      return 'Unknown';
   }
 }

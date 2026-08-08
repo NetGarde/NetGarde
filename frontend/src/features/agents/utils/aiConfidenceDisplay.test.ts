@@ -1,4 +1,10 @@
-import { explainConfidence, evidenceLabel } from './aiConfidenceDisplay';
+import {
+  explainConfidence,
+  evidenceLabel,
+  confidenceStrength,
+  confidenceShortLabel,
+  confidenceTone,
+} from './aiConfidenceDisplay';
 import type { AiSoftwareItem } from '../../twin/types/aiSoftware';
 
 const base: AiSoftwareItem = {
@@ -47,5 +53,21 @@ describe('aiConfidenceDisplay', () => {
   it('labels CLI evidence keys', () => {
     expect(evidenceLabel('package_identity')).toBe('Package identity');
     expect(evidenceLabel('command')).toBe('Command name');
+  });
+
+  it('labels local model runtime evidence keys', () => {
+    expect(evidenceLabel('listener')).toBe('Network listener');
+    expect(evidenceLabel('runtime_fingerprint')).toBe('Runtime fingerprint');
+    expect(evidenceLabel('local_client')).toBe('Local client');
+  });
+
+  it('maps confidence to meter strength and tone', () => {
+    expect(confidenceStrength('VERIFIED')).toBe(4);
+    expect(confidenceStrength('HIGH')).toBe(3);
+    expect(confidenceStrength('MEDIUM')).toBe(2);
+    expect(confidenceStrength('LOW')).toBe(1);
+    expect(confidenceShortLabel('HIGH')).toBe('High');
+    expect(confidenceTone('HIGH')).toBe('success.main');
+    expect(confidenceTone('LOW')).toBe('error.main');
   });
 });
