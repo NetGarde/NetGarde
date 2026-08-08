@@ -706,15 +706,15 @@ export default function AgentDetail({ agentId }: { agentId: string }) {
           sx={{ mb: 1.5 }}
         >
           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Installed AI apps
+            Installed AI software
           </Typography>
-          <Tooltip title="Refresh installed AI apps">
+          <Tooltip title="Refresh installed AI software">
             <span>
               <IconButton
                 size="small"
                 onClick={() => refetchAiSoftware()}
                 disabled={aiSoftwareLoading}
-                aria-label="Refresh installed AI apps"
+                aria-label="Refresh installed AI software"
               >
                 <RefreshIcon fontSize="small" />
               </IconButton>

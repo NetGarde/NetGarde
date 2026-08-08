@@ -43,4 +43,9 @@ describe('aiConfidenceDisplay', () => {
     expect(expl.matched).toContain('Bundle ID');
     expect(expl.failed).toContain('Valid code signature');
   });
+
+  it('labels CLI evidence keys', () => {
+    expect(evidenceLabel('package_identity')).toBe('Package identity');
+    expect(evidenceLabel('command')).toBe('Command name');
+  });
 });

@@ -100,6 +100,47 @@ def test_list_ai_software_includes_evidence(fake_redis):
     assert "code-signing" in result.items[0].confidence_reason
 
 
+def test_list_ai_software_includes_cli_agent_fields(fake_redis):
+    doc = {
+        "device_id": "dev_cli",
+        "known_ai_apps": {
+            "claude_code:/opt/homebrew/bin/claude": {
+                "id": "claude_code:/opt/homebrew/bin/claude",
+                "product_id": "claude_code",
+                "product_name": "Claude Code",
+                "vendor": "Anthropic",
+                "category": "cli_agent",
+                "confidence": "LOW",
+                "confidence_reason": "LOW. Recognized mainly by command name.",
+                "installed": True,
+                "running": True,
+                "path": "/opt/homebrew/Cellar/claude-code/1.0/bin/claude",
+                "version": "1.0",
+                "executable": "claude",
+                "invocation_path": "/opt/homebrew/bin/claude",
+                "resolved_path": "/opt/homebrew/Cellar/claude-code/1.0/bin/claude",
+                "package_manager": "homebrew",
+                "package_identifier": "claude-code",
+                "entry_point": "claude",
+            },
+        },
+    }
+    fake_redis.set(
+        trusttwin_store.LATEST_KEY_FMT.format(device_id="dev_cli"),
+        json.dumps(doc),
+    )
+    result = ConnectedAgentService().list_ai_software("dev_cli")
+    assert result.total == 1
+    item = result.items[0]
+    assert item.category == "cli_agent"
+    assert item.product_name == "Claude Code"
+    assert item.invocation_path == "/opt/homebrew/bin/claude"
+    assert item.package_manager == "homebrew"
+    assert item.package_identifier == "claude-code"
+    assert item.executable == "claude"
+    assert item.running is True
+
+
 def test_list_ai_software_empty_when_missing(fake_redis):
     result = ConnectedAgentService().list_ai_software("missing")
     assert result.device_id == "missing"

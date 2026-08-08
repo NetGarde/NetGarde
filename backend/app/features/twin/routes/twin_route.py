@@ -149,7 +149,7 @@ def list_agent_ai_software(
     _: None = Depends(verify_admin_api_token),
     service: ConnectedAgentService = Depends(get_connected_agent_service),
 ):
-    """Installed AI application inventory for a device (from Redis twin)."""
+    """Installed AI apps and CLI agents for a device (from Redis twin)."""
     return service.list_ai_software(device_id)
 
 
