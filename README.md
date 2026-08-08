@@ -33,6 +33,10 @@ Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summa
 </p>
 
 <p align="center">
+  <img width="100%" alt="TrustEdge alerts — AI tool, novel process, and idle network detections" src="docs/assets/screenshot-alerts.png" />
+</p>
+
+<p align="center">
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
