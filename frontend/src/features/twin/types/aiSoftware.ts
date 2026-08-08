@@ -44,6 +44,16 @@ export type AiSoftwareItem = {
   model_format?: string;
   runtime_version?: string;
   local_clients?: AiSoftwareLocalClient[];
+  /** IDE extension fields. */
+  extension_id?: string;
+  host_ide_product_id?: string;
+  host_ide_path?: string;
+  profile?: string;
+  /** null/undefined = unknown */
+  enabled?: boolean | null;
+  active?: boolean | null;
+  mcp_configured?: boolean;
+  local_model_product_id?: string;
 };
 
 export type AiSoftwareListResponse = {

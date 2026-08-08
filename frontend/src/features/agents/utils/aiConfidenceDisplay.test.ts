@@ -61,6 +61,12 @@ describe('aiConfidenceDisplay', () => {
     expect(evidenceLabel('local_client')).toBe('Local client');
   });
 
+  it('labels IDE extension evidence keys', () => {
+    expect(evidenceLabel('extension_id')).toBe('Extension ID');
+    expect(evidenceLabel('host_ide')).toBe('Host IDE');
+    expect(evidenceLabel('mcp_configured')).toBe('MCP configured');
+  });
+
   it('maps confidence to meter strength and tone', () => {
     expect(confidenceStrength('VERIFIED')).toBe(4);
     expect(confidenceStrength('HIGH')).toBe(3);

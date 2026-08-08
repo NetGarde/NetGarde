@@ -12,7 +12,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import type { AiSoftwareItem } from '../twin/types/aiSoftware';
-import { aiAppIcon, aiAppIconColor, isCliAgent, isLocalModelRuntime } from './utils/aiAppIcons';
+import { aiAppIcon, aiAppIconColor, isCliAgent, isIdeExtension, isLocalModelRuntime } from './utils/aiAppIcons';
 import {
   confidenceShortLabel,
   confidenceStrength,
@@ -34,6 +34,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   chat_client: 'Chat client',
   cli_agent: 'CLI agent',
   local_model_runtime: 'Local model runtime',
+  ai_ide_extension: 'AI IDE extension',
+  agentic_ide_extension: 'Agentic IDE extension',
+};
+
+const HOST_IDE_LABELS: Record<string, string> = {
+  cursor: 'Cursor',
+  vscode: 'VS Code',
 };
 
 const EXPOSURE_LABELS: Record<string, string> = {
@@ -186,6 +193,7 @@ function ConfidenceCell({
 
 function StatusCell({ item }: { item: AiSoftwareItem }) {
   const runtime = isLocalModelRuntime(item.product_id, item.category);
+  const extension = isIdeExtension(item.product_id, item.category);
   const exposure = item.exposure ? EXPOSURE_LABELS[item.exposure] || item.exposure.replace(/_/g, ' ') : '';
   const exposureTone =
     item.exposure === 'LOOPBACK_ONLY'
@@ -196,7 +204,22 @@ function StatusCell({ item }: { item: AiSoftwareItem }) {
 
   return (
     <Stack spacing={0.35} alignItems="flex-start">
-      <StatusDot active={item.running} activeLabel="Running" idleLabel="Not running" />
+      {!extension ? (
+        <StatusDot active={item.running} activeLabel="Running" idleLabel="Not running" />
+      ) : (
+        <StatusDot active={item.installed} activeLabel="Installed" idleLabel="Not installed" />
+      )}
+      {extension && item.enabled != null ? (
+        <StatusDot active={!!item.enabled} activeLabel="Enabled" idleLabel="Disabled" />
+      ) : null}
+      {extension && item.active != null ? (
+        <StatusDot active={!!item.active} activeLabel="Active" idleLabel="Inactive" />
+      ) : null}
+      {extension && item.active == null ? (
+        <Typography variant="caption" color="text.secondary" sx={{ pl: '15px' }}>
+          Active unknown
+        </Typography>
+      ) : null}
       {runtime ? <StatusDot active={!!item.serving} activeLabel="Serving" idleLabel="Not serving" /> : null}
       {runtime && exposure ? (
         <Typography variant="caption" sx={{ color: exposureTone, pl: '15px' }}>
@@ -210,8 +233,11 @@ function StatusCell({ item }: { item: AiSoftwareItem }) {
 function PathCell({ item }: { item: AiSoftwareItem }) {
   const cli = isCliAgent(item.product_id, item.category);
   const runtime = isLocalModelRuntime(item.product_id, item.category);
+  const extension = isIdeExtension(item.product_id, item.category);
   const displayPath = ((cli || runtime) && item.invocation_path) || item.path || item.resolved_path || '—';
-  const packageBits = [item.package_manager, item.package_identifier].filter(Boolean).join(' · ');
+  const packageBits = [item.package_manager, item.package_identifier || item.extension_id]
+    .filter(Boolean)
+    .join(' · ');
   const listeners = (item.listeners || [])
     .map((l) => (l.port != null ? `${l.addr || '—'}:${l.port}` : ''))
     .filter(Boolean)
@@ -226,6 +252,18 @@ function PathCell({ item }: { item: AiSoftwareItem }) {
     runtime && item.local_clients && item.local_clients.length
       ? `${item.local_clients.length} local client${item.local_clients.length === 1 ? '' : 's'}`
       : '';
+  const hostIde =
+    extension && item.host_ide_product_id
+      ? HOST_IDE_LABELS[item.host_ide_product_id] || item.host_ide_product_id
+      : '';
+  const extBits = [
+    hostIde ? `host ${hostIde}` : null,
+    item.profile ? `profile ${item.profile}` : null,
+    item.mcp_configured ? 'MCP configured' : null,
+    item.local_model_product_id ? `local model ${item.local_model_product_id}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Stack spacing={0.25} sx={{ maxWidth: 320 }}>
@@ -239,6 +277,11 @@ function PathCell({ item }: { item: AiSoftwareItem }) {
       {packageBits ? (
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
           {packageBits}
+        </Typography>
+      ) : null}
+      {extBits ? (
+        <Typography variant="caption" color="text.secondary">
+          {extBits}
         </Typography>
       ) : null}
       {listeners ? (
@@ -282,7 +325,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
   if (!items.length) {
     return (
       <Alert severity="info" variant="outlined">
-        No installed AI apps, CLI agents, or local model runtimes reported for this agent yet.
+        No installed AI apps, CLI agents, IDE extensions, or local model runtimes reported for this agent yet.
       </Alert>
     );
   }
@@ -328,6 +371,7 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
           {items.map((item) => {
             const cli = isCliAgent(item.product_id, item.category);
             const runtime = isLocalModelRuntime(item.product_id, item.category);
+            const extension = isIdeExtension(item.product_id, item.category);
             const version = item.runtime_version || item.version || '—';
             return (
               <TableRow key={item.id} hover>
@@ -351,6 +395,11 @@ export default function AiSoftwareCard({ items, loading, error }: Props) {
                       {(cli || runtime) && item.executable ? (
                         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
                           {item.executable}
+                        </Typography>
+                      ) : null}
+                      {extension && (item.extension_id || item.package_identifier) ? (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                          {item.extension_id || item.package_identifier}
                         </Typography>
                       ) : null}
                     </Stack>
