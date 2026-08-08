@@ -10,7 +10,7 @@ For setup and deployment, see the [main README](../README.md). For environment v
 
 TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
-1. **Live observability** — TrustEdge Agent streams process, app, and network posture into detection and the Agents registry.
+1. **Live observability** — TrustEdge Agent streams process, activity, network posture, and AI tools inventory into detection and the Agents registry.
 2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
 3. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview for operators; falls back to templates when AI is off or unavailable.
 
@@ -22,7 +22,7 @@ DNS policy packs, soft quarantine, network map / attribution, dnsmasq sync, live
 
 | Layer | Source | Dashboard |
 |-------|--------|-----------|
-| Endpoint posture | TrustEdge Agent (process, network summary, app focus) | Agents registry |
+| Endpoint posture | TrustEdge Agent (process, network summary, app focus, AI inventory) | Agents registry · installed AI software |
 | Detection | TrustEdge Agent events → detection-engine rules | Security alerts |
 | L4 flows | Host conntrack watcher | Flow ingest / live API (no map UI) |
 
@@ -77,6 +77,7 @@ DNS policy packs, soft quarantine, network map / attribution, dnsmasq sync, live
 
 - Durable registry lives in Postgres (`agents` table, keyed by stable `agent_id`).
 - Optional live presence keys may still exist in Redis for legacy connected-agent APIs.
+- Installed AI software (apps, CLI agents, local model runtimes, IDE extensions) is folded from `known_ai_app` events into Redis twin state and shown on agent detail.
 
 ---
 
