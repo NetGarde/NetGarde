@@ -1,16 +1,16 @@
 # <img src="assets/icons/architecture.svg" width="28" height="28" align="absmiddle" alt="" /> System architecture
 
-Component topology and data flows for the TrustEdge **security observability platform** (TrustEdge Agent endpoint telemetry, rules-based detection, attack alerts). For design principles, security model, and implementation patterns, see [DESIGN.md](DESIGN.md).
+Component topology and data flows for TrustEdge: endpoint telemetry from TrustEdge Agent, rules-based detection, and attack alerts in the operator dashboard. For design principles and implementation patterns, see [DESIGN.md](DESIGN.md).
 
 ---
 
 ## <img src="assets/icons/architecture.svg" width="22" height="22" align="absmiddle" alt="" /> Architecture diagram
 
 <p align="center">
-  <img width="100%" alt="TrustEdge architecture — endpoint agents, Agent API, Kafka, detection engine, control plane, and dashboard" src="assets/architecture.png" />
+  <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="assets/architecture.svg" />
 </p>
 
-**Primary path:** Endpoint Agent → HTTPS upload → Agent API → Kafka → detection-engine (in-memory alerts + `GET /alerts`) → FastAPI `GET /security/alerts` (proxy) → React dashboard.
+**Primary path:** Agent → HTTPS upload → Agent API → Kafka → detection-engine → alert ingest → FastAPI → React dashboard.
 
 ---
 
@@ -18,11 +18,11 @@ Component topology and data flows for the TrustEdge **security observability pla
 
 | Layer | Components | Role |
 |-------|------------|------|
-| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, activity, network posture, and AI tools inventory telemetry |
-| **Docker** | FastAPI backend, detection-engine, trustedge-agent-api | API, alerts, endpoint ingest, rules engine |
-| **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, image registry |
-| **Redis** | Optional live agent keys (EC2) | Connected-agent APIs / overview helpers |
-| **Kafka / Redpanda** | Agent event bus | Detection-engine input stream |
+| **Endpoint agents** | TrustEdge Agent (`trustedge-agent`) | Process, activity, network, security lifecycle, and AI tools inventory |
+| **Docker on EC2** | FastAPI backend, detection-engine, trustedge-agent-api | APIs, alerts, ingest, rules |
+| **AWS** | RDS PostgreSQL, S3, CloudFront, ECR | Persistent state, dashboard hosting, images |
+| **Redis** | Live agent / twin keys on EC2 | Live posture and helpers |
+| **Kafka / Redpanda** | `trustedge.agent.events` | Detection-engine input stream |
 
 ---
 

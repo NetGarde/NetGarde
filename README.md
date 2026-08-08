@@ -10,33 +10,35 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ## About the project
 
-TrustEdge is a **self-hosted security observability platform** for teams that want real endpoint signal and actionable detection without a heavy enterprise EDR stack.
+TrustEdge is a **self-hosted security observability platform**. It gives teams real endpoint signal and actionable detection without a heavyweight enterprise EDR stack.
 
-A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network-posture, and AI tools inventory telemetry, batches and compresses it, then uploads over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API). Events flow onto Kafka, a rules engine looks for attack chains and drift, and this control plane surfaces **attack alerts**, agents, and behavior views in a React dashboard.
+A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network, security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-Detection stays **rules-based** (deterministic). Optional LLMs only help explain state to operators — they do not decide what is malicious.
+Kafka streams those events to a rules engine. This control plane surfaces **attack alerts**, the agents registry, **installed AI software**, and behavior views in a React dashboard.
+
+Detection is **rules-based** and deterministic. Optional LLMs can explain state to operators — they never decide what is malicious.
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Batch → Compress → Secure upload → Agent API → Stream → Detection Attack → Alert" width="1000" />
+  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Durable queue → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
 </p>
 
 ---
 
 ## Architecture
 
-TrustEdge separates **collection** (on the endpoint), **ingest + detection** (Agent API → Kafka → rules engine), and **operator views** (FastAPI + React).
+TrustEdge separates **collection** on the endpoint, **ingest and detection** in the stream path, and **operator views** in FastAPI + React.
 
 <p align="center">
-  <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.png" />
+  <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.svg" />
 </p>
 
 | Stage | Components | Responsibility |
 |-------|------------|----------------|
-| **1 · Edge** | TrustEdge Agent | Collect · batch · compress · HTTPS upload |
-| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) | Auth · validate · persist · publish |
-| **3 · Stream** | Kafka / Redpanda | Durable `agent.events` bus |
+| **1 · Edge** | TrustEdge Agent (Go) | Collect · durable queue · compress · HTTPS |
+| **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (FastAPI) | Device auth · validate · publish |
+| **3 · Stream** | Kafka / Redpanda | Durable `trustedge.agent.events` bus |
 | **4 · Detect** | `detection-engine` | Attack / drift rules → alerts |
-| **5 · Operate** | FastAPI · Security Graph · React dashboard | Alerts, graph, maps, behavior |
+| **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI software, behavior |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
 
 More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
@@ -45,11 +47,11 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 ## How it works
 
-1. **Endpoint** — device running TrustEdge Agent  
-2. **Collector → Batch → Compress** — on-device telemetry pipeline  
-3. **Secure upload** — HTTPS to Agent API  
-4. **Agent API → Stream** — validate, persist, publish  
-5. **Detection → Alert** — rules engine + dashboard  
+1. **Endpoint** — TrustEdge Agent runs on the device  
+2. **Collect → durable queue → compress** — local telemetry, no collector HTTP  
+3. **Secure upload** — HTTPS to Agent API with a device token  
+4. **Ingest → stream** — validate and publish to Kafka  
+5. **Detect → operate** — rules create alerts; the dashboard shows them  
 
 ---
 
@@ -57,11 +59,12 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 
 | Capability | Implementation |
 |------------|----------------|
-| Endpoint telemetry | Process, activity, network posture, AI tools inventory |
+| Endpoint telemetry | Process, activity, network, security lifecycle, AI tools inventory |
+| Reliable delivery | Durable queue · compress · HTTPS · retry with backoff |
 | Detection | Kafka-backed rules on agent events |
 | Observability | Attack alerts, agents registry, installed AI software |
-| AI operations | Optional summaries (OpenAI / Ollama / template) |
-| Production ops | CloudWatch JSON logs, Alembic, ECR deploy |
+| AI operations | Optional summaries (OpenAI / Ollama / templates) |
+| Production ops | EC2 + Docker Compose, RDS, S3/CloudFront, ECR, GitHub Actions |
 
 ---
 
