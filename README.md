@@ -19,7 +19,7 @@ Kafka streams those events to a rules engine. This control plane surfaces **atta
 Detection is **rules-based** and deterministic. Optional LLMs can explain state to operators — they never decide what is malicious.
 
 <p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Endpoint → Collector → Durable queue → Compress → Secure upload → Agent API → Stream → Detection → Alert" width="1000" />
+  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
 </p>
 
 ---
