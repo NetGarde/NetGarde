@@ -24,10 +24,6 @@ Detection is multi-engine and deterministic:
 
 Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summarize network state — they never decide what is malicious.
 
-<p align="center">
-  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
-</p>
-
 ---
 
 ## Screenshots
@@ -62,6 +58,10 @@ Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summa
 ## Architecture
 
 TrustEdge separates **collection** on the endpoint, **ingest and detection** in the stream path, and **operator views** in FastAPI + React.
+
+<p align="center">
+  <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
+</p>
 
 <p align="center">
   <img width="100%" alt="TrustEdge architecture — Edge, Ingest, Stream, Detect, Operate" src="docs/assets/architecture.svg" />
