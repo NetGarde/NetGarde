@@ -14,7 +14,7 @@ TrustEdge is a **self-hosted security observability platform**. It gives teams r
 
 A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network (summary + connection samples), security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed (**zstd**) and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-Kafka streams those events into detection. This control plane surfaces **attack alerts**, the **agents** registry, **installed AI software**, **behavior** baselines, and **AI activity sessions** in a React dashboard.
+Kafka streams those events into detection. This control plane surfaces **attack alerts**, the **agents** registry, **AI tools inventory**, **behavior** baselines, and **AI activity sessions** in a React dashboard.
 
 Detection is multi-engine and deterministic:
 
@@ -26,6 +26,10 @@ Optional LLMs (**Ollama** / OpenAI / templates) can **explain** alerts and summa
 
 <p align="center">
   <img width="100%" alt="TrustEdge overview dashboard — network health, agents, recent alerts, and severity" src="docs/assets/screenshot-overview.png" />
+</p>
+
+<p align="center">
+  <img width="100%" alt="TrustEdge agent detail — process baseline, AI tools inventory, and AI sessions" src="docs/assets/screenshot-agent-detail.png" />
 </p>
 
 <p align="center">
@@ -79,7 +83,7 @@ Deploy guide: [docs/DEPLOY.md](docs/DEPLOY.md)
 | Surface | What you get |
 |---------|--------------|
 | **Home** | Health, recent alerts, agent status, AI network overview |
-| **Agents** | Registry + per-agent twin, timeline, AI software, behavior, AI sessions |
+| **Agents** | Registry + per-agent twin, timeline, AI tools inventory, behavior, AI sessions |
 | **Alerts** | Filters, process chain/graph evidence, **Explain with Ollama** |
 | **Learn** | How the agent pipeline works · how detection works |
 
