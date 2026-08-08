@@ -86,7 +86,7 @@ TrustEdge separates **collection** on the endpoint, **ingest and detection** in 
 | **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI inventory, behavior, sessions |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth · live twin state |
 
-More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
@@ -167,7 +167,7 @@ cd TrustEdge
 | Document | Description |
 |----------|-------------|
 | [docs/README.md](docs/README.md) | Documentation index |
-| [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md) | Components and data flows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components, flows, contributor patterns |
 | [docs/API.md](docs/API.md) | REST reference |
 | [docs/ENV_SETUP.md](docs/ENV_SETUP.md) | Environment variables |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | AWS production deploy |
