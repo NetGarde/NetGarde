@@ -14,9 +14,9 @@ TrustEdge is a **self-hosted security observability platform**. It gives teams r
 
 A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network, security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
-Kafka streams those events to a rules engine. This control plane surfaces **attack alerts**, the agents registry, **installed AI software**, and behavior views in a React dashboard.
+Kafka streams those events to detection. This control plane surfaces **attack alerts**, the agents registry, **installed AI software**, and **behavior** views in a React dashboard.
 
-Detection is **rules-based** and deterministic. Optional LLMs can explain state to operators — they never decide what is malicious.
+Detection combines **YAML attack/chain rules** with a **behavioral engine** (device baselines and novel-process alerts). Both are deterministic. Optional LLMs can explain state to operators — they never decide what is malicious.
 
 <p align="center">
   <img src="docs/assets/pipeline.svg" alt="Collect → Durable queue → Secure upload → Agent API → Kafka → Detect → Alert" width="1000" />
@@ -37,7 +37,7 @@ TrustEdge separates **collection** on the endpoint, **ingest and detection** in 
 | **1 · Edge** | TrustEdge Agent (Go) | Collect · durable queue · compress · HTTPS |
 | **2 · Ingest** | [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API) (FastAPI) | Device auth · validate · publish |
 | **3 · Stream** | Kafka / Redpanda | Durable `trustedge.agent.events` bus |
-| **4 · Detect** | `detection-engine` | Attack / drift rules → alerts |
+| **4 · Detect** | `detection-engine` | Attack/chain rules + behavior baselines / novelty → alerts |
 | **5 · Operate** | FastAPI · React dashboard | Alerts, agents, AI software, behavior |
 | **Data** | PostgreSQL (RDS), Redis | Source of truth · live state |
 
@@ -51,7 +51,7 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 2. **Collect → durable queue → compress** — local telemetry, no collector HTTP  
 3. **Secure upload** — HTTPS to Agent API with a device token  
 4. **Ingest → stream** — validate and publish to Kafka  
-5. **Detect → operate** — rules create alerts; the dashboard shows them  
+5. **Detect → operate** — attack/chain rules and behavior engines create alerts; the dashboard shows them  
 
 ---
 
@@ -61,8 +61,8 @@ More detail: [docs/SYSTEM_ARCHITECTURE.md](docs/SYSTEM_ARCHITECTURE.md)
 |------------|----------------|
 | Endpoint telemetry | Process, activity, network, security lifecycle, AI tools inventory |
 | Reliable delivery | Durable queue · compress · HTTPS · retry with backoff |
-| Detection | Kafka-backed rules on agent events |
-| Observability | Attack alerts, agents registry, installed AI software |
+| Detection | Kafka-backed attack/chain rules + behavior baselines / novelty |
+| Observability | Attack alerts, agents registry, installed AI software, behavior |
 | AI operations | Optional summaries (OpenAI / Ollama / templates) |
 | Production ops | EC2 + Docker Compose, RDS, S3/CloudFront, ECR, GitHub Actions |
 

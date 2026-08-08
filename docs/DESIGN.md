@@ -11,7 +11,7 @@ For setup and deployment, see the [main README](../README.md). For environment v
 TrustEdge is a **self-hosted security observability platform** (EDR-lite endpoint telemetry + rules-based detection) for teams and operators who want unified security visibility without enterprise complexity. The core promise:
 
 1. **Live observability** — TrustEdge Agent streams process, activity, network posture, and AI tools inventory into detection and the Agents registry.
-2. **EDR-lite endpoint detection** — TrustEdge Agent events feed a Kafka-backed rules engine (shell→downloader chains, temp-path execution, network drift).
+2. **EDR-lite endpoint detection** — TrustEdge Agent events feed Kafka-backed detection (YAML attack/chain rules, behavior baselines, novel-process alerts).
 3. **AI-assisted explanations** *(optional)* — OpenAI or Ollama can summarize network overview for operators; falls back to templates when AI is off or unavailable.
 
 DNS policy packs, soft quarantine, network map / attribution, dnsmasq sync, live DNS query feeds, and WireGuard VPN enroll are **out of scope** (removed from the product).
