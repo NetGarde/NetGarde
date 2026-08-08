@@ -100,19 +100,33 @@ export function isBaselineNoise(item: DeviceBaselineItem): boolean {
 
 export function sortBaselineItems(items: DeviceBaselineItem[]): DeviceBaselineItem[] {
   return [...items].sort((a, b) => {
+    const aTs = Date.parse(a.last_seen_at || a.first_seen_at || '') || 0;
+    const bTs = Date.parse(b.last_seen_at || b.first_seen_at || '') || 0;
+    if (bTs !== aTs) return bTs - aTs;
     if (b.count !== a.count) return b.count - a.count;
-    const kindCmp = a.behavior_kind.localeCompare(b.behavior_kind);
-    if (kindCmp !== 0) return kindCmp;
     return a.behavior_key.localeCompare(b.behavior_key);
   });
 }
 
+function matchesBaselineSearch(item: DeviceBaselineItem, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const display = displayBaselineKey(item.behavior_key).toLowerCase();
+  const key = (item.behavior_key || '').toLowerCase();
+  const kind = (item.behavior_kind || '').toLowerCase();
+  return display.includes(q) || key.includes(q) || kind.includes(q);
+}
+
 export function prepareBaselineItems(
   items: DeviceBaselineItem[],
-  options?: { includeSystem?: boolean }
+  options?: { includeSystem?: boolean; query?: string }
 ): DeviceBaselineItem[] {
   const includeSystem = Boolean(options?.includeSystem);
-  const filtered = includeSystem ? items : items.filter((item) => !isBaselineNoise(item));
+  const query = options?.query || '';
+  let filtered = includeSystem ? items : items.filter((item) => !isBaselineNoise(item));
+  if (query.trim()) {
+    filtered = filtered.filter((item) => matchesBaselineSearch(item, query));
+  }
   return sortBaselineItems(filtered);
 }
 
@@ -123,5 +137,6 @@ export function displayBaselineKey(key: string): string {
   if (lower === 'zsh' || lower === 'bash' || lower === 'fish') return `Terminal (${key})`;
   if (lower === 'iterm2') return 'iTerm';
   if (lower === 'code') return 'VS Code';
+  if (lower === 'mail') return 'Mail';
   return key;
 }

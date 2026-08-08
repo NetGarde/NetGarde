@@ -9,6 +9,9 @@ TYPE_PROCESS_EXIT: Final = "process_exit"
 TYPE_DRIVER_LOAD: Final = "driver_load"
 TYPE_SERVICE_INSTALL: Final = "service_install"
 TYPE_REGISTRY_PERSISTENCE: Final = "registry_persistence"
+TYPE_NETWORK_CONNECTION: Final = "network_connection"
+TYPE_FILE_WRITE: Final = "file_write"
+TYPE_FILE_OPEN: Final = "file_open"
 
 PRESENCE_ACTIVE: Final = "active"
 PRESENCE_IDLE: Final = "idle"
@@ -23,6 +26,13 @@ SEVERITY_RANK: Final[dict[str, int]] = {
     SEVERITY_LOW: 1,
     SEVERITY_MEDIUM: 2,
     SEVERITY_HIGH: 3,
+}
+
+# Points added to ProcessState.current_risk_score when a rule matches.
+SEVERITY_SCORE: Final[dict[str, int]] = {
+    SEVERITY_LOW: 25,
+    SEVERITY_MEDIUM: 50,
+    SEVERITY_HIGH: 75,
 }
 
 # Stable alert type values used by the ingest API and UI.
@@ -46,16 +56,21 @@ ALERT_MISSING_NETWORK_TELEMETRY: Final = "missing_network_telemetry"
 ALERT_IDLE_WITH_NETWORK_ACTIVITY: Final = "idle_with_network_activity"
 ALERT_TEMP_PATH_EXECUTION: Final = "temp_path_execution"
 ALERT_SHELL_SPAWNS_DOWNLOADER: Final = "shell_spawns_downloader"
+ALERT_AI_TOOL_EXECUTION: Final = "ai_tool_execution"
+ALERT_SHELL_SPAWNS_AI_TOOL: Final = "shell_spawns_ai_tool"
 ALERT_SCRIPT_SPAWNS_SHELL: Final = "script_spawns_shell"
 ALERT_BINARY_PATH_MISMATCH: Final = "binary_path_mismatch"
 ALERT_NOVEL_PROCESS: Final = "novel_process"
 ALERT_DRIVER_LOAD: Final = "driver_load"
 ALERT_SERVICE_INSTALL: Final = "service_install"
 ALERT_REGISTRY_PERSISTENCE: Final = "registry_persistence"
+ALERT_DROPPER_BEHAVIOR: Final = "dropper_behavior"
+ALERT_PERSISTENCE_WITH_NETWORK: Final = "persistence_with_network"
+ALERT_ELEVATED_PROCESS_RISK: Final = "elevated_process_risk"
+ALERT_PROCESS_NETWORK_ACTIVITY: Final = "process_network_activity"
 
 # Windowed rules use these buckets to suppress repeated alerts.
 COOLDOWN_SECONDS: Final[dict[str, int]] = {
-    ALERT_NOVEL_PROCESS: 30 * 60,
     ALERT_RAPID_PUBLIC_IP_CHANGES: 15 * 60,
     ALERT_DOUBLE_IP_CHANGE_10M: 10 * 60,
     ALERT_NETWORK_TYPE_FLAPPING: 10 * 60,

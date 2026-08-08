@@ -208,6 +208,68 @@ def test_shell_spawns_downloader_alert():
     assert "curl --limit-rate" in alert.detail
 
 
+def test_ai_tool_execution_and_shell_spawns_ai_tool():
+    store = StateStore()
+    device = "dev_ai"
+    evaluate_event(
+        _process_event(
+            device,
+            100,
+            1,
+            "zsh",
+            "/bin/zsh",
+            "2026-07-11T12:00:00Z",
+            cmdline="zsh -c 'ollama run llama3'",
+        ),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            200,
+            100,
+            "ollama",
+            "/usr/local/bin/ollama",
+            "2026-07-11T12:00:05Z",
+            cmdline="ollama run llama3",
+        ),
+        store,
+    )
+    types = {a.alert_type for a in alerts}
+    assert "ai_tool_execution" in types
+    assert "shell_spawns_ai_tool" in types
+    chain = next(a for a in alerts if a.alert_type == "shell_spawns_ai_tool")
+    assert chain.severity == "high"
+    assert "ollama" in (chain.message or "")
+    assert chain.detail is not None
+    assert "ollama run llama3" in chain.detail
+    solo = next(a for a in alerts if a.alert_type == "ai_tool_execution")
+    assert solo.severity == "medium"
+
+
+def test_cursor_ide_triggers_ai_tool_alerts():
+    store = StateStore()
+    device = "dev_ide"
+    evaluate_event(
+        _process_event(device, 100, 1, "zsh", "/bin/zsh", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            200,
+            100,
+            "Cursor",
+            "/Applications/Cursor.app/Contents/MacOS/Cursor",
+            "2026-07-11T12:00:05Z",
+        ),
+        store,
+    )
+    types = {a.alert_type for a in alerts}
+    assert "ai_tool_execution" in types
+    assert "shell_spawns_ai_tool" in types
+
+
 def test_temp_path_execution_alert():
     store = StateStore()
     device = "dev_tmp"
@@ -304,6 +366,96 @@ def test_point_process_alert_excludes_unrelated_recent_processes():
     detail = __import__("json").loads(alert.detail)
 
     assert [row["pid"] for row in detail["processes"]] == [100, 101]
+
+
+def test_process_alert_includes_system_init_ancestor():
+    store = StateStore()
+    device = "dev_with_launchd"
+    evaluate_event(
+        _process_event(device, 1, 0, "launchd", "/sbin/launchd", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    evaluate_event(
+        _process_event(device, 100, 1, "zsh", "/bin/zsh", "2026-07-11T12:00:01Z"),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            101,
+            100,
+            "trustedge-high-test",
+            "/private/tmp/trustedge-high-test",
+            "2026-07-11T12:00:05Z",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "temp_path_execution")
+    detail = __import__("json").loads(alert.detail)
+    pids = [row["pid"] for row in detail["processes"]]
+    assert pids == [1, 100, 101]
+
+
+def test_process_alert_includes_same_parent_siblings():
+    """Commands from one shell appear together on a later child alert."""
+    store = StateStore()
+    device = "dev_session_siblings"
+    evaluate_event(
+        _process_event(device, 100, 1, "zsh", "/bin/zsh", "2026-07-11T12:00:00Z"),
+        store,
+    )
+    evaluate_event(
+        _process_event(
+            device,
+            101,
+            100,
+            "curl",
+            "/usr/bin/curl",
+            "2026-07-11T12:00:05Z",
+            cmdline="curl -s https://example.com",
+        ),
+        store,
+    )
+    evaluate_event(
+        _process_event(
+            device,
+            102,
+            100,
+            "sleep",
+            "/bin/sleep",
+            "2026-07-11T12:00:06Z",
+            cmdline="sleep 1",
+        ),
+        store,
+    )
+    # Unrelated process under a different parent must stay out.
+    evaluate_event(
+        _process_event(device, 200, 1, "ps", "/bin/ps", "2026-07-11T12:00:07Z"),
+        store,
+    )
+    alerts = evaluate_event(
+        _process_event(
+            device,
+            103,
+            100,
+            "trustedge-high-test",
+            "/private/tmp/trustedge-high-test",
+            "2026-07-11T12:00:08Z",
+        ),
+        store,
+    )
+    alert = next(a for a in alerts if a.alert_type == "temp_path_execution")
+    detail = __import__("json").loads(alert.detail)
+
+    assert detail["process_context_kind"] == "session"
+    pids = [row["pid"] for row in detail["processes"]]
+    assert pids == [100, 101, 102, 103]
+    assert 200 not in pids
+    by_pid = {row["pid"]: row for row in detail["processes"]}
+    assert by_pid[103]["role"] == "trigger"
+    assert by_pid[101]["role"] == "context"
+    assert by_pid[101]["cmdline"] == "curl -s https://example.com"
+    assert by_pid[102]["cmdline"] == "sleep 1"
 
 
 def test_registry_persistence_alert():
@@ -431,4 +583,39 @@ def test_windowed_alert_fingerprint_shares_cooldown_bucket():
         timestamp="2026-07-16T19:39:36Z",
         event_id="evt_b",
     )
+
+
+def test_novel_process_fingerprint_is_per_process_name():
+    from rules.alerts import SecurityAlert
+    from rules.constants import ALERT_NOVEL_PROCESS
+
+    calc = SecurityAlert(
+        timestamp="2026-08-03T21:01:30Z",
+        device_id="dev_x",
+        alert_type=ALERT_NOVEL_PROCESS,
+        severity="medium",
+        message="Novel process for this device: calculator",
+        event_id="evt_calc",
+        detail='{"behavior_key":"calculator","comm":"calculator"}',
+    )
+    cats = SecurityAlert(
+        timestamp="2026-08-03T21:00:09Z",
+        device_id="dev_x",
+        alert_type=ALERT_NOVEL_PROCESS,
+        severity="medium",
+        message="Novel process for this device: categoriesservice",
+        event_id="evt_cats",
+        detail='{"behavior_key":"categoriesservice","comm":"categoriesservice"}',
+    )
+    calc_again = SecurityAlert(
+        timestamp="2026-08-03T21:05:00Z",
+        device_id="dev_x",
+        alert_type=ALERT_NOVEL_PROCESS,
+        severity="medium",
+        message="Novel process for this device: calculator",
+        event_id="evt_calc_2",
+        detail='{"behavior_key":"calculator","comm":"calculator"}',
+    )
+    assert calc.fingerprint() != cats.fingerprint()
+    assert calc.fingerprint() == calc_again.fingerprint()
 

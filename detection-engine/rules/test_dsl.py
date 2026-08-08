@@ -50,6 +50,8 @@ def test_load_bundled_process_rules():
     assert ids == [
         "temp_path_execution",
         "shell_spawns_downloader",
+        "ai_tool_execution",
+        "shell_spawns_ai_tool",
         "script_spawns_shell",
         "binary_path_mismatch",
     ]

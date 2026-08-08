@@ -52,7 +52,7 @@ def test_pipeline_scores_temp_path_rule():
 
 
 def test_pipeline_emits_novel_when_warm():
-    baseline = BaselineStore(suppress_count=20, suppress_age_hours=72, profile_min_keys=2)
+    baseline = BaselineStore(suppress_count=20, profile_min_keys=2)
     baseline.observe("dev_n", "process_comm", "seed", now=1_000_000.0)
     pipe = Pipeline(
         store=StateStore(),

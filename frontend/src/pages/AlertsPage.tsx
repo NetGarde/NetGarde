@@ -35,8 +35,21 @@ const SEVERITY_COLOR: Record<string, 'error' | 'warning' | 'info' | 'default'> =
 const TYPE_LABEL: Record<string, string> = {
   temp_path_execution: 'Temp path execution',
   shell_spawns_downloader: 'Shell spawned downloader',
+  ai_tool_execution: 'AI tool started',
+  shell_spawns_ai_tool: 'Shell spawned AI tool',
+  ai_terminal_tool_chain: 'AI terminal tool chain',
+  ai_shell_network_exfil: 'AI shell network activity',
+  ai_secrets_access: 'AI secrets access',
+  ai_cloud_cli_from_agent: 'AI cloud CLI',
+  ai_container_build_deploy: 'AI container deploy',
+  ai_multi_tool_burst: 'AI multi-tool burst',
   script_spawns_shell: 'Script spawned shell',
   binary_path_mismatch: 'Binary path mismatch',
+  novel_process: 'Novel process',
+  dropper_behavior: 'Dropper behavior',
+  persistence_with_network: 'Persistence with network',
+  elevated_process_risk: 'Elevated process risk',
+  process_network_activity: 'Process network activity',
   new_public_ip: 'New public IP',
   network_type_change: 'Network type change',
   network_change_while_active: 'Network change while active',
@@ -50,6 +63,56 @@ const TYPE_LABEL: Record<string, string> = {
   service_install: 'Service installed',
   registry_persistence: 'Persistence artifact',
 };
+
+const AI_ALERT_TYPES = new Set([
+  'ai_tool_execution',
+  'shell_spawns_ai_tool',
+  'ai_terminal_tool_chain',
+  'ai_shell_network_exfil',
+  'ai_secrets_access',
+  'ai_cloud_cli_from_agent',
+  'ai_container_build_deploy',
+  'ai_multi_tool_burst',
+]);
+
+type CategoryFilter = 'all' | 'ai' | 'process' | 'network';
+type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
+
+function alertCategory(alertType: string): Exclude<CategoryFilter, 'all'> {
+  if (AI_ALERT_TYPES.has(alertType) || alertType.startsWith('ai_')) return 'ai';
+  if (
+    alertType.includes('network') ||
+    alertType.includes('ip_') ||
+    alertType.includes('_ip') ||
+    alertType === 'active_ip_churn' ||
+    alertType === 'missing_network_telemetry' ||
+    alertType === 'idle_with_network_activity' ||
+    alertType === 'stale_client_details' ||
+    alertType === 'repeated_network_summary' ||
+    alertType === 'established_count_spike' ||
+    alertType === 'listening_port_spike' ||
+    alertType === 'foreground_connections_spike' ||
+    alertType === 'high_listening_while_active'
+  ) {
+    return 'network';
+  }
+  return 'process';
+}
+
+function isAiAlert(alertType: string): boolean {
+  return AI_ALERT_TYPES.has(alertType) || alertType.startsWith('ai_');
+}
+
+function sessionIdFromAlertDetail(detail: string | null | undefined): string | null {
+  if (!detail) return null;
+  try {
+    const parsed = JSON.parse(detail) as { session_id?: string };
+    const sid = (parsed.session_id || '').trim();
+    return sid || null;
+  } catch {
+    return null;
+  }
+}
 
 const DETAIL_LABELS: Record<string, string> = {
   parent_comm: 'Parent',
@@ -94,7 +157,6 @@ const DETAIL_LABELS: Record<string, string> = {
   version: 'Version',
 };
 
-type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 type AlertDetail = Record<string, unknown>;
 
 function parseDetail(raw?: string | null): AlertDetail | null {
@@ -195,6 +257,15 @@ type ProcessSample = {
   role: string;
 };
 
+type NetworkConnectionSample = {
+  pid: string;
+  remoteAddr: string;
+  remotePort: string;
+  protocol: string;
+  direction: string;
+  timestamp: string;
+};
+
 function processSampleFromUnknown(item: unknown): ProcessSample {
   const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
   return {
@@ -207,6 +278,21 @@ function processSampleFromUnknown(item: unknown): ProcessSample {
     cmdline: row.cmdline != null ? String(row.cmdline).trim() : '',
     startedAt: row.started_at != null ? String(row.started_at) : '',
     role: row.role != null ? String(row.role) : 'context',
+  };
+}
+
+function networkConnectionFromUnknown(item: unknown): NetworkConnectionSample | null {
+  const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+  const remoteAddr = row.remote_addr != null ? String(row.remote_addr).trim() : '';
+  const remotePort = row.remote_port != null ? String(row.remote_port) : '';
+  if (!remoteAddr && !remotePort) return null;
+  return {
+    pid: row.pid != null ? String(row.pid) : '?',
+    remoteAddr: remoteAddr || 'unknown',
+    remotePort,
+    protocol: row.protocol != null ? String(row.protocol) : '',
+    direction: row.direction != null ? String(row.direction) : '',
+    timestamp: row.timestamp != null ? String(row.timestamp) : '',
   };
 }
 
@@ -223,6 +309,22 @@ function processRowsForGraph(rows: ProcessSample[], selectedComm: string | null)
     }
   }
   return rows.filter((row) => keep.has(row.pid));
+}
+
+/** Walk ppid links from the trigger up to the root — the causal execution chain. */
+function buildExecutionChain(rows: ProcessSample[]): ProcessSample[] {
+  if (rows.length === 0) return [];
+  const byPid = new Map(rows.map((row) => [row.pid, row]));
+  const trigger = rows.find((row) => row.role === 'trigger') || rows[rows.length - 1];
+  const chain: ProcessSample[] = [];
+  const seen = new Set<string>();
+  let current: ProcessSample | undefined = trigger;
+  while (current && !seen.has(current.pid)) {
+    seen.add(current.pid);
+    chain.push(current);
+    current = current.ppid ? byPid.get(current.ppid) : undefined;
+  }
+  return chain.reverse();
 }
 
 /** Best available name for a parent PID that was not itself sampled. */
@@ -244,12 +346,14 @@ function syntheticParentLabel(ppid: string, rows: ProcessSample[]): string {
   }
   if (best) return best;
   // PID 1 is the system init process on Unix-like hosts (launchd / systemd / init).
-  if (ppid === '1') return 'init';
+  if (ppid === '1') return 'launchd';
   return `pid ${ppid}`;
 }
 
 type GraphGroup = {
   id: string;
+  kind: 'process' | 'network';
+  /** Display label shown in the node header (cmdline / name). */
   comm: string;
   pids: string[];
   triggerPids: string[];
@@ -259,22 +363,70 @@ type GraphGroup = {
   x: number;
   y: number;
   height: number;
+  subtitle?: string;
 };
 
-const NODE_W = 180;
-const H_GAP = 64;
-const V_GAP = 18;
+const NODE_W = 280;
+const H_GAP = 48;
+const V_GAP = 14;
 const HEADER_H = 18;
 const PID_LINE_H = 12;
 const NODE_PAD = 8;
 const MAX_PIDS_SHOWN = 8;
+const MAX_NETWORK_NODES = 8;
+const MAX_LABEL_CHARS = 42;
 
-function groupNodeHeight(pidCount: number): number {
+function groupNodeHeight(pidCount: number, hasSubtitle = false): number {
   const shown = Math.min(pidCount, MAX_PIDS_SHOWN) + (pidCount > MAX_PIDS_SHOWN ? 1 : 0);
-  return HEADER_H + shown * PID_LINE_H + NODE_PAD;
+  const subtitleLines = hasSubtitle ? 1 : 0;
+  return HEADER_H + (shown + subtitleLines) * PID_LINE_H + NODE_PAD;
 }
 
-function buildProcessGraph(rows: ProcessSample[]): {
+function truncateLabel(label: string, max = MAX_LABEL_CHARS): string {
+  const text = (label || '').trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
+/** Prefer cmdline, then executable basename, then comm — for graph node titles. */
+function processDisplayName(row: ProcessSample): string {
+  const cmd = row.cmdline.trim();
+  if (cmd) {
+    // "Cursor Helper (Plugin): extension-host (agent-exec) Unified Agent [9-172]"
+    const helperMatch = cmd.match(
+      /^(?:Cursor|Code|Windsurf|Claude)\s+Helper[^:]*:\s*(.+)$/i,
+    );
+    if (helperMatch) {
+      const role = helperMatch[1].trim();
+      // Drop trailing workspace / bracket noise for a tighter label
+      const short = role
+        .replace(/\s+Unified Agent\s*\[[^\]]*\]\s*$/i, '')
+        .replace(/\s*\[[^\]]*\]\s*$/i, '')
+        .trim();
+      const app = (row.comm || 'Helper').trim() || 'Helper';
+      return short ? `${app}: ${short}` : cmd;
+    }
+    return cmd;
+  }
+  const executable = row.executable.trim();
+  if (executable) {
+    const parts = executable.split(/[/\\]/);
+    return parts[parts.length - 1] || executable;
+  }
+  return row.comm || 'unknown';
+}
+
+function networkLabel(conn: NetworkConnectionSample): string {
+  const host = conn.remoteAddr || 'unknown';
+  const port = conn.remotePort ? `:${conn.remotePort}` : '';
+  const proto = conn.protocol ? `${conn.protocol} ` : '';
+  return `${proto}${host}${port}`;
+}
+
+function buildProcessGraph(
+  rows: ProcessSample[],
+  connections: NetworkConnectionSample[] = [],
+): {
   nodes: GraphGroup[];
   edges: Array<{ from: GraphGroup; to: GraphGroup }>;
   width: number;
@@ -283,12 +435,18 @@ function buildProcessGraph(rows: ProcessSample[]): {
   const groups = new Map<string, GraphGroup>();
   const pidToGroup = new Map<string, string>();
 
-  const ensureGroup = (id: string, comm: string, synthetic: boolean) => {
+  const ensureGroup = (
+    id: string,
+    label: string,
+    synthetic: boolean,
+    kind: 'process' | 'network' = 'process',
+  ) => {
     let group = groups.get(id);
     if (!group) {
       group = {
         id,
-        comm,
+        kind,
+        comm: label,
         pids: [],
         triggerPids: [],
         synthetic,
@@ -299,16 +457,17 @@ function buildProcessGraph(rows: ProcessSample[]): {
         height: groupNodeHeight(0),
       };
       groups.set(id, group);
-    } else if (!synthetic && group.synthetic) {
+    } else if (!synthetic && group.synthetic && kind === 'process') {
       group.synthetic = false;
-      group.comm = comm;
+      group.comm = label;
     }
     return group;
   };
 
+  // One node per process so distinct helpers (extension-host, fileWatcher, …) keep their names.
   for (const r of rows) {
-    const id = `comm:${r.comm}`;
-    const group = ensureGroup(id, r.comm, false);
+    const id = `pid:${r.pid}`;
+    const group = ensureGroup(id, processDisplayName(r), false);
     if (!group.pids.includes(r.pid)) group.pids.push(r.pid);
     if (r.role === 'trigger' && !group.triggerPids.includes(r.pid)) group.triggerPids.push(r.pid);
     pidToGroup.set(r.pid, id);
@@ -325,7 +484,7 @@ function buildProcessGraph(rows: ProcessSample[]): {
 
   for (const group of groups.values()) {
     group.pids.sort((a, b) => Number(a) - Number(b));
-    group.height = groupNodeHeight(group.pids.length);
+    group.height = groupNodeHeight(group.pids.length, Boolean(group.subtitle));
   }
 
   const edgeKeys = new Set<string>();
@@ -343,6 +502,26 @@ function buildProcessGraph(rows: ProcessSample[]): {
     childrenByParent.set(parentId, list);
   }
 
+  // Attach network endpoints as child nodes of the owning process.
+  const limitedConnections = connections.slice(0, MAX_NETWORK_NODES);
+  for (const conn of limitedConnections) {
+    const parentId = pidToGroup.get(conn.pid);
+    if (!parentId) continue;
+    const label = networkLabel(conn);
+    const id = `net:${conn.pid}:${conn.remoteAddr}:${conn.remotePort}:${conn.protocol}`;
+    if (groups.has(id)) continue;
+    const group = ensureGroup(id, label, false, 'network');
+    group.subtitle = conn.direction || 'network';
+    group.height = groupNodeHeight(1, true);    group.pids = [conn.remotePort || '0'];
+    const key = `${parentId}->${id}`;
+    if (!edgeKeys.has(key)) {
+      edgeKeys.add(key);
+      const list = childrenByParent.get(parentId) || [];
+      list.push(id);
+      childrenByParent.set(parentId, list);
+    }
+  }
+
   const childIds = new Set<string>();
   for (const children of childrenByParent.values()) {
     for (const id of children) childIds.add(id);
@@ -351,7 +530,6 @@ function buildProcessGraph(rows: ProcessSample[]): {
     .filter((id) => !childIds.has(id))
     .sort((a, b) => a.localeCompare(b));
 
-  // DFS on the grouped DAG: column = depth, vertical order = visit order.
   let maxDepth = 0;
   const visited = new Set<string>();
   const order: string[] = [];
@@ -370,7 +548,6 @@ function buildProcessGraph(rows: ProcessSample[]): {
     if (!visited.has(id)) walk(id, 0);
   }
 
-  // Place each depth column independently so siblings stack tightly.
   const byDepth = new Map<number, GraphGroup[]>();
   for (const id of order) {
     const group = groups.get(id);
@@ -404,8 +581,17 @@ function buildProcessGraph(rows: ProcessSample[]): {
   return { nodes: Array.from(groups.values()), edges, width, height };
 }
 
-function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selectedComm: string | null }) {
-  const graph = useMemo(() => buildProcessGraph(rows), [rows]);
+function ProcessGraphView({
+  rows,
+  connections,
+  selectedComm,
+}: {
+  rows: ProcessSample[];
+  connections: NetworkConnectionSample[];
+  selectedComm: string | null;
+}) {
+  const graph = useMemo(() => buildProcessGraph(rows, connections), [rows, connections]);
+  const chain = useMemo(() => buildExecutionChain(rows), [rows]);
   if (rows.length === 0) return null;
   const { nodes, edges, width, height } = graph;
 
@@ -413,8 +599,44 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
     <Box sx={{ mb: 1 }}>
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
         Process graph
-        {selectedComm ? ' (matching processes plus sampled ancestors)' : ' · grouped by command'}
+        {connections.length > 0 ? ' · includes network connections' : ''}
+        {selectedComm ? ' (matching processes plus sampled ancestors)' : ' · full spawn tree'}
       </Typography>
+      {chain.length > 1 ? (
+        <Stack
+          direction="row"
+          spacing={0.5}
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ mt: 0.75, mb: 0.5 }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 0.5 }}>
+            Chain
+          </Typography>
+          {chain.map((row, index) => (
+            <Stack key={`${row.pid}-chain`} direction="row" spacing={0.5} alignItems="center">
+              {index > 0 ? (
+                <Typography variant="caption" color="text.secondary">
+                  →
+                </Typography>
+              ) : null}
+              <Chip
+                size="small"
+                color={row.role === 'trigger' ? 'error' : 'default'}
+                variant={row.role === 'trigger' ? 'filled' : 'outlined'}
+                label={truncateLabel(processDisplayName(row), 36)}
+                title={processDisplayName(row)}
+                sx={{
+                  maxWidth: 280,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontSize: '0.7rem',
+                }}
+              />
+            </Stack>
+          ))}
+        </Stack>
+      ) : null}
       <Box
         sx={{
           mt: 0.5,
@@ -424,7 +646,7 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
           borderColor: 'divider',
           bgcolor: 'background.paper',
           overflow: 'auto',
-          maxHeight: 420,
+          maxHeight: 560,
         }}
       >
         <svg
@@ -439,73 +661,105 @@ function ProcessGraphView({ rows, selectedComm }: { rows: ProcessSample[]; selec
             const x2 = edge.to.x;
             const y2 = edge.to.y + edge.to.height / 2;
             const midX = (x1 + x2) / 2;
+            const isNetwork = edge.to.kind === 'network';
             return (
               <path
                 key={`${edge.from.id}->${edge.to.id}`}
                 d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
                 fill="none"
-                stroke="currentColor"
-                strokeOpacity={0.35}
+                stroke={isNetwork ? '#0288d1' : 'currentColor'}
+                strokeOpacity={isNetwork ? 0.65 : 0.35}
                 strokeWidth={1.5}
+                strokeDasharray={isNetwork ? '5 3' : undefined}
               />
             );
           })}
           {nodes.map((node) => {
-            const selected = !node.synthetic && selectedComm === node.comm;
+            const isNetwork = node.kind === 'network';
+            const selected =
+              !node.synthetic &&
+              !isNetwork &&
+              Boolean(selectedComm) &&
+              rows.some((r) => node.pids.includes(r.pid) && r.comm === selectedComm);
             const triggered = node.triggerPids.length > 0;
-            const shown = node.pids.slice(0, MAX_PIDS_SHOWN);
-            const hidden = node.pids.length - shown.length;
+            const shown = isNetwork ? [] : node.pids.slice(0, MAX_PIDS_SHOWN);
+            const hidden = isNetwork ? 0 : node.pids.length - shown.length;
+            const title = truncateLabel(node.comm);
             return (
               <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
+                <title>{node.comm}</title>
                 <rect
                   width={NODE_W}
                   height={node.height}
                   rx={6}
                   ry={6}
-                  fill={triggered ? 'rgba(211, 47, 47, 0.14)' : selected ? 'rgba(237, 108, 2, 0.16)' : 'transparent'}
-                  stroke={triggered ? '#d32f2f' : 'currentColor'}
+                  fill={
+                    isNetwork
+                      ? 'rgba(2, 136, 209, 0.12)'
+                      : triggered
+                        ? 'rgba(211, 47, 47, 0.14)'
+                        : selected
+                          ? 'rgba(237, 108, 2, 0.16)'
+                          : 'transparent'
+                  }
+                  stroke={isNetwork ? '#0288d1' : triggered ? '#d32f2f' : 'currentColor'}
                   strokeOpacity={node.synthetic ? 0.4 : 0.75}
-                  strokeDasharray={node.synthetic ? '4 3' : undefined}
-                  strokeWidth={triggered || selected ? 2 : 1}
+                  strokeDasharray={isNetwork || node.synthetic ? '4 3' : undefined}
+                  strokeWidth={triggered || selected || isNetwork ? 2 : 1}
                 />
                 <text
                   x={8}
                   y={14}
-                  fontSize={11}
+                  fontSize={10}
                   fontWeight={600}
                   fill="currentColor"
                   fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                 >
-                  {(node.comm.length > 22 ? `${node.comm.slice(0, 21)}…` : node.comm) +
-                    (node.synthetic ? '' : ` ×${node.pids.length}${triggered ? ' · source' : ''}`)}
+                  {title}
+                  {!isNetwork && triggered ? ' · source' : ''}
                 </text>
-                {shown.map((pid, index) => (
+                {isNetwork ? (
                   <text
-                    key={pid}
                     x={8}
-                    y={HEADER_H + (index + 1) * PID_LINE_H}
+                    y={HEADER_H + PID_LINE_H}
                     fontSize={10}
                     fill="currentColor"
                     fillOpacity={0.7}
                     fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
                   >
-                    {node.synthetic
-                      ? `pid ${pid} · parent`
-                      : `pid ${pid}${node.triggerPids.includes(pid) ? ' · source' : ''}`}
+                    {node.subtitle || 'connection'}
                   </text>
-                ))}
-                {hidden > 0 ? (
-                  <text
-                    x={8}
-                    y={HEADER_H + (shown.length + 1) * PID_LINE_H}
-                    fontSize={10}
-                    fill="currentColor"
-                    fillOpacity={0.55}
-                    fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
-                  >
-                    +{hidden} more
-                  </text>
-                ) : null}
+                ) : (
+                  <>
+                    {shown.map((pid, index) => (
+                      <text
+                        key={pid}
+                        x={8}
+                        y={HEADER_H + (index + 1) * PID_LINE_H}
+                        fontSize={10}
+                        fill="currentColor"
+                        fillOpacity={0.7}
+                        fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                      >
+                        {node.synthetic
+                          ? `pid ${pid} · parent`
+                          : `pid ${pid}${node.triggerPids.includes(pid) ? ' · source' : ''}`}
+                      </text>
+                    ))}
+                    {hidden > 0 ? (
+                      <text
+                        x={8}
+                        y={HEADER_H + (shown.length + 1) * PID_LINE_H}
+                        fontSize={10}
+                        fill="currentColor"
+                        fillOpacity={0.55}
+                        fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+                      >
+                        +{hidden} more
+                      </text>
+                    ) : null}
+                  </>
+                )}
               </g>
             );
           })}
@@ -549,15 +803,25 @@ function SourceEventView({ detail }: { detail: AlertDetail }) {
 function ProcessContextView({ detail }: { detail: AlertDetail }) {
   const processes = Array.isArray(detail.processes) ? detail.processes : [];
   const topComms = Array.isArray(detail.top_comms) ? detail.top_comms : [];
+  const networkConnections = Array.isArray(detail.network_connections)
+    ? detail.network_connections
+        .map(networkConnectionFromUnknown)
+        .filter((item): item is NetworkConnectionSample => item != null)
+    : [];
   const [selectedComm, setSelectedComm] = useState<string | null>(null);
   if (processes.length === 0 && topComms.length === 0) return null;
 
   const processRows = processes.map(processSampleFromUnknown);
   const visibleProcesses = selectedComm ? processRows.filter((row) => row.comm === selectedComm) : processRows;
   const graphProcesses = processRowsForGraph(processRows, selectedComm);
+  const graphConnections = selectedComm
+    ? networkConnections.filter((conn) =>
+        graphProcesses.some((row) => row.pid === conn.pid),
+      )
+    : networkConnections;
   const contextKind = detail.process_context_kind != null ? String(detail.process_context_kind) : '';
   const processSummary =
-    contextKind === 'ancestry'
+    contextKind === 'ancestry' || contextKind === 'session' || contextKind === 'process_state'
       ? ` (${visibleProcesses.length} related process${visibleProcesses.length === 1 ? '' : 'es'})`
       : detail.count != null
         ? ` (showing ${visibleProcesses.length} of ${String(detail.count)})`
@@ -605,7 +869,11 @@ function ProcessContextView({ detail }: { detail: AlertDetail }) {
       ) : null}
       {processes.length > 0 ? (
         <Box>
-          <ProcessGraphView rows={graphProcesses} selectedComm={selectedComm} />
+          <ProcessGraphView
+            rows={graphProcesses}
+            connections={graphConnections}
+            selectedComm={selectedComm}
+          />
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             Process timeline
             {selectedComm
@@ -707,6 +975,15 @@ function DetailFields({ detail }: { detail: AlertDetail }) {
     'source_event',
     'process_context_kind',
     'process_context_window_minutes',
+    'network_connections',
+    'created_files',
+    'matched_rules',
+    'process_id',
+    'network_connection_count',
+    'created_file_count',
+    'registry_change_count',
+    'remote_addrs',
+    'registry_keys',
   ]);
   const entries = Object.entries(detail).filter(([key, value]) => !chainKeys.has(key) && value != null);
   if (entries.length === 0) return null;
@@ -830,6 +1107,7 @@ function AlertRow({
   const label = TYPE_LABEL[alert.alert_type] || alert.alert_type.replace(/_/g, ' ');
   const severity = SEVERITY_COLOR[alert.severity] || 'default';
   const detail = parseDetail(alert.detail);
+  const sessionId = sessionIdFromAlertDetail(alert.detail);
   const hasDetail = detail != null;
   const hasMetadata = Boolean(alert.device_id || alert.event_type || alert.event_id);
   const canExpand = hasDetail || hasMetadata;
@@ -861,6 +1139,27 @@ function AlertRow({
         <ListItemText
           primary={
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              {isAiAlert(alert.alert_type) ? (
+                <Chip
+                  icon={<AutoAwesomeIcon sx={{ fontSize: '0.95rem !important' }} />}
+                  label="AI"
+                  size="small"
+                  color="secondary"
+                  variant="filled"
+                />
+              ) : null}
+              {sessionId ? (
+                <Chip
+                  component="a"
+                  href={alert.device_id ? `/agents/${encodeURIComponent(alert.device_id)}` : undefined}
+                  clickable={Boolean(alert.device_id)}
+                  label={`session ${sessionId.slice(0, 12)}`}
+                  size="small"
+                  color="secondary"
+                  variant="outlined"
+                  onClick={(event) => event.stopPropagation()}
+                />
+              ) : null}
               <Chip label={label} size="small" color={severity} variant="outlined" />
               <Chip label={alert.severity} size="small" color={severity} />
               <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 160 }}>
@@ -931,6 +1230,7 @@ function AlertRow({
 
 export default function AlertsPage() {
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const severityParam = severityFilter === 'all' ? undefined : severityFilter;
   const { items, total, loading, refetch } = useSecurityAlerts({
@@ -938,12 +1238,23 @@ export default function AlertsPage() {
     severity: severityParam,
   });
 
+  const visibleItems = useMemo(() => {
+    if (categoryFilter === 'all') return items;
+    return items.filter((alert) => alertCategory(alert.alert_type) === categoryFilter);
+  }, [items, categoryFilter]);
+
   const emptyCopy = useMemo(() => {
+    if (categoryFilter === 'ai') {
+      return 'No AI process alerts yet. When ollama, claude, aider, or other AI tools start, they appear here.';
+    }
+    if (categoryFilter !== 'all') {
+      return `No ${categoryFilter} alerts match the current filters.`;
+    }
     if (severityFilter === 'all') {
       return 'No detection alerts yet. When the rules engine fires, findings appear here.';
     }
     return `No ${severityFilter}-severity alerts yet.`;
-  }, [severityFilter]);
+  }, [severityFilter, categoryFilter]);
 
   return (
     <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -973,28 +1284,82 @@ export default function AlertsPage() {
             process or network evidence.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={severityFilter}
-            onChange={(_event, value: SeverityFilter | null) => {
-              if (value) setSeverityFilter(value);
-            }}
+        <Stack spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-end' }}>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'stretch', md: 'center' }}
+            justifyContent="flex-end"
+            flexWrap="wrap"
+            useFlexGap
           >
-            <ToggleButton value="all">All</ToggleButton>
-            <ToggleButton value="high">High</ToggleButton>
-            <ToggleButton value="medium">Medium</ToggleButton>
-            <ToggleButton value="low">Low</ToggleButton>
-          </ToggleButtonGroup>
-          {total > 0 && <Chip label={total} size="small" variant="outlined" />}
-          <Tooltip title="Refresh">
-            <span>
-              <IconButton size="small" onClick={refetch} disabled={loading}>
-                <RefreshIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Typography variant="caption" color="text.secondary" sx={{ minWidth: 52 }}>
+                Category
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={categoryFilter}
+                onChange={(_event, value: CategoryFilter | null) => {
+                  if (value) setCategoryFilter(value);
+                }}
+              >
+                <ToggleButton value="all" sx={{ px: 1.25 }}>
+                  All types
+                </ToggleButton>
+                <ToggleButton value="ai" sx={{ px: 1.25 }}>
+                  AI
+                </ToggleButton>
+                <ToggleButton value="process" sx={{ px: 1.25 }}>
+                  Process
+                </ToggleButton>
+                <ToggleButton value="network" sx={{ px: 1.25 }}>
+                  Network
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Typography variant="caption" color="text.secondary" sx={{ minWidth: 52 }}>
+                Severity
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={severityFilter}
+                onChange={(_event, value: SeverityFilter | null) => {
+                  if (value) setSeverityFilter(value);
+                }}
+              >
+                <ToggleButton value="all" sx={{ px: 1.25 }}>
+                  Any
+                </ToggleButton>
+                <ToggleButton value="high" sx={{ px: 1.25 }}>
+                  High
+                </ToggleButton>
+                <ToggleButton value="medium" sx={{ px: 1.25 }}>
+                  Medium
+                </ToggleButton>
+                <ToggleButton value="low" sx={{ px: 1.25 }}>
+                  Low
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+            {total > 0 && (
+              <Chip
+                label={categoryFilter === 'all' ? total : `${visibleItems.length}/${total}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            <Tooltip title="Refresh">
+              <span>
+                <IconButton size="small" onClick={refetch} disabled={loading}>
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
         </Stack>
       </Stack>
 
@@ -1003,20 +1368,20 @@ export default function AlertsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress size={28} />
           </Box>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <Typography color="text.secondary" sx={{ p: 3 }}>
             {emptyCopy}
           </Typography>
         ) : (
           <List dense disablePadding>
-            {items.map((alert, index) => (
+            {visibleItems.map((alert, index) => (
               <Box key={alert.id}>
                 <AlertRow
                   alert={alert}
                   expanded={expandedId === alert.id}
                   onToggle={() => setExpandedId((current) => (current === alert.id ? null : alert.id))}
                 />
-                {index < items.length - 1 && <Divider component="li" />}
+                {index < visibleItems.length - 1 && <Divider component="li" />}
               </Box>
             ))}
           </List>

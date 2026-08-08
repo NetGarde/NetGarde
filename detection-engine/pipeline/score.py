@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 from rules.alerts import SecurityAlert
-from rules.constants import (
-    SEVERITY_HIGH,
-    SEVERITY_LOW,
-    SEVERITY_MEDIUM,
-    SEVERITY_RANK,
-)
+from rules.constants import SEVERITY_RANK, SEVERITY_SCORE
 
 from pipeline.types import ENGINE_TIE_RANK, EngineHit, ScoredFinding
 
-SEVERITY_SCORE: dict[str, int] = {
-    SEVERITY_LOW: 25,
-    SEVERITY_MEDIUM: 50,
-    SEVERITY_HIGH: 75,
-}
+# Re-export for callers that import score.SEVERITY_SCORE.
+__all__ = ["SEVERITY_SCORE", "finding_to_alert", "fuse", "score_for"]
 
 
 def score_for(severity: str) -> int:

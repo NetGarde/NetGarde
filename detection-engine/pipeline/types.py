@@ -9,10 +9,12 @@ from typing import Any
 ENGINE_RULE = "rule"
 ENGINE_BEHAVIORAL = "behavioral"
 ENGINE_THREAT_INTEL = "threat_intel"
+ENGINE_AI_ACTIVITY = "ai_activity"
 
-# Prefer rule over threat_intel over behavioral when scores/severities tie.
+# Prefer rule over ai_activity over threat_intel over behavioral when scores/severities tie.
 ENGINE_TIE_RANK: dict[str, int] = {
-    ENGINE_RULE: 3,
+    ENGINE_RULE: 4,
+    ENGINE_AI_ACTIVITY: 3,
     ENGINE_THREAT_INTEL: 2,
     ENGINE_BEHAVIORAL: 1,
 }

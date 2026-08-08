@@ -18,6 +18,7 @@ class EvalSnapshot:
     hits_rule: int = 0
     hits_behavioral: int = 0
     hits_threat_intel: int = 0
+    hits_ai_activity: int = 0
     scored_events: int = 0
 
     @property
@@ -39,6 +40,7 @@ class EvalMetrics:
         self.hits_rule = 0
         self.hits_behavioral = 0
         self.hits_threat_intel = 0
+        self.hits_ai_activity = 0
         self.scored_events = 0
 
     def record_event(
@@ -64,11 +66,13 @@ class EvalMetrics:
         hits_rule: int,
         hits_behavioral: int,
         hits_threat_intel: int,
+        hits_ai_activity: int = 0,
     ) -> None:
         with self._lock:
             self.hits_rule += max(0, hits_rule)
             self.hits_behavioral += max(0, hits_behavioral)
             self.hits_threat_intel += max(0, hits_threat_intel)
+            self.hits_ai_activity += max(0, hits_ai_activity)
 
     def record_scored(self) -> None:
         with self._lock:
@@ -86,6 +90,7 @@ class EvalMetrics:
                 hits_rule=self.hits_rule,
                 hits_behavioral=self.hits_behavioral,
                 hits_threat_intel=self.hits_threat_intel,
+                hits_ai_activity=self.hits_ai_activity,
                 scored_events=self.scored_events,
             )
 
@@ -100,6 +105,7 @@ class EvalMetrics:
             self.hits_rule = 0
             self.hits_behavioral = 0
             self.hits_threat_intel = 0
+            self.hits_ai_activity = 0
             self.scored_events = 0
 
 

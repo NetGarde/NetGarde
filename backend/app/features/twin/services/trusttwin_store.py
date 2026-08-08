@@ -30,6 +30,7 @@ class TwinDeviceLatest:
     client_details: dict[str, Any] = field(default_factory=dict)
     network_summary: dict[str, Any] = field(default_factory=dict)
     action_summary: dict[str, Any] = field(default_factory=dict)
+    known_ai_apps: dict[str, Any] = field(default_factory=dict)
 
 
 def twin_device_node_id(device_id: str) -> str:
@@ -85,6 +86,7 @@ def _parse_latest(raw: str, device_id: str) -> Optional[TwinDeviceLatest]:
         client_details=_as_dict(data.get("client_details")),
         network_summary=_as_dict(data.get("network_summary")),
         action_summary=_as_dict(data.get("action_summary")),
+        known_ai_apps=_as_dict(data.get("known_ai_apps")),
     )
 
 

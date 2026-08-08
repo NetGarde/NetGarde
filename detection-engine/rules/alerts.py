@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-from rules.constants import COOLDOWN_SECONDS
+from rules.constants import ALERT_NOVEL_PROCESS, COOLDOWN_SECONDS
 
 __all__ = ["SecurityAlert", "alert_fingerprint"]
 
@@ -23,25 +23,46 @@ def _parse_ts(raw: str) -> datetime:
     return dt
 
 
+def _novel_process_identity(detail: str | None) -> str | None:
+    """Stable per-process identity for novel_process dedupe."""
+    if not detail:
+        return None
+    try:
+        import json
+
+        data = json.loads(detail)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    key = str(data.get("behavior_key") or data.get("comm") or "").strip().lower()
+    return key or None
+
+
 def alert_fingerprint(
     *,
     device_id: str,
     alert_type: str,
     timestamp: str,
     event_id: str | None = None,
+    identity: str | None = None,
 ) -> str:
     """Stable identity for dedupe / cooldown.
 
     Point-in-time alerts (e.g. shell→curl) key on event_id.
     Windowed alerts key on a time bucket matching the rule window.
+    novel_process keys on process identity (behavior_key), not a shared time bucket.
     """
-    cooldown = COOLDOWN_SECONDS.get(alert_type)
-    if cooldown:
-        epoch = int(_parse_ts(timestamp).timestamp())
-        bucket = epoch // cooldown
-        anchor = f"bucket:{bucket}"
+    if identity:
+        anchor = f"id:{identity}"
     else:
-        anchor = event_id or timestamp
+        cooldown = COOLDOWN_SECONDS.get(alert_type)
+        if cooldown:
+            epoch = int(_parse_ts(timestamp).timestamp())
+            bucket = epoch // cooldown
+            anchor = f"bucket:{bucket}"
+        else:
+            anchor = event_id or timestamp
     raw = f"{device_id}|{alert_type}|{anchor}"
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
@@ -60,11 +81,15 @@ class SecurityAlert:
     engines: list[dict[str, Any]] | None = None
 
     def fingerprint(self) -> str:
+        identity = None
+        if self.alert_type == ALERT_NOVEL_PROCESS:
+            identity = _novel_process_identity(self.detail)
         return alert_fingerprint(
             device_id=self.device_id,
             alert_type=self.alert_type,
             timestamp=self.timestamp,
             event_id=self.event_id,
+            identity=identity,
         )
 
     def to_api(self) -> dict[str, Any]:

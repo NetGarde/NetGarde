@@ -72,7 +72,7 @@ const STEPS: FlowStep[] = [
     title: 'Attach evidence',
     plain: 'Alerts carry enough context for an operator to investigate quickly.',
     detail:
-      'Process alerts add ancestry into detail. Network alerts include from/to IPs or counts. The UI uses this for graphs and explain.',
+      'Process alerts add ancestry (and same-shell siblings) into detail. Network alerts include from/to IPs or counts. The UI uses this for graphs and explain.',
     icon: <AccountTreeOutlinedIcon fontSize="small" />,
     tone: 'detect',
   },

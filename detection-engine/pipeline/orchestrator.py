@@ -1,9 +1,10 @@
-"""Orchestrate Rule → Behavioral → ThreatIntel → score fusion."""
+"""Orchestrate Rule → Behavioral → ThreatIntel → AI Activity → score fusion."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from ai_activity.engine import AiActivityEngine
 from rules.alerts import SecurityAlert
 from rules.metrics import METRICS
 from rules.state import StateStore
@@ -21,10 +22,12 @@ class Pipeline:
         store: StateStore | None = None,
         baseline: BaselineStore | None = None,
         behavioral: BehavioralEngine | None = None,
+        ai_activity: AiActivityEngine | None = None,
     ) -> None:
         self.store = store or StateStore()
         self.baseline = baseline or BaselineStore()
         self.behavioral = behavioral or BehavioralEngine(self.baseline)
+        self.ai_activity = ai_activity or AiActivityEngine()
 
     def process_event(self, event: dict[str, Any]) -> SecurityAlert | None:
         rule_hits = rule_engine.evaluate(event, self.store)
@@ -34,13 +37,16 @@ class Pipeline:
         chain = self.store.get_chain(device_id) if device_id else None
         ti_hits = threat_intel.evaluate(event, chain)
 
+        ai_hits = self.ai_activity.on_event(event, self.store)
+
         METRICS.record_pipeline(
             hits_rule=len(kept_rule),
             hits_behavioral=len(beh_hits),
             hits_threat_intel=len(ti_hits),
+            hits_ai_activity=len(ai_hits),
         )
 
-        finding = fuse(kept_rule + beh_hits + ti_hits)
+        finding = fuse(kept_rule + beh_hits + ti_hits + ai_hits)
         if finding is None:
             return None
         METRICS.record_scored()
@@ -53,7 +59,13 @@ def process_event(
     store: StateStore,
     baseline: BaselineStore | None = None,
     behavioral: BehavioralEngine | None = None,
+    ai_activity: AiActivityEngine | None = None,
 ) -> SecurityAlert | None:
     """One-shot helper used by tests; production uses Pipeline instance."""
-    pipe = Pipeline(store=store, baseline=baseline, behavioral=behavioral)
+    pipe = Pipeline(
+        store=store,
+        baseline=baseline,
+        behavioral=behavioral,
+        ai_activity=ai_activity,
+    )
     return pipe.process_event(event)

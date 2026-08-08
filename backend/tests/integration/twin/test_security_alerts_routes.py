@@ -291,8 +291,8 @@ def test_baseline_proxies_detection_engine(api_client, monkeypatch):
                 )
             ],
             suppress_count=20,
-            suppress_age_hours=72,
-            profile_min_keys=30,
+            suppress_age_hours=0,
+            profile_min_keys=5,
         )
 
     monkeypatch.setattr(
@@ -314,4 +314,31 @@ def test_baseline_proxies_detection_engine(api_client, monkeypatch):
 def test_baseline_requires_detection_engine_url(api_client, monkeypatch):
     monkeypatch.setattr("app.shared.config.settings.DETECTION_ENGINE_URL", "")
     response = api_client.get("/security/agents/dev_x/baseline")
+    assert response.status_code == 503
+
+
+def test_baseline_clear_proxies_detection_engine(api_client, monkeypatch):
+    from app.features.twin.schemas.device_baseline import DeviceBaselineClearResponse
+
+    def fake_clear(*, device_id: str):
+        return DeviceBaselineClearResponse(device_id=device_id, cleared=7)
+
+    monkeypatch.setattr(
+        "app.features.twin.routes.twin_route.clear_device_baseline",
+        fake_clear,
+    )
+    monkeypatch.setattr(
+        "app.shared.config.settings.DETECTION_ENGINE_URL",
+        "http://detection-engine:9090",
+    )
+    response = api_client.delete("/security/agents/dev_flush/baseline")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["device_id"] == "dev_flush"
+    assert body["cleared"] == 7
+
+
+def test_baseline_clear_requires_detection_engine_url(api_client, monkeypatch):
+    monkeypatch.setattr("app.shared.config.settings.DETECTION_ENGINE_URL", "")
+    response = api_client.delete("/security/agents/dev_x/baseline")
     assert response.status_code == 503
