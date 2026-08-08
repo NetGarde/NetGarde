@@ -10,7 +10,7 @@
       <stop offset="0%" stop-color="#2563EB"/>
       <stop offset="35%" stop-color="#0D9488"/>
       <stop offset="65%" stop-color="#D97706"/>
-      <stop offset="100%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#4F46E5"/>
     </linearGradient>
     <marker id="arch-arr" markerWidth="8" markerHeight="8" refX="6.5" refY="3.5" orient="auto">
       <path d="M0,0 L6.5,3.5 L0,7 Z" fill="#94A3B8"/>
@@ -27,7 +27,6 @@
       .s { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 11.5px; font-weight: 600; fill: #64748B; }
       .num { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 13px; font-weight: 800; fill: #FFFFFF; }
       .foot { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 12px; font-weight: 600; fill: #94A3B8; }
-      .edge { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; font-size: 10.5px; font-weight: 700; fill: #64748B; }
     </style>
   </defs>
 
@@ -57,7 +56,6 @@
     <text class="s" x="114" y="330" text-anchor="middle">collectors stay local</text>
   </g>
   <path d="M278 280 H308" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
-  <text class="edge" x="293" y="262" text-anchor="middle">POST /v1/events</text>
 
   <!-- 2 INGEST -->
   <g transform="translate(318,58)" filter="url(#arch-soft)">
@@ -78,7 +76,6 @@
     <text class="s" x="114" y="320" text-anchor="middle">zstd accepted</text>
   </g>
   <path d="M556 280 H586" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
-  <text class="edge" x="571" y="262" text-anchor="middle">publish</text>
 
   <!-- 3 STREAM -->
   <g transform="translate(596,58)" filter="url(#arch-soft)">
@@ -97,7 +94,6 @@
     <text class="s" x="114" y="320" text-anchor="middle">durable · ordered · scalable</text>
   </g>
   <path d="M834 280 H864" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
-  <text class="edge" x="849" y="262" text-anchor="middle">consume</text>
 
   <!-- 4 DETECT -->
   <g transform="translate(874,58)" filter="url(#arch-soft)">
@@ -118,17 +114,15 @@
     <text class="s" x="114" y="320" text-anchor="middle">not LLM judgment</text>
   </g>
   <path d="M1112 280 H1142" stroke="#CBD5E1" stroke-width="2.4" marker-end="url(#arch-arr)"/>
-  <text class="edge" x="1127" y="254" text-anchor="middle">alert</text>
-  <text class="edge" x="1127" y="268" text-anchor="middle">ingest</text>
 
   <!-- 5 OPERATE -->
   <g transform="translate(1152,58)" filter="url(#arch-soft)">
-    <circle cx="28" cy="18" r="14" fill="#059669"/>
+    <circle cx="28" cy="18" r="14" fill="#4F46E5"/>
     <text class="num" x="28" y="23" text-anchor="middle">5</text>
-    <text class="step" x="52" y="14" fill="#047857">OPERATE</text>
+    <text class="step" x="52" y="14" fill="#4338CA">OPERATE</text>
     <text class="h" x="52" y="36">Dashboard</text>
-    <rect y="52" width="208" height="300" rx="16" fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1.5"/>
-    <rect y="52" width="208" height="5" rx="2.5" fill="#059669"/>
+    <rect y="52" width="208" height="300" rx="16" fill="#FFFFFF" stroke="#C7D2FE" stroke-width="1.5"/>
+    <rect y="52" width="208" height="5" rx="2.5" fill="#4F46E5"/>
     <text class="h" x="104" y="96" text-anchor="middle">TrustEdge</text>
     <text class="s" x="104" y="118" text-anchor="middle">FastAPI + React</text>
     <rect x="18" y="140" width="172" height="38" rx="10" fill="#F8FAFC" stroke="#E2E8F0"/>
