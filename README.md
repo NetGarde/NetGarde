@@ -8,9 +8,11 @@ React dashboard · FastAPI control plane · [TrustEdge Agent](https://github.com
 
 ---
 
+> **Note:** This is an independent, personal portfolio project built for learning and demonstration purposes. It is not affiliated with, endorsed by, or connected to any commercial security company, product, or trademark holder.
+
 ## About the project
 
-TrustEdge is a **self-hosted security observability platform**. It gives teams real endpoint signal and actionable detection without a heavyweight enterprise EDR stack.
+TrustEdge is a **self-hosted security observability platform**. The goal: real endpoint signal and actionable detection without a heavyweight enterprise EDR stack.
 
 A lightweight [TrustEdge Agent](https://github.com/TrustEdgeOrg/TrustEdge-Agent) runs on macOS, Linux, and Windows. It collects process, activity, network (summary + connection samples), security-lifecycle, and AI tools inventory telemetry. Events go into a durable local queue, then are compressed (**zstd**) and uploaded over HTTPS to [TrustEdge-Agent-API](https://github.com/TrustEdgeOrg/TrustEdge-Agent-API).
 
